@@ -12,9 +12,11 @@ module RedisFailover
           options[:port] = Integer(port)
         end
 
-        opts.on('-n', '--nodes nodes', 'Comma-separated list of redis host:port pairs') do |nodes|
+        opts.on('-n', '--nodes nodes', 'Comma-separated redis host:port pairs') do |nodes|
           # turns 'host1:port,host2:port' => [{:host => host, :port => port}, ...]
-          options[:nodes] = nodes.split(',').map { |node| Hash[[:host, :port].zip(node.strip.split(':'))] }
+          options[:nodes] = nodes.split(',').map do |node|
+            Hash[[:host, :port].zip(node.strip.split(':'))]
+          end
         end
 
         opts.on('-h', '--help', 'Display all options') do
