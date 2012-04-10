@@ -19,7 +19,9 @@ module RedisFailover
       [:INT, :TERM].each do |signal|
         previous_signal = trap(signal) do
           Util.logger.info('Shutting down ...')
-          previous_signal.call if previous_signal
+          if previous_signal && previous_signal.respond_to?(:call)
+            previous_signal.call
+          end
           @node_manager.shutdown
           exit(0)
         end
