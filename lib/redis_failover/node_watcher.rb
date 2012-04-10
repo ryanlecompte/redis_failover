@@ -10,6 +10,7 @@ module RedisFailover
 
     def watch
       @monitor_thread = Thread.new { monitor_node }
+      self
     end
 
     def shutdown
@@ -26,13 +27,13 @@ module RedisFailover
       return if @done
       @manager.notify_state_change(@node) if @node.reachable?
       @node.wait_until_unreachable
-    rescue
+    rescue NodeUnreachableError
       @manager.notify_state_change(@node)
       relax && retry
     end
 
     def relax
-      sleep(5)
+      sleep(3)
     end
   end
 end

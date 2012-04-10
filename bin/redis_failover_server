@@ -2,6 +2,5 @@
 
 require 'redis_failover'
 
-manager = RedisFailover::NodeManager.new(:host => 'localhost', :password => 'fu')
-manager.start
+RedisFailover::Runner.run(ARGV)
 

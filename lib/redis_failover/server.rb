@@ -1,4 +1,11 @@
+require 'sinatra'
+
 module RedisFailover
-  class Server
+  # Serves as an endpoint for discovering the current redis master and slaves.
+  class Server < Sinatra::Base
+    get '/redis_servers' do
+      content_type :json
+      MultiJson.encode(Runner.node_manager.nodes)
+    end
   end
 end

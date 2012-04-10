@@ -5,17 +5,16 @@ module RedisFailover
 
     attr_reader :host, :port
 
-    def initialize(manager, options = {})
+    def initialize(options = {})
       @host = options.fetch(:host) { raise InvalidNodeError, 'missing host'}
-      @port = options.fetch(:port, 6379)
+      @port = options[:port] || 6379
       @password = options[:password]
-      @manager = manager
     end
 
     def reachable?
       fetch_info
       true
-    rescue
+    rescue NodeUnreachableError
       false
     end
 
@@ -32,25 +31,28 @@ module RedisFailover
     end
 
     def wait_until_unreachable
-      redis.blpop(wait_key, 0)
-      redis.del(wait_key)
-    rescue
-      unless reachable?
-        raise NodeUnreachableError, 'failed while waiting'
+      perform_operation do
+        redis.blpop(wait_key, 0)
+        redis.del(wait_key)
       end
     end
 
     def stop_waiting
-      redis.lpush(wait_key, '1')
+      perform_operation do
+        redis.lpush(wait_key, '1')
+      end
     end
 
-    def make_slave!
-      master = @manager.current_master
-      redis.slaveof(master.host, master.port)
+    def make_slave!(master)
+      perform_operation do
+        redis.slaveof(master.host, master.port)
+      end
     end
 
     def make_master!
-      redis.slaveof('no', 'one')
+      perform_operation do
+        redis.slaveof('no', 'one')
+      end
     end
 
     def inspect
@@ -75,7 +77,9 @@ module RedisFailover
     end
 
     def fetch_info
-      symbolize_keys(redis.info)
+      perform_operation do
+        symbolize_keys(redis.info)
+      end
     end
 
     def wait_key
@@ -85,7 +89,13 @@ module RedisFailover
     def redis
       Redis.new(:host => @host, :password => @password, :port => @port)
     rescue
-      raise NodeUnreachableError, 'failed to create redis client'
+      raise NodeUnreachableError.new(self)
+    end
+
+    def perform_operation
+      yield
+    rescue
+      raise NodeUnreachableError.new(self)
     end
   end
 end
