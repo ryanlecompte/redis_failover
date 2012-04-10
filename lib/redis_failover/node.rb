@@ -33,6 +33,7 @@ module RedisFailover
 
     def wait_until_unreachable
       redis.blpop(wait_key, 0)
+      redis.del(wait_key)
     rescue
       unless reachable?
         raise NodeUnreachableError, 'failed while waiting'
@@ -78,7 +79,7 @@ module RedisFailover
     end
 
     def wait_key
-      @wait_key ||= SecureRandom.hex(32)
+      @wait_key ||= "_redis_failover_#{SecureRandom.hex(32)}"
     end
 
     def redis

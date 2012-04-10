@@ -16,6 +16,8 @@ module RedisFailover
       @done = true
       @node.stop_waiting
       @monitor_thread.join if @monitor_thread
+    rescue
+      # best effort
     end
 
     private
