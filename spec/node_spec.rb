@@ -13,6 +13,10 @@ module RedisFailover
         node.host.should == 'localhost'
         node.port.should == 123
       end
+
+      it 'reports error if host missing' do
+        expect { Node.new }.to raise_error(InvalidNodeError)
+      end
     end
 
     describe '#reachable?' do
