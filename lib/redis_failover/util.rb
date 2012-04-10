@@ -8,7 +8,18 @@ module RedisFailover
     end
 
     def self.logger
-      @logger ||= Logger.new(STDOUT)
+      @logger ||= begin
+        logger = Logger.new(STDOUT)
+        logger.level = Logger::INFO
+        logger.formatter = proc do |severity, datetime, progname, msg|
+          "#{datetime.utc.iso8601} #{Process.pid} #{severity}: #{msg}\n"
+        end
+        logger
+      end
+    end
+
+    def self.logger=(logger)
+      @logger = logger
     end
 
     def logger
