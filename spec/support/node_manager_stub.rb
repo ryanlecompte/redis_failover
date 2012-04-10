@@ -42,12 +42,11 @@ module RedisFailover
 
     def logger
       @logger ||= begin
-        klass = Class.new(BasicObject) do
+        Class.new(BasicObject) do
           def method_missing(m, *args, &block)
             self
           end
-        end
-        klass.new
+        end.new
       end
     end
   end
