@@ -1,4 +1,4 @@
-# RedisFailover
+# Redis Failover Client/Server
 
 Redis Failover provides a full automatic master/slave failover solution for Ruby
 
