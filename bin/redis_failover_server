@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+require 'redis_failover'
+
+manager = RedisFailover::NodeManager.new(:host => 'localhost', :password => 'fu')
+manager.start
+
