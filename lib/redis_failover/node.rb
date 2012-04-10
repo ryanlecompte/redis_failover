@@ -7,7 +7,7 @@ module RedisFailover
 
     def initialize(options = {})
       @host = options.fetch(:host) { raise InvalidNodeError, 'missing host'}
-      @port = options[:port] || 6379
+      @port = Integer(options[:port] || 6379)
       @password = options[:password]
     end
 
@@ -51,6 +51,7 @@ module RedisFailover
 
     def make_master!
       perform_operation do
+        # yes, this is a real redis operation!
         redis.slaveof('no', 'one')
       end
     end

@@ -25,7 +25,7 @@ module RedisFailover
         end
       end
 
-      parser.parse!
+      parser.parse(source)
       options
     end
   end
