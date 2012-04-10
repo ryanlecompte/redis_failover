@@ -8,7 +8,7 @@ module RedisFailover
       end
 
       it 'properly parses a server port' do
-        opts = CLI.parse(['-p 2222'])
+        opts = CLI.parse(['-P 2222'])
         opts.should == {:port => 2222}
       end
 
@@ -19,6 +19,16 @@ module RedisFailover
           {:host => 'host2', :port => '2'},
           {:host => 'host3', :port => '3'}
         ]
+      end
+
+      it 'properly parses a redis password' do
+        opts = CLI.parse(['-n host:port', '-p redis_pass'])
+        opts[:password].should == 'redis_pass'
+        opts[:nodes].should == [{
+          :host => 'host',
+          :port => 'port',
+          :password => 'redis_pass'
+        }]
       end
     end
   end
