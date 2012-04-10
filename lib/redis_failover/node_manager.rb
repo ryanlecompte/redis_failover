@@ -97,7 +97,7 @@ module RedisFailover
       @master = node
 
       # switch existing slaves to point to new master
-      redirect_slaves!
+      redirect_slaves
       logger.info("Successfully promoted #{node} to master.")
     end
 
@@ -132,7 +132,7 @@ module RedisFailover
       end
     end
 
-    def redirect_slaves!
+    def redirect_slaves
       # redirect each slave to a new master - if an actual slave is
       # currently down, it will be handled by its watcher
       @slaves.each do |slave|
