@@ -59,5 +59,25 @@ module RedisFailover
         node.should be_master
       end
     end
+
+    describe '#wait_until_unreachable' do
+      it 'should wait until node dies' do
+        thread = Thread.new { node.wait_until_unreachable }
+        thread.should be_alive
+        node.redis.make_unreachable!
+        expect { thread.value }.to raise_error
+      end
+    end
+
+    describe '#stop_waiting' do
+      it 'should gracefully stop waiting' do
+        thread = Thread.new { node.wait_until_unreachable }
+        thread.should be_alive
+        node.stop_waiting
+        sleep 0.2
+        thread.should_not be_alive
+        thread.value.should be_nil
+      end
+    end
   end
 end

@@ -1,13 +1,15 @@
 # Test stub for Redis.
 class RedisStub
   class Proxy
-    def initialize(opts = {})
+    def initialize(queue, opts = {})
       @info = {:role => 'master'}
-      @queue = Queue.new
+      @queue = queue
     end
 
     def blpop(*args)
-      @queue.pop
+      @queue.pop.tap do |value|
+        raise value if value
+      end
     end
 
     def del(*args)
@@ -31,7 +33,8 @@ class RedisStub
   end
 
   def initialize(opts = {})
-    @proxy = Proxy.new(opts)
+    @queue = Queue.new
+    @proxy = Proxy.new(@queue, opts)
     @reachable = true
   end
 
@@ -44,6 +47,7 @@ class RedisStub
   end
 
   def make_unreachable!
+    @queue << RuntimeError.new('unreachable')
     @reachable = false
   end
 end
