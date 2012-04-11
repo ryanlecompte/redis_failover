@@ -14,16 +14,18 @@ module RedisFailover
       spawn_watchers
 
       while node = @queue.pop
-        begin
-          if node.unreachable?
-            handle_unreachable(node)
-          elsif node.reachable?
-            handle_reachable(node)
+        @lock.synchronize do
+          begin
+            if node.unreachable?
+              handle_unreachable(node)
+            elsif node.reachable?
+              handle_reachable(node)
+            end
+          rescue NodeUnreachableError
+            # node suddenly became unreachable, silently
+            # handle since the watcher will take care of
+            # keeping track of the node
           end
-        rescue NodeUnreachableError
-          # node suddenly became unreachable, silently
-          # handle since the watcher will take care of
-          # keeping track of the node
         end
       end
     end
@@ -49,38 +51,34 @@ module RedisFailover
     private
 
     def handle_unreachable(node)
-      @lock.synchronize do
-        # no-op if we already know about this node
-        return if @unreachable.include?(node)
-        logger.info("Handling unreachable node: #{node}")
+      # no-op if we already know about this node
+      return if @unreachable.include?(node)
+      logger.info("Handling unreachable node: #{node}")
 
-        # find a new master if this node was a master
-        if node == @master
-          logger.info("Demoting currently unreachable master #{node}.")
-          promote_new_master
-        else
-          @slaves.delete(node)
-        end
-
-        @unreachable << node
+      # find a new master if this node was a master
+      if node == @master
+        logger.info("Demoting currently unreachable master #{node}.")
+        promote_new_master
+      else
+        @slaves.delete(node)
       end
+
+      @unreachable << node
     end
 
     def handle_reachable(node)
-      @lock.synchronize do
-        # no-op if we already know about this node
-        return if @master == node || @slaves.include?(node)
-        logger.info("Handling reachable node: #{node}")
+      # no-op if we already know about this node
+      return if @master == node || @slaves.include?(node)
+      logger.info("Handling reachable node: #{node}")
 
-        @unreachable.delete(node)
-        @slaves << node
-        if @master
-          # master already exists, make a slave
-          node.make_slave!(@master)
-        else
-          # no master exists, make this the new master
-          promote_new_master
-        end
+      @unreachable.delete(node)
+      @slaves << node
+      if @master
+        # master already exists, make a slave
+        node.make_slave!(@master)
+      else
+        # no master exists, make this the new master
+        promote_new_master
       end
     end
 
