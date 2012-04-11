@@ -13,4 +13,10 @@ module RedisFailover
 
   class NoMasterError < Error
   end
+
+  class NoSlaveError < Error
+  end
+
+  class NoNodeAvailableError < Error
+  end
 end

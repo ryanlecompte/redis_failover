@@ -31,6 +31,10 @@ module RedisFailover
       def info
         @info.dup
       end
+
+      def ping
+        'pong'
+      end
     end
 
     def initialize(opts = {})
@@ -39,9 +43,9 @@ module RedisFailover
       @reachable = true
     end
 
-    def method_missing(m, *args, &block)
+    def method_missing(meth, *args, &block)
       if @reachable
-        @proxy.send(m, *args, &block)
+        @proxy.send(meth, *args, &block)
       else
         raise RuntimeError, 'failed to connect to redis'
       end

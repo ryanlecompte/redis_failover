@@ -12,7 +12,9 @@ module RedisFailover
     end
 
     def reachable?
-      fetch_info
+      perform_operation do
+        redis.ping
+      end
       true
     rescue NodeUnreachableError
       false
@@ -82,6 +84,7 @@ module RedisFailover
         symbolize_keys(redis.info)
       end
     end
+    alias_method :ping, :fetch_info
 
     def wait_key
       @wait_key ||= "_redis_failover_#{SecureRandom.hex(32)}"
