@@ -16,7 +16,9 @@ If the node that went offline was the master, then one of the slaves will be pro
 All existing slaves will be automatically reconfigured to point to the new master for replication.
 All nodes marked as unreachable will be periodically checked to see if they have been brought back online.
 If so, the newly reachable nodes will be configured as slaves and brought back into the list of live
-servers.
+servers. Note that detection of a node going down should be nearly instantaneous, since the mechanism
+used to keep tabs on a node is via a blocking Redis BLPOP call (no polling). This call fails nearly
+immediately when the node actually goes offline.
 
 This gem provides a RedisFailover::Client wrapper that is master/slave aware. The client is configured
 with a single host/port pair that points to redis failover server. The client will automatically
