@@ -53,7 +53,27 @@ module RedisFailover
       :zscore
     ].freeze
 
+    # Performance optimization: to avoid unnecessary method_missing calls,
+    # we proactively define methods that dispatch to the underlying redis
+    # calls.
+    Redis.public_instance_methods(false).each do |method|
+      define_method(method) do |*args, &block|
+        dispatch(method, *args, &block)
+      end
+    end
+
     # Creates a new failover redis client.
+    #
+    # Options:
+    #
+    #   :host - redis failover server host (required)
+    #   :port - redis failover server port (required)
+    #   :password - optional password for redis nodes
+    #   :namespace - optional namespace for redis nodes
+    #   :logger - optional logger override
+    #   :retry_failure - indicate if failures should be retried (default true)
+    #   :max_retries - max retries for a failure (default 5)
+    #
     def initialize(options = {})
       unless options.values_at(:host, :port).all?
         raise ArgumentError, ':host and :port options required'
@@ -65,6 +85,7 @@ module RedisFailover
       @retry = options[:retry_failure] || true
       @max_retries = options[:max_retries] || 5
       @registry_url = "http://#{options[:host]}:#{options[:port]}/redis_servers"
+      @redis_servers = nil
       @master = nil
       @slaves = []
       build_clients
@@ -72,7 +93,7 @@ module RedisFailover
 
     def method_missing(method, *args, &block)
       if redis_operation?(method)
-        dispatch(method)
+        dispatch(method, *args, &block)
       else
         super
       end
@@ -82,13 +103,18 @@ module RedisFailover
       redis_operation?(method) || super
     end
 
+    def inspect
+      "#<RedisFailover::Client - master: #{master_info}, slaves: #{slaves_info})>"
+    end
+    alias_method :to_s, :inspect
+
     private
 
     def redis_operation?(method)
       Redis.public_instance_methods(false).include?(method)
     end
 
-    def dispatch(method)
+    def dispatch(method, *args, &block)
       tries = 0
       begin
         if REDIS_READ_OPS.include?(method)
@@ -158,8 +184,18 @@ module RedisFailover
 
     def all_nodes_available?
       [@master, *@slaves].all? do |client|
-        client && client.info rescue false
+        client && client.ping rescue false
       end
+    end
+
+    def master_info
+      return "none" unless @master
+      "#{@master.client.host}:#{@master.client.port}"
+    end
+
+    def slaves_info
+      return "none" if @slaves.empty?
+      @slaves.map { |s| "#{s.client.host}:#{s.client.port}" }.join(', ')
     end
   end
 end

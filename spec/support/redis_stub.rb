@@ -1,3 +1,5 @@
+require 'ostruct'
+
 module RedisFailover
   # Test stub for Redis.
   class RedisStub
@@ -37,7 +39,10 @@ module RedisFailover
       end
     end
 
+    attr_reader :host, :port, :reachable
     def initialize(opts = {})
+      @host = opts[:host]
+      @port = Integer(opts[:port])
       @queue = Queue.new
       @proxy = Proxy.new(@queue, opts)
       @reachable = true
@@ -47,7 +52,7 @@ module RedisFailover
       if @reachable
         @proxy.send(method, *args, &block)
       else
-        raise RuntimeError, 'failed to connect to redis'
+        raise Errno::ECONNREFUSED
       end
     end
 
@@ -56,10 +61,17 @@ module RedisFailover
     end
 
     def make_unreachable!
-      @queue << RuntimeError.new('unreachable')
+      @queue << Errno::ECONNREFUSED
       @reachable = false
     end
 
+    def to_s
+      "#{@host}:#{@port}"
+    end
+
+    def client
+      OpenStruct.new(:host => @host, :port => @port)
+    end
   end
 
   module RedisStubSupport

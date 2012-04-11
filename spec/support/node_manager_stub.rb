@@ -39,15 +39,5 @@ module RedisFailover
       notify_state_change(node)
       stop_processing
     end
-
-    def logger
-      @logger ||= begin
-        Class.new(BasicObject) do
-          def method_missing(m, *args, &block)
-            self
-          end
-        end.new
-      end
-    end
   end
 end
