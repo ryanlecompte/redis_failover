@@ -93,6 +93,7 @@ Please see LICENSE for licensing details.
 ## Author
 
 Ryan LeCompte
+
 [@ryanlecompte](https://twitter.com/ryanlecompte)
 
 ## Contributing
