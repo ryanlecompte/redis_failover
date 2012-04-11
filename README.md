@@ -82,7 +82,7 @@ The full set of options that can be passed to RedisFailover::Client are:
 
 ## Resources
 
-To learn more about redis master/slave replication, see the [Redis documentation](http://redis.io/topics/replication).
+To learn more about Redis master/slave replication, see the [Redis documentation](http://redis.io/topics/replication).
 
 ## License
 
