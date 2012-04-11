@@ -53,12 +53,13 @@ module RedisFailover
         # no-op if we already know about this node
         return if @unreachable.include?(node)
         logger.info("Handling unreachable node: #{node}")
-        @slaves.delete(node)
 
         # find a new master if this node was a master
         if node == @master
           logger.info("Demoting currently unreachable master #{node}.")
           promote_new_master
+        else
+          @slaves.delete(node)
         end
 
         @unreachable << node
