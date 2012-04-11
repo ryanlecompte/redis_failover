@@ -75,7 +75,7 @@ module RedisFailover
         # direct everything else to master
         master.send(meth, *args, &block)
       end
-    rescue NoMasterError, NoNodeAvailableError, *REDIS_ERRORS
+    rescue NoMasterError, *REDIS_ERRORS
       logger.error("No suitable node available for operation #{meth}.")
       # sleep for a bit and rebuild clients
       sleep(0.5)
@@ -90,7 +90,8 @@ module RedisFailover
     end
 
     def slave
-      @slaves.sample or master or raise NoNodeAvailableError
+      # pick a slave, if none available fallback to master
+      @slaves.sample || master
     end
 
     def fetch_redis_servers
@@ -132,7 +133,7 @@ module RedisFailover
 
     def all_nodes_available?
       [@master, *@slaves].all? do |client|
-        client.info rescue false
+        client && client.info rescue false
       end
     end
   end

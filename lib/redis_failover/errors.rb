@@ -16,7 +16,4 @@ module RedisFailover
 
   class NoSlaveError < Error
   end
-
-  class NoNodeAvailableError < Error
-  end
 end
