@@ -16,6 +16,7 @@ Gem::Specification.new do |gem|
   gem.version       = RedisFailover::VERSION
 
   gem.add_dependency('redis')
+  gem.add_dependency('redis-namespace')
   gem.add_dependency('multi_json')
   gem.add_dependency('sinatra')
 

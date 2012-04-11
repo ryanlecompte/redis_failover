@@ -43,9 +43,9 @@ module RedisFailover
       @reachable = true
     end
 
-    def method_missing(meth, *args, &block)
+    def method_missing(method, *args, &block)
       if @reachable
-        @proxy.send(meth, *args, &block)
+        @proxy.send(method, *args, &block)
       else
         raise RuntimeError, 'failed to connect to redis'
       end

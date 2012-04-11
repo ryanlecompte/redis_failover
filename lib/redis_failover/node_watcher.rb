@@ -29,11 +29,7 @@ module RedisFailover
       @node.wait_until_unreachable
     rescue NodeUnreachableError
       @manager.notify_state_change(@node)
-      relax && retry
-    end
-
-    def relax
-      sleep(3)
+      sleep(3) && retry
     end
   end
 end

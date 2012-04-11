@@ -84,7 +84,6 @@ module RedisFailover
         symbolize_keys(redis.info)
       end
     end
-    alias_method :ping, :fetch_info
 
     def wait_key
       @wait_key ||= "_redis_failover_#{SecureRandom.hex(32)}"
