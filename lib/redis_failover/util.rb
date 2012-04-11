@@ -12,7 +12,7 @@ module RedisFailover
         logger = Logger.new(STDOUT)
         logger.level = Logger::INFO
         logger.formatter = proc do |severity, datetime, progname, msg|
-          "#{datetime.utc} #{Process.pid} #{severity}: #{msg}\n"
+          "#{datetime.utc} RedisFailover #{Process.pid} #{severity}: #{msg}\n"
         end
         logger
       end
