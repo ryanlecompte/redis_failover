@@ -6,6 +6,7 @@ module RedisFailover
   class Client
     include Util
 
+    RETRY_WAIT_TIME = 3
     REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }.freeze
     REDIS_READ_OPS = Set[
       :dbsize,
@@ -83,7 +84,7 @@ module RedisFailover
       @namespace = options[:namespace]
       @password = options[:password]
       @retry = options[:retry_failure] || true
-      @max_retries = options[:max_retries] || 3
+      @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
       @registry_url = "http://#{options[:host]}:#{options[:port]}/redis_servers"
       @redis_servers = nil
       @master = nil
@@ -117,6 +118,7 @@ module RedisFailover
 
     def dispatch(method, *args, &block)
       tries = 0
+
       begin
         if REDIS_READ_OPS.include?(method)
           # send read operations to a slave
@@ -127,12 +129,11 @@ module RedisFailover
         end
       rescue NoMasterError, *REDIS_ERRORS
         logger.error("No suitable node available for operation `#{method}.`")
-        sleep(3)
         build_clients
 
-        if @retry && tries < @max_retries
+        if tries < @max_retries
           tries += 1
-          retry
+          sleep(RETRY_WAIT_TIME) && retry
         end
 
         raise
@@ -150,6 +151,8 @@ module RedisFailover
 
     def build_clients
       @lock.synchronize do
+        tries = 0
+
         begin
           logger.info('Attempting to fetch nodes and build redis clients.')
           servers = fetch_redis_servers
@@ -162,6 +165,13 @@ module RedisFailover
         rescue => ex
           logger.error("Failed to fetch servers from #{@registry_url} - #{ex.message}")
           logger.error(ex.backtrace.join("\n"))
+
+          if tries < @max_retries
+            tries += 1
+            sleep(RETRY_WAIT_TIME) && retry
+          end
+
+          raise FailoverServerUnreachableError
         end
       end
     end

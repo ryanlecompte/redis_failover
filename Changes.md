@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Added retry support for contacting failover server from client
+
 0.1.1
 -----------
 

@@ -57,6 +57,12 @@ module RedisFailover
         client.del('foo')
         client.reconnected.should be_true
       end
+
+      it 'fails hard when the failover server is unreachable' do
+        expect do
+          Client.new(:host => 'foo', :port => 123445)
+        end.to raise_error(FailoverServerUnreachableError)
+      end
     end
   end
 end

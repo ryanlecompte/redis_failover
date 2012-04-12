@@ -22,4 +22,7 @@ module RedisFailover
 
   class NoSlaveError < Error
   end
+
+  class FailoverServerUnreachableError < Error
+  end
 end
