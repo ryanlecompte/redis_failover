@@ -88,6 +88,7 @@ module RedisFailover
       @redis_servers = nil
       @master = nil
       @slaves = []
+      @lock = Mutex.new
       build_clients
     end
 
@@ -125,7 +126,7 @@ module RedisFailover
           master.send(method, *args, &block)
         end
       rescue NoMasterError, *REDIS_ERRORS
-        logger.error("No suitable node available for operation #{method}.")
+        logger.error("No suitable node available for operation `#{method}.`")
         sleep(0.5)
         build_clients
 
@@ -148,19 +149,21 @@ module RedisFailover
     end
 
     def build_clients
-      return if all_nodes_available?
+      @lock.synchronize do
+        begin
+          logger.info('Attempting to fetch nodes and build redis clients.')
+          servers = fetch_redis_servers
+          master = new_clients_for(servers[:master]).first if servers[:master]
+          slaves = new_clients_for(*servers[:slaves])
 
-      logger.info('Attempting to fetch nodes and build redis clients.')
-      servers = fetch_redis_servers
-      master = new_clients_for(servers[:master]).first if servers[:master]
-      slaves = new_clients_for(*servers[:slaves])
-
-      # once clients are successfully created, swap the references
-      @master = master
-      @slaves = slaves
-    rescue => ex
-      logger.error("Failed to fetch servers from #{@registry_url} - #{ex.message}")
-      logger.error(ex.backtrace.join("\n"))
+          # once clients are successfully created, swap the references
+          @master = master
+          @slaves = slaves
+        rescue => ex
+          logger.error("Failed to fetch servers from #{@registry_url} - #{ex.message}")
+          logger.error(ex.backtrace.join("\n"))
+        end
+      end
     end
 
     def fetch_redis_servers
@@ -179,12 +182,6 @@ module RedisFailover
           client = Redis::Namespace.new(@namespace, :redis => client)
         end
         client
-      end
-    end
-
-    def all_nodes_available?
-      [@master, *@slaves].all? do |client|
-        client && client.ping rescue false
       end
     end
 
