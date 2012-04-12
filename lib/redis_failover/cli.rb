@@ -23,6 +23,11 @@ module RedisFailover
           end
         end
 
+        opts.on('--max-failures count',
+          'Max failures before server marks node unreachable (default 3)') do |max|
+          options[:max_failures] = Integer(max)
+        end
+
         opts.on('-h', '--help', 'Display all options') do
           puts opts
           exit

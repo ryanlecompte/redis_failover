@@ -23,10 +23,10 @@ immediately when the node actually goes offline.
 This gem provides a RedisFailover::Client wrapper that is master/slave aware. The client is configured
 with a single host/port pair that points to redis failover server. The client will automatically
 connect to the server to find out the current state of the world (i.e., who's the current master and
-who are the current slaves). The client will automatically dispatch Redis read operations to the
-slaves, and Redis write operations to the master. If it fails to communicate with any node, it will
-go back and ask the server for the current list of available servers, and then optionally retry the
-operation.
+who are the current slaves). The client also acts as a load balancer in that it will automatically
+dispatch Redis read operations to one of N slaves, and Redis write operations to the master.
+If it fails to communicate with any node, it will go back and ask the server for the current list of
+available servers, and then optionally retry the operation.
 
 ## Installation
 
@@ -51,6 +51,7 @@ following options:
         -P, --port port                  Server port
         -p, --password password          Redis password
         -n, --nodes nodes                Comma-separated redis host:port pairs
+            --max-failures count         Max failures before server marks node unreachable (default 3)
         -h, --help                       Display all options
 
 To start the server for a simple master/slave configuration, use the following:
@@ -74,13 +75,13 @@ a drop-in replacement for your existing pure redis client usage.
 
 The full set of options that can be passed to RedisFailover::Client are:
 
-     :host - redis failover server host (required)
-     :port - redis failover server port (required)
-     :password - optional password for redis nodes
-     :namespace - optional namespace for redis nodes
-     :logger - optional logger override
+     :host          - redis failover server host (required)
+     :port          - redis failover server port (required)
+     :password      - optional password for redis nodes
+     :namespace     - optional namespace for redis nodes
+     :logger        - optional logger override
      :retry_failure - indicate if failures should be retried (default true)
-     :max_retries - max retries for a failure (default 5)
+     :max_retries   - max retries for a failure (default 3)
 
 ## Resources
 

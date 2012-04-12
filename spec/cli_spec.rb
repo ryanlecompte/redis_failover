@@ -29,6 +29,11 @@ module RedisFailover
           :password => 'redis_pass'
         }]
       end
+
+      it 'properly parses max node failures' do
+        opts = CLI.parse(['-n host:port', '-p redis_pass', '--max-failures', '1'])
+        opts[:max_failures].should == 1
+      end
     end
   end
 end

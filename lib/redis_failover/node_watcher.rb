@@ -1,9 +1,10 @@
 module RedisFailover
   # Watches a specific redis node for its reachability.
   class NodeWatcher
-    def initialize(manager, node)
+    def initialize(manager, node, max_failures)
       @manager = manager
       @node = node
+      @max_failures = max_failures
       @monitor_thread = nil
       @done = false
     end
@@ -24,13 +25,22 @@ module RedisFailover
     private
 
     def monitor_node
-      return if @done
-      @node.ping
-      @manager.notify_state_change(@node, :reachable)
-      @node.wait_until_unreachable
-    rescue NodeUnreachableError
-      @manager.notify_state_change(@node, :unreachable)
-      sleep(3) && retry
+      failures = 0
+
+      begin
+        return if @done
+        @node.ping
+        failures = 0
+        @manager.notify_state_change(@node, :reachable)
+        @node.wait_until_unreachable
+      rescue NodeUnreachableError
+        failures += 1
+        if failures >= @max_failures
+          @manager.notify_state_change(@node, :unreachable)
+          failures = 0
+        end
+        sleep(3) && retry
+      end
     end
   end
 end

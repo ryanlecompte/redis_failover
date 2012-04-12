@@ -66,6 +66,10 @@ module RedisFailover
     end
     alias_method :eql?, :==
 
+    def hash
+      to_s.hash
+    end
+
     private
 
     def role

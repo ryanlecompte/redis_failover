@@ -3,8 +3,10 @@ module RedisFailover
   class NodeManager
     include Util
 
-    def initialize(nodes)
-      @master, @slaves = parse_nodes(nodes)
+    def initialize(options)
+      @options = options
+      @max_failures = @options[:max_failures] || 3
+      @master, @slaves = parse_nodes
       @unreachable = []
       @queue = Queue.new
       @lock = Mutex.new
@@ -104,20 +106,20 @@ module RedisFailover
       logger.info("Successfully promoted #{node} to master.")
     end
 
-    def parse_nodes(nodes)
-      nodes = nodes.map { |opts| Node.new(opts) }
+    def parse_nodes
+      nodes = @options[:nodes].map { |opts| Node.new(opts) }
       raise NoMasterError unless master = find_master(nodes)
       slaves = nodes - [master]
 
-      logger.info("Managing master at #{master} and slaves" +
-        " at #{slaves.map(&:to_s).join(', ')}")
+      logger.info("Managing master (#{master}) and slaves" +
+        " (#{slaves.map(&:to_s).join(', ')}), max failures #{@max_failures}")
 
       [master, slaves]
     end
 
     def spawn_watchers
       @watchers = [@master, *@slaves].map do |node|
-          NodeWatcher.new(self, node)
+          NodeWatcher.new(self, node, @max_failures)
       end
       @watchers.each(&:watch)
     end

@@ -2,7 +2,7 @@ require 'spec_helper'
 
 module RedisFailover
   describe NodeManager do
-    let(:manager) { NodeManagerStub.new([]) }
+    let(:manager) { NodeManagerStub.new({}) }
 
     describe '#nodes' do
       it 'returns current master and slave nodes' do

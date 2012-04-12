@@ -1,6 +1,6 @@
 module RedisFailover
   class NodeManagerStub < NodeManager
-    def parse_nodes(*)
+    def parse_nodes
       master = Node.new(:host => 'master')
       slave = Node.new(:host => 'slave')
       [master, slave].each { |node| node.extend(RedisStubSupport) }

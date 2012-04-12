@@ -83,7 +83,7 @@ module RedisFailover
       @namespace = options[:namespace]
       @password = options[:password]
       @retry = options[:retry_failure] || true
-      @max_retries = options[:max_retries] || 5
+      @max_retries = options[:max_retries] || 3
       @registry_url = "http://#{options[:host]}:#{options[:port]}/redis_servers"
       @redis_servers = nil
       @master = nil
@@ -127,7 +127,7 @@ module RedisFailover
         end
       rescue NoMasterError, *REDIS_ERRORS
         logger.error("No suitable node available for operation `#{method}.`")
-        sleep(0.5)
+        sleep(3)
         build_clients
 
         if @retry && tries < @max_retries
