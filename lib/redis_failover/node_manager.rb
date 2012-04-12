@@ -5,7 +5,6 @@ module RedisFailover
 
     def initialize(options)
       @options = options
-      @max_failures = @options[:max_failures] || 3
       @master, @slaves = parse_nodes
       @unreachable = []
       @queue = Queue.new
@@ -112,14 +111,14 @@ module RedisFailover
       slaves = nodes - [master]
 
       logger.info("Managing master (#{master}) and slaves" +
-        " (#{slaves.map(&:to_s).join(', ')}), max failures #{@max_failures}")
+        " (#{slaves.map(&:to_s).join(', ')})")
 
       [master, slaves]
     end
 
     def spawn_watchers
       @watchers = [@master, *@slaves].map do |node|
-          NodeWatcher.new(self, node, @max_failures)
+          NodeWatcher.new(self, node,  @options[:max_failures] || 3)
       end
       @watchers.each(&:watch)
     end
