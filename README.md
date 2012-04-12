@@ -1,4 +1,4 @@
-# Redis Failover Client/Server
+# Automatic Redis Failover Client/Server
 
 Redis Failover attempts to provides a full automatic master/slave failover solution for Ruby. Redis does not provide
 an automatic failover capability when configured for master/slave replication. When the master node dies,
