@@ -29,14 +29,14 @@ module RedisFailover
     def force_unreachable(node)
       start_processing
       node.redis.make_unreachable!
-      notify_state_change(node)
+      notify_state_change(node, :unreachable)
       stop_processing
     end
 
     def force_reachable(node)
       start_processing
       node.redis.make_reachable!
-      notify_state_change(node)
+      notify_state_change(node, :reachable)
       stop_processing
     end
   end

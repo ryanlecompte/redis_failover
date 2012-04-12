@@ -11,17 +11,10 @@ module RedisFailover
       @password = options[:password]
     end
 
-    def reachable?
+    def ping
       perform_operation do
         redis.ping
       end
-      true
-    rescue NodeUnreachableError
-      false
-    end
-
-    def unreachable?
-      !reachable?
     end
 
     def master?

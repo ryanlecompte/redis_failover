@@ -19,25 +19,14 @@ module RedisFailover
       end
     end
 
-    describe '#reachable?' do
+    describe '#ping' do
       it 'responds properly if node is reachable' do
-        node.should be_reachable
+        expect { node.ping }.to_not raise_error
       end
 
       it 'responds properly if node is unreachable' do
         node.redis.make_unreachable!
-        node.should_not be_reachable
-      end
-    end
-
-    describe '#unreachable?' do
-      it 'responds properly if node is reachable' do
-        node.should_not be_unreachable
-      end
-
-      it 'responds properly if node is unreachable' do
-        node.redis.make_unreachable!
-        node.should be_unreachable
+        expect { node.ping }.to raise_error(NodeUnreachableError)
       end
     end
 

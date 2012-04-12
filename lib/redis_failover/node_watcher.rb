@@ -25,10 +25,11 @@ module RedisFailover
 
     def monitor_node
       return if @done
-      @manager.notify_state_change(@node) if @node.reachable?
+      @node.ping
+      @manager.notify_state_change(@node, :reachable)
       @node.wait_until_unreachable
     rescue NodeUnreachableError
-      @manager.notify_state_change(@node)
+      @manager.notify_state_change(@node, :unreachable)
       sleep(3) && retry
     end
   end

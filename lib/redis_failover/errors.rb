@@ -5,6 +5,12 @@ module RedisFailover
   class InvalidNodeError < Error
   end
 
+  class InvalidNodeStateError < Error
+    def initialize(node, state)
+      super("Invalid state change `#{state}` for node #{node}")
+    end
+  end
+
   class NodeUnreachableError < Error
     def initialize(node)
       super("Node: #{node}")

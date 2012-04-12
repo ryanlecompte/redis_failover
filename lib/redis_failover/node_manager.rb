@@ -12,26 +12,11 @@ module RedisFailover
 
     def start
       spawn_watchers
-
-      while node = @queue.pop
-        @lock.synchronize do
-          begin
-            if node.unreachable?
-              handle_unreachable(node)
-            elsif node.reachable?
-              handle_reachable(node)
-            end
-          rescue NodeUnreachableError
-            # node suddenly became unreachable, silently
-            # handle since the watcher will take care of
-            # keeping track of the node
-          end
-        end
-      end
+      handle_state_changes
     end
 
-    def notify_state_change(node)
-      @queue << node
+    def notify_state_change(node, state)
+      @queue << [node, state]
     end
 
     def nodes
@@ -49,6 +34,25 @@ module RedisFailover
     end
 
     private
+
+    def handle_state_changes
+      while state_change = @queue.pop
+        @lock.synchronize do
+          node, state = state_change
+          begin
+            case state
+            when :unreachable then handle_unreachable(node)
+            when :reachable then handle_reachable(node)
+            else raise InvalidNodeStateError.new(node, state)
+            end
+          rescue NodeUnreachableError
+            # node suddenly became unreachable, silently
+            # handle since the watcher will take care of
+            # keeping track of the node
+          end
+        end
+      end
+    end
 
     def handle_unreachable(node)
       # no-op if we already know about this node
