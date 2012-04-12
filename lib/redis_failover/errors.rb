@@ -24,5 +24,8 @@ module RedisFailover
   end
 
   class FailoverServerUnreachableError < Error
+    def initialize(failover_server_url)
+      super("Unable to reach #{failover_server_url}")
+    end
   end
 end

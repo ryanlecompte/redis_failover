@@ -85,7 +85,7 @@ module RedisFailover
       @password = options[:password]
       @retry = options[:retry_failure] || true
       @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
-      @registry_url = "http://#{options[:host]}:#{options[:port]}/redis_servers"
+      @server_url = "http://#{options[:host]}:#{options[:port]}/redis_servers"
       @redis_servers = nil
       @master = nil
       @slaves = []
@@ -163,7 +163,7 @@ module RedisFailover
           @master = master
           @slaves = slaves
         rescue => ex
-          logger.error("Failed to fetch servers from #{@registry_url} - #{ex.message}")
+          logger.error("Failed to fetch servers from #{@server_url} - #{ex.message}")
           logger.error(ex.backtrace.join("\n"))
 
           if tries < @max_retries
@@ -171,13 +171,13 @@ module RedisFailover
             sleep(RETRY_WAIT_TIME) && retry
           end
 
-          raise FailoverServerUnreachableError
+          raise FailoverServerUnreachableError.new(@server_url)
         end
       end
     end
 
     def fetch_redis_servers
-      open(@registry_url) do |io|
+      open(@server_url) do |io|
         servers = symbolize_keys(MultiJson.decode(io))
         logger.info("Fetched servers: #{servers}")
         servers
