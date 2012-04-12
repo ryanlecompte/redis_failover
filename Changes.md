@@ -2,3 +2,8 @@
 -----------
 
 - First release
+
+0.1.1
+-----------
+
+- Fix option parser require
