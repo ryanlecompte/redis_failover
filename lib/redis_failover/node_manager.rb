@@ -60,6 +60,7 @@ module RedisFailover
       return if @unreachable.include?(node)
       logger.info("Handling unreachable node: #{node}")
 
+      @unreachable << node
       # find a new master if this node was a master
       if node == @master
         logger.info("Demoting currently unreachable master #{node}.")
@@ -67,8 +68,6 @@ module RedisFailover
       else
         @slaves.delete(node)
       end
-
-      @unreachable << node
     end
 
     def handle_reachable(node)
@@ -76,33 +75,32 @@ module RedisFailover
       return if @master == node || @slaves.include?(node)
       logger.info("Handling reachable node: #{node}")
 
-      @unreachable.delete(node)
-      @slaves << node
       if @master
         # master already exists, make a slave
         node.make_slave!(@master)
+        @slaves << node
       else
         # no master exists, make this the new master
-        promote_new_master
+        promote_new_master(node)
       end
+
+      @unreachable.delete(node)
     end
 
-    def promote_new_master
+    def promote_new_master(node = nil)
       @master = nil
 
-      if @slaves.empty?
-        logger.error('Failed to promote a new master since no slaves available.')
+      # make a specific node or slave the new master
+      candidate = node || @slaves.pop
+      unless candidate
+        logger.error('Failed to promote a new master since no candidate available.')
         return
       end
 
-      # make a slave the new master
-      node = @slaves.pop
-      node.make_master!
-      @master = node
-
-      # switch existing slaves to point to new master
-      redirect_slaves
-      logger.info("Successfully promoted #{node} to master.")
+      candidate.make_master!
+      @master = candidate
+      redirect_slaves_to_master
+      logger.info("Successfully promoted #{candidate} to master.")
     end
 
     def parse_nodes
@@ -118,7 +116,7 @@ module RedisFailover
 
     def spawn_watchers
       @watchers = [@master, *@slaves].map do |node|
-          NodeWatcher.new(self, node,  @options[:max_failures] || 3)
+        NodeWatcher.new(self, node,  @options[:max_failures] || 3)
       end
       @watchers.each(&:watch)
     end
@@ -136,14 +134,13 @@ module RedisFailover
       end
     end
 
-    def redirect_slaves
-      # redirect each slave to a new master - if an actual slave is
-      # currently down, it will be handled by its watcher
+    def redirect_slaves_to_master
+      # redirect each slave to the current master
       @slaves.each do |slave|
         begin
           slave.make_slave!(@master)
         rescue NodeUnreachableError
-          # will eventually be handled by watcher
+          # will also be detected by watcher
         end
       end
     end
