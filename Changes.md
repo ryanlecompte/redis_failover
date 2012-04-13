@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Integrated travis-ci
+
 0.2.0
 -----------
 - Added retry support for contacting failover server from client
