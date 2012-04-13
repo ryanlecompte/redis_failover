@@ -1,4 +1,4 @@
-HEAD
+0.2.0
 -----------
 - Added retry support for contacting failover server from client
 - Client now verifies proper master/slave role before attempting operation
