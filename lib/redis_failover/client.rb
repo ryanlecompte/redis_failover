@@ -127,7 +127,7 @@ module RedisFailover
           # direct everything else to master
           master.send(method, *args, &block)
         end
-      rescue NoMasterError, *REDIS_ERRORS
+      rescue Error, *REDIS_ERRORS
         logger.error("No suitable node available for operation `#{method}.`")
         build_clients
 
@@ -141,12 +141,20 @@ module RedisFailover
     end
 
     def master
-      @master or raise NoMasterError
+      if @master
+        verify_role!(@master, :master)
+        return @master
+      end
+      raise NoMasterError
     end
 
     def slave
       # pick a slave, if none available fallback to master
-      @slaves.sample || master
+      if slave = @slaves.sample
+        verify_role!(slave, :slave)
+        return slave
+      end
+      master
     end
 
     def build_clients
@@ -197,12 +205,24 @@ module RedisFailover
 
     def master_info
       return "none" unless @master
-      "#{@master.client.host}:#{@master.client.port}"
+      name_for(@master)
     end
 
     def slaves_info
       return "none" if @slaves.empty?
-      @slaves.map { |s| "#{s.client.host}:#{s.client.port}" }.join(', ')
+      @slaves.map { |slave| name_for(slave) }.join(', ')
+    end
+
+    def verify_role!(node, role)
+      current_role = node.info['role']
+      if current_role.to_sym != role
+        raise InvalidNodeRoleError.new(name_for(node), role, current_role)
+      end
+      role
+    end
+
+    def name_for(node)
+      "#{node.client.host}:#{node.client.port}"
     end
   end
 end

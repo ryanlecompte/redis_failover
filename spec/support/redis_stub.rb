@@ -5,7 +5,7 @@ module RedisFailover
   class RedisStub
     class Proxy
       def initialize(queue, opts = {})
-        @info = {:role => 'master'}
+        @info = {'role' => 'master'}
         @queue = queue
       end
 
@@ -24,9 +24,9 @@ module RedisFailover
 
       def slaveof(host, port)
         if host == 'no' && port == 'one'
-          @info[:role] = 'master'
+          @info['role'] = 'master'
         else
-          @info[:role] = 'slave'
+          @info['role'] = 'slave'
         end
       end
 
@@ -36,6 +36,10 @@ module RedisFailover
 
       def ping
         'pong'
+      end
+
+      def change_role_to(role)
+        @info['role'] = role
       end
     end
 
@@ -54,6 +58,10 @@ module RedisFailover
       else
         raise Errno::ECONNREFUSED
       end
+    end
+
+    def change_role_to(role)
+      @proxy.change_role_to(role)
     end
 
     def make_reachable!

@@ -40,6 +40,7 @@ module RedisFailover
       end
 
       it 'routes read operations to a slave' do
+        client.current_slaves.first.change_role_to('slave')
         client.current_slaves.first.should_receive(:get)
         client.get('foo')
       end
@@ -62,6 +63,11 @@ module RedisFailover
         expect do
           Client.new(:host => 'foo', :port => 123445)
         end.to raise_error(FailoverServerUnreachableError)
+      end
+
+      it 'properly detects when a node has changed roles' do
+        client.current_master.change_role_to('slave')
+        expect { client.send(:master) }.to raise_error(InvalidNodeRoleError)
       end
     end
   end

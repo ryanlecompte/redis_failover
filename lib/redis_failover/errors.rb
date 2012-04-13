@@ -28,4 +28,11 @@ module RedisFailover
       super("Unable to reach #{failover_server_url}")
     end
   end
+
+  class InvalidNodeRoleError < Error
+    def initialize(node, assumed, actual)
+      super("Invalid role detected for node #{node}, client thought " +
+        "it was a #{assumed}, but it's now a #{actual}")
+    end
+  end
 end
