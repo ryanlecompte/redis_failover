@@ -7,5 +7,15 @@ module RedisFailover
         Util.symbolize_keys('a' => 1, 'b' => 2).should == {:a => 1, :b => 2}
       end
     end
+
+    describe '.different?' do
+      it 'handles different arrays' do
+        Util.different?([1,2,3], [1,5,3]).should be_true
+      end
+
+      it 'handles non-different arrays' do
+        Util.different?([1,2,3], [3,2,1]).should be_false
+      end
+    end
   end
 end

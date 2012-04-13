@@ -7,6 +7,10 @@ module RedisFailover
       Hash[hash.map { |k, v| [k.to_sym, v] }]
     end
 
+    def different?(ary_a, ary_b)
+      ((ary_a | ary_b) - (ary_a & ary_b)).size > 0
+    end
+
     def self.logger
       @logger ||= begin
         logger = Logger.new(STDOUT)

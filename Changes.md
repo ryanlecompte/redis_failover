@@ -1,6 +1,8 @@
 HEAD
 -----------
 - Integrated travis-ci
+- Added background monitor to client for proactively detecting
+  changes to current set of redis nodes
 
 0.2.0
 -----------

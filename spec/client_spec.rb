@@ -11,7 +11,7 @@ module RedisFailover
       @slaves
     end
 
-    def fetch_redis_servers
+    def fetch_nodes
       {
         :master => 'localhost:6379',
         :slaves => ['localhost:1111'],
@@ -30,6 +30,18 @@ module RedisFailover
 
       it 'properly parses slaves' do
         client.current_slaves.first.to_s.should == 'localhost:1111'
+      end
+
+      it 'does not rebuild clients if hosts have not changed' do
+        class << client
+          attr_reader :built_new_client
+          def new_clients_for(*)
+            @built_new_client = true
+          end
+        end
+
+        5.times { client.send(:build_clients) }
+        client.built_new_client.should_not be_true
       end
     end
 
@@ -51,6 +63,15 @@ module RedisFailover
           def build_clients
             @reconnected = true
             super
+          end
+
+          def fetch_nodes
+            @calls ||= 0
+            {
+              :master => "localhost:222#{@calls += 1}",
+              :slaves => ['localhost:1111'],
+              :unreachable => []
+            }
           end
         end
 
