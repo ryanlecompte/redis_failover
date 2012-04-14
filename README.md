@@ -87,6 +87,12 @@ The full set of options that can be passed to RedisFailover::Client are:
      :retry_failure - indicate if failures should be retried (default true)
      :max_retries   - max retries for a failure (default 3)
 
+## Limitations
+
+The redis_failover gem currently has limitations. It currently does not gracefully handle network partitions. In cases where
+the network splits, it is possible that more than one master could exist until the failover server sees all of the nodes again.
+This is a limitation that I hope to address in a future release.
+
 ## Resources
 
 To learn more about Redis master/slave replication, see the [Redis documentation](http://redis.io/topics/replication).
