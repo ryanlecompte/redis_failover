@@ -25,8 +25,12 @@ module RedisFailover
       def slaveof(host, port)
         if host == 'no' && port == 'one'
           @info['role'] = 'master'
+          @info.delete('master_host')
+          @info.delete('master_port')
         else
           @info['role'] = 'slave'
+          @info['master_host'] = host
+          @info['master_port'] = port.to_s
         end
       end
 

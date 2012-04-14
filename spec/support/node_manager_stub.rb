@@ -1,5 +1,7 @@
 module RedisFailover
   class NodeManagerStub < NodeManager
+    attr_accessor :master
+
     def parse_nodes
       master = Node.new(:host => 'master')
       slave = Node.new(:host => 'slave')
@@ -7,10 +9,6 @@ module RedisFailover
       master.make_master!
       slave.make_slave!(master)
       [master, [slave]]
-    end
-
-    def master
-      @master
     end
 
     def slaves

@@ -53,6 +53,20 @@ module RedisFailover
           manager.nodes[:unreachable].should be_empty
           manager.nodes[:slaves].should include(@slave.to_s)
         end
+
+        it 'makes node a slave of new master' do
+          manager.master = Node.new(:host => 'foo', :port => '7892')
+          manager.force_reachable(@slave)
+          @slave.fetch_info.should == {
+            :role => 'slave',
+            :master_host => 'foo',
+            :master_port => '7892'}
+        end
+
+        it 'does not invoke slaveof operation if master has not changed' do
+          @slave.redis.should_not_receive(:slaveof)
+          manager.force_reachable(@slave)
+        end
       end
 
       context 'slave node with no master present' do
