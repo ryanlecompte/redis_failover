@@ -37,5 +37,12 @@ module RedisFailover
       notify_state_change(node, :available)
       stop_processing
     end
+
+    def force_syncing(node, serve_stale_reads)
+      start_processing
+      node.redis.force_sync_with_master(serve_stale_reads)
+      notify_state_change(node, :syncing)
+      stop_processing
+    end
   end
 end

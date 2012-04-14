@@ -86,5 +86,24 @@ module RedisFailover
         end
       end
     end
+
+    describe '#handle_syncing' do
+      context 'prohibits stale reads' do
+        it 'adds node to unavailable list' do
+          slave = manager.slaves.first
+          manager.force_syncing(slave, false)
+          manager.nodes[:unavailable].should include(slave.to_s)
+        end
+      end
+
+      context 'allows stale reads' do
+        it 'makes node available' do
+          slave = manager.slaves.first
+          manager.force_syncing(slave, true)
+          manager.nodes[:unavailable].should_not include(slave.to_s)
+          manager.nodes[:slaves].should include(slave.to_s)
+        end
+      end
+    end
   end
 end

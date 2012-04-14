@@ -6,7 +6,7 @@ module RedisFailover
     def initialize(options)
       @options = options
       @master, @slaves = parse_nodes
-      @unavailable = []
+      @unavailable = Set.new
       @queue = Queue.new
       @lock = Mutex.new
     end
@@ -43,7 +43,8 @@ module RedisFailover
           begin
             case state
             when :unavailable then handle_unavailable(node)
-            when :available then handle_available(node)
+            when :available   then handle_available(node)
+            when :syncing     then handle_syncing(node)
             else raise InvalidNodeStateError.new(node, state)
             end
           rescue NodeUnavailableError
@@ -87,6 +88,17 @@ module RedisFailover
       @unavailable.delete(node)
     end
 
+    def handle_syncing(node)
+      if node.prohibits_stale_reads?
+        logger.info("Node #{node} not ready yet, still syncing with master.")
+        @unavailable << node
+        return
+      end
+
+      # otherwise, we can use this node
+      handle_available(node)
+    end
+
     def promote_new_master(node = nil)
       @master = nil
 
@@ -111,7 +123,7 @@ module RedisFailover
       logger.info("Managing master (#{master}) and slaves" +
         " (#{slaves.map(&:to_s).join(', ')})")
 
-      [master, slaves]
+      [master, Set.new(slaves)]
     end
 
     def spawn_watchers
