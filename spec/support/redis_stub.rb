@@ -6,6 +6,7 @@ module RedisFailover
     class Proxy
       def initialize(queue, opts = {})
         @info = {'role' => 'master'}
+        @config = {'slave-serve-stale-data' => 'yes'}
         @queue = queue
       end
 
@@ -45,19 +46,23 @@ module RedisFailover
       def change_role_to(role)
         @info['role'] = role
       end
+
+      def config(action, attribute)
+        [action, @config[attribute]]
+      end
     end
 
-    attr_reader :host, :port, :reachable
+    attr_reader :host, :port, :available
     def initialize(opts = {})
       @host = opts[:host]
       @port = Integer(opts[:port])
       @queue = Queue.new
       @proxy = Proxy.new(@queue, opts)
-      @reachable = true
+      @available = true
     end
 
     def method_missing(method, *args, &block)
-      if @reachable
+      if @available
         @proxy.send(method, *args, &block)
       else
         raise Errno::ECONNREFUSED
@@ -68,13 +73,13 @@ module RedisFailover
       @proxy.change_role_to(role)
     end
 
-    def make_reachable!
-      @reachable = true
+    def make_available!
+      @available = true
     end
 
-    def make_unreachable!
+    def make_unavailable!
       @queue << Errno::ECONNREFUSED
-      @reachable = false
+      @available = false
     end
 
     def to_s

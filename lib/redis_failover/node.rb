@@ -25,7 +25,16 @@ module RedisFailover
       !master?
     end
 
-    def wait_until_unreachable
+    def available?
+      ping
+      if prohibits_stale_reads? && syncing_with_master?
+        logger.info("Node #{to_s} not ready yet, still syncing with master.")
+        return false
+      end
+      true
+    end
+
+    def wait_until_unavailable
       perform_operation do
         redis.blpop(wait_key, 0)
         redis.del(wait_key)
@@ -91,13 +100,13 @@ module RedisFailover
     def redis
       Redis.new(:host => @host, :password => @password, :port => @port)
     rescue
-      raise NodeUnreachableError.new(self)
+      raise NodeUnavailableError.new(self)
     end
 
     def perform_operation
       yield
     rescue
-      raise NodeUnreachableError.new(self)
+      raise NodeUnavailableError.new(self)
     end
 
     def slave_of?(master)
@@ -105,6 +114,18 @@ module RedisFailover
       info[:role] == 'slave' &&
       info[:master_host] == master.host &&
       info[:master_port] == master.port.to_s
+    end
+
+    def prohibits_stale_reads?
+      perform_operation do
+        redis.config('get', 'slave-serve-stale-data').last == 'no'
+      end
+    end
+
+    def syncing_with_master?
+      perform_operation do
+        fetch_info[:master_sync_in_progress] == '1'
+      end
     end
   end
 end

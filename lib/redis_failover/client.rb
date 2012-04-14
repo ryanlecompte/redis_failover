@@ -183,7 +183,7 @@ module RedisFailover
             sleep(RETRY_WAIT_TIME) && retry
           end
 
-          raise FailoverServerUnreachableError.new(@server_url)
+          raise FailoverServerUnavailableError.new(@server_url)
         end
       end
     end

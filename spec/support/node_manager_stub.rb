@@ -24,17 +24,17 @@ module RedisFailover
       @thread.value
     end
 
-    def force_unreachable(node)
+    def force_unavailable(node)
       start_processing
-      node.redis.make_unreachable!
-      notify_state_change(node, :unreachable)
+      node.redis.make_unavailable!
+      notify_state_change(node, :unavailable)
       stop_processing
     end
 
-    def force_reachable(node)
+    def force_available(node)
       start_processing
-      node.redis.make_reachable!
-      notify_state_change(node, :reachable)
+      node.redis.make_available!
+      notify_state_change(node, :available)
       stop_processing
     end
   end

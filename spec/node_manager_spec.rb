@@ -9,17 +9,17 @@ module RedisFailover
         manager.nodes.should == {
           :master => 'master:6379',
           :slaves => ['slave:6379'],
-          :unreachable => []
+          :unavailable => []
         }
       end
     end
 
-    describe '#handle_unreachable' do
+    describe '#handle_unavailable' do
       context 'slave dies' do
-        it 'moves slave to unreachable list' do
+        it 'moves slave to unavailable list' do
           slave = manager.slaves.first
-          manager.force_unreachable(slave)
-          manager.nodes[:unreachable].should include(slave.to_s)
+          manager.force_unavailable(slave)
+          manager.nodes[:unavailable].should include(slave.to_s)
         end
       end
 
@@ -27,36 +27,36 @@ module RedisFailover
         before(:each) do
           @slave = manager.slaves.first
           @master = manager.master
-          manager.force_unreachable(@master)
+          manager.force_unavailable(@master)
         end
 
         it 'promotes slave to master' do
           manager.master.should == @slave
         end
 
-        it 'moves master to unreachable list' do
-          manager.nodes[:unreachable].should include(@master.to_s)
+        it 'moves master to unavailable list' do
+          manager.nodes[:unavailable].should include(@master.to_s)
         end
       end
     end
 
-    describe '#handle_reachable' do
+    describe '#handle_available' do
       before(:each) do
-        # force to be unreachable first
+        # force to be unavailable first
         @slave = manager.slaves.first
-        manager.force_unreachable(@slave)
+        manager.force_unavailable(@slave)
       end
 
       context 'slave node with a master present' do
-        it 'removes slave from unreachable list' do
-          manager.force_reachable(@slave)
-          manager.nodes[:unreachable].should be_empty
+        it 'removes slave from unavailable list' do
+          manager.force_available(@slave)
+          manager.nodes[:unavailable].should be_empty
           manager.nodes[:slaves].should include(@slave.to_s)
         end
 
         it 'makes node a slave of new master' do
           manager.master = Node.new(:host => 'foo', :port => '7892')
-          manager.force_reachable(@slave)
+          manager.force_available(@slave)
           @slave.fetch_info.should == {
             :role => 'slave',
             :master_host => 'foo',
@@ -65,19 +65,19 @@ module RedisFailover
 
         it 'does not invoke slaveof operation if master has not changed' do
           @slave.redis.should_not_receive(:slaveof)
-          manager.force_reachable(@slave)
+          manager.force_available(@slave)
         end
       end
 
       context 'slave node with no master present' do
         before(:each) do
           @master = manager.master
-          manager.force_unreachable(@master)
+          manager.force_unavailable(@master)
         end
 
         it 'promotes slave to master' do
           manager.master.should be_nil
-          manager.force_reachable(@slave)
+          manager.force_available(@slave)
           manager.master.should == @slave
         end
 

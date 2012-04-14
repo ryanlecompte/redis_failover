@@ -11,7 +11,7 @@ module RedisFailover
     end
   end
 
-  class NodeUnreachableError < Error
+  class NodeUnavailableError < Error
     def initialize(node)
       super("Node: #{node}")
     end
@@ -23,9 +23,9 @@ module RedisFailover
   class NoSlaveError < Error
   end
 
-  class FailoverServerUnreachableError < Error
+  class FailoverServerUnavailableError < Error
     def initialize(failover_server_url)
-      super("Unable to reach #{failover_server_url}")
+      super("Unable to access #{failover_server_url}")
     end
   end
 

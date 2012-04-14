@@ -6,7 +6,7 @@ module RedisFailover
     def initialize(options)
       @options = options
       @master, @slaves = parse_nodes
-      @unreachable = []
+      @unavailable = []
       @queue = Queue.new
       @lock = Mutex.new
     end
@@ -25,7 +25,7 @@ module RedisFailover
         {
           :master => @master ? @master.to_s : nil,
           :slaves => @slaves.map(&:to_s),
-          :unreachable => @unreachable.map(&:to_s)
+          :unavailable => @unavailable.map(&:to_s)
         }
       end
     end
@@ -42,12 +42,12 @@ module RedisFailover
           node, state = state_change
           begin
             case state
-            when :unreachable then handle_unreachable(node)
-            when :reachable then handle_reachable(node)
+            when :unavailable then handle_unavailable(node)
+            when :available then handle_available(node)
             else raise InvalidNodeStateError.new(node, state)
             end
-          rescue NodeUnreachableError
-            # node suddenly became unreachable, silently
+          rescue NodeUnavailableError
+            # node suddenly became unavailable, silently
             # handle since the watcher will take care of
             # keeping track of the node
           end
@@ -55,25 +55,25 @@ module RedisFailover
       end
     end
 
-    def handle_unreachable(node)
+    def handle_unavailable(node)
       # no-op if we already know about this node
-      return if @unreachable.include?(node)
-      logger.info("Handling unreachable node: #{node}")
+      return if @unavailable.include?(node)
+      logger.info("Handling unavailable node: #{node}")
 
-      @unreachable << node
+      @unavailable << node
       # find a new master if this node was a master
       if node == @master
-        logger.info("Demoting currently unreachable master #{node}.")
+        logger.info("Demoting currently unavailable master #{node}.")
         promote_new_master
       else
         @slaves.delete(node)
       end
     end
 
-    def handle_reachable(node)
+    def handle_available(node)
       # no-op if we already know about this node
       return if @master == node || @slaves.include?(node)
-      logger.info("Handling reachable node: #{node}")
+      logger.info("Handling available node: #{node}")
 
       if @master
         # master already exists, make a slave
@@ -84,7 +84,7 @@ module RedisFailover
         promote_new_master(node)
       end
 
-      @unreachable.delete(node)
+      @unavailable.delete(node)
     end
 
     def promote_new_master(node = nil)
@@ -127,7 +127,7 @@ module RedisFailover
       nodes.find do |node|
         begin
           node.master?
-        rescue NodeUnreachableError
+        rescue NodeUnavailableError
           # will eventually be handled by watcher
           false
         end
@@ -139,7 +139,7 @@ module RedisFailover
       @slaves.each do |slave|
         begin
           slave.make_slave!(@master)
-        rescue NodeUnreachableError
+        rescue NodeUnavailableError
           # will also be detected by watcher
         end
       end

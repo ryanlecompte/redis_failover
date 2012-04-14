@@ -20,23 +20,23 @@ module RedisFailover
     let(:node) { Node.new(:host => 'host', :port => 123).extend(RedisStubSupport) }
 
     describe '#watch' do
-      it 'properly informs manager of unreachable node' do
+      it 'properly informs manager of unavailable node' do
         watcher = NodeWatcher.new(node_manager, node, 1)
         watcher.watch
         sleep(3)
-        node.redis.make_unreachable!
+        node.redis.make_unavailable!
         sleep(3)
         watcher.shutdown
-        node_manager.state_for(node).should == :unreachable
+        node_manager.state_for(node).should == :unavailable
       end
 
-      it 'properly informs manager of reachable node' do
-        node_manager.notify_state_change(node, :unreachable)
+      it 'properly informs manager of available node' do
+        node_manager.notify_state_change(node, :unavailable)
         watcher = NodeWatcher.new(node_manager, node, 1)
         watcher.watch
         sleep(3)
         watcher.shutdown
-        node_manager.state_for(node).should == :reachable
+        node_manager.state_for(node).should == :available
       end
     end
   end

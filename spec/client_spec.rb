@@ -15,7 +15,7 @@ module RedisFailover
       {
         :master => 'localhost:6379',
         :slaves => ['localhost:1111'],
-        :unreachable => []
+        :unavailable => []
       }
     end
   end
@@ -57,7 +57,7 @@ module RedisFailover
         client.get('foo')
       end
 
-      it 'reconnects with redis failover server when node is unreachable' do
+      it 'reconnects with redis failover server when node is unavailable' do
         class << client
           attr_reader :reconnected
           def build_clients
@@ -70,20 +70,20 @@ module RedisFailover
             {
               :master => "localhost:222#{@calls += 1}",
               :slaves => ['localhost:1111'],
-              :unreachable => []
+              :unavailable => []
             }
           end
         end
 
-        client.current_master.make_unreachable!
+        client.current_master.make_unavailable!
         client.del('foo')
         client.reconnected.should be_true
       end
 
-      it 'fails hard when the failover server is unreachable' do
+      it 'fails hard when the failover server is unavailable' do
         expect do
           Client.new(:host => 'foo', :port => 123445)
-        end.to raise_error(FailoverServerUnreachableError)
+        end.to raise_error(FailoverServerUnavailableError)
       end
 
       it 'properly detects when a node has changed roles' do

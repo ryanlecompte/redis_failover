@@ -13,15 +13,15 @@ master, and all reads go to one of the N configured slaves.
 This gem attempts to address both the server and client problems. A redis failover server runs as a background
 daemon and monitors all of your configured master/slave nodes. When the server starts up, it
 automatically discovers who is the master and who are the slaves. Watchers are setup for each of
-the redis nodes. As soon as a node is detected as being offline, it will be moved to an "unreachable" state.
+the redis nodes. As soon as a node is detected as being offline, it will be moved to an "unavailable" state.
 If the node that went offline was the master, then one of the slaves will be promoted as the new master.
 All existing slaves will be automatically reconfigured to point to the new master for replication.
-All nodes marked as unreachable will be periodically checked to see if they have been brought back online.
-If so, the newly reachable nodes will be configured as slaves and brought back into the list of live
+All nodes marked as unavailable will be periodically checked to see if they have been brought back online.
+If so, the newly available nodes will be configured as slaves and brought back into the list of live
 servers. Note that detection of a node going down should be nearly instantaneous, since the mechanism
 used to keep tabs on a node is via a blocking Redis BLPOP call (no polling). This call fails nearly
 immediately when the node actually goes offline. To avoid false positives (i.e., intermittent flaky
-network interruption), the server will only mark a node as unreachable if it fails to communicate with
+network interruption), the server will only mark a node as unavailable if it fails to communicate with
 it 3 times (this is configurable via --max-failures, see configuration options below).
 
 This gem provides a RedisFailover::Client wrapper that is master/slave aware. The client is configured
@@ -55,7 +55,7 @@ following options:
         -P, --port port                  Server port
         -p, --password password          Redis password
         -n, --nodes nodes                Comma-separated redis host:port pairs
-            --max-failures count         Max failures before server marks node unreachable (default 3)
+            --max-failures count         Max failures before server marks node unavailable (default 3)
         -h, --help                       Display all options
 
 To start the server for a simple master/slave configuration, use the following:
