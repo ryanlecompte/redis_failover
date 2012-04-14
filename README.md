@@ -91,7 +91,7 @@ The full set of options that can be passed to RedisFailover::Client are:
 
 The redis_failover gem currently has limitations. It currently does not gracefully handle network partitions. In cases where
 the network splits, it is possible that more than one master could exist until the failover server sees all of the nodes again.
-This is a limitation that I hope to address in a future release.
+If the failover client gets split from the failover server, it's also possible that it could be talking to a stale master. This would get corrected once the client could successfully reach the failover server again to fetch the latest set of master/slave nodes. This is a limitation that I hope to address in a future release. The gem can not guarantee data consistencies until this is addressed.
 
 ## Resources
 
