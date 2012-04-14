@@ -1,5 +1,10 @@
 module RedisFailover
   class Error < StandardError
+    attr_reader :original
+    def initialize(msg, original = $!)
+      super(msg)
+      @original = original
+    end
   end
 
   class InvalidNodeError < Error

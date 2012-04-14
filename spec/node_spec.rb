@@ -53,9 +53,9 @@ module RedisFailover
       end
     end
 
-    describe '#wait_until_unavailable' do
+    describe '#wait' do
       it 'should wait until node dies' do
-        thread = Thread.new { node.wait_until_unavailable }
+        thread = Thread.new { node.wait }
         thread.should be_alive
         node.redis.make_unavailable!
         expect { thread.value }.to raise_error
@@ -64,7 +64,7 @@ module RedisFailover
 
     describe '#stop_waiting' do
       it 'should gracefully stop waiting' do
-        thread = Thread.new { node.wait_until_unavailable }
+        thread = Thread.new { node.wait }
         thread.should be_alive
         node.stop_waiting
         sleep 0.2

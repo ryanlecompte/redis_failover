@@ -40,7 +40,7 @@ module RedisFailover
             logger.info("Node #{to_s} not ready yet, still syncing with master.")
           else
             @manager.notify_state_change(@node, :available)
-            @node.wait_until_unavailable
+            @node.wait
           end
         rescue NodeUnavailableError
           failures += 1

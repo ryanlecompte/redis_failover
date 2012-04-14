@@ -23,7 +23,11 @@ module RedisFailover
       prohibits_stale_reads? && syncing_with_master?
     end
 
-    def wait_until_unavailable
+    # Waits until something interesting happens. If the connection
+    # with this node dies, the blpop call will raise an error. If
+    # the blpop call returns without error, then this will be due to
+    # a graceful shutdown signaled by #stop_waiting.
+    def wait
       perform_operation do
         redis.blpop(wait_key, 0)
         redis.del(wait_key)
