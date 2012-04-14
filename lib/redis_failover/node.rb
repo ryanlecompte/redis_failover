@@ -19,10 +19,6 @@ module RedisFailover
       !master?
     end
 
-    def syncing?
-      prohibits_stale_reads? && syncing_with_master?
-    end
-
     # Waits until something interesting happens. If the connection
     # with this node dies, the blpop call will raise an error. If
     # the blpop call returns without error, then this will be due to
@@ -81,6 +77,18 @@ module RedisFailover
     end
     alias_method :ping, :fetch_info
 
+    def prohibits_stale_reads?
+      perform_operation do
+        redis.config('get', 'slave-serve-stale-data').last == 'no'
+      end
+    end
+
+    def syncing_with_master?
+      perform_operation do
+        fetch_info[:master_sync_in_progress] == '1'
+      end
+    end
+
     private
 
     def role
@@ -108,18 +116,6 @@ module RedisFailover
       info[:role] == 'slave' &&
       info[:master_host] == master.host &&
       info[:master_port] == master.port.to_s
-    end
-
-    def prohibits_stale_reads?
-      perform_operation do
-        redis.config('get', 'slave-serve-stale-data').last == 'no'
-      end
-    end
-
-    def syncing_with_master?
-      perform_operation do
-        fetch_info[:master_sync_in_progress] == '1'
-      end
     end
   end
 end

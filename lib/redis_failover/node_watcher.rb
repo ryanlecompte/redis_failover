@@ -36,7 +36,7 @@ module RedisFailover
           failures = 0
           @node.ping
 
-          if @node.syncing?
+          if @node.syncing_with_master? && @node.prohibits_stale_reads?
             logger.info("Node #{to_s} not ready yet, still syncing with master.")
           else
             @manager.notify_state_change(@node, :available)
