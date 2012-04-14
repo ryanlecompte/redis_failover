@@ -1,3 +1,7 @@
+HEAD
+-----------
+- No longer force newly reachable slaves to master if already slaves of that master
+
 0.3.0
 -----------
 - Integrated travis-ci

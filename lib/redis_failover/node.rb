@@ -40,7 +40,9 @@ module RedisFailover
 
     def make_slave!(master)
       perform_operation do
-        redis.slaveof(master.host, master.port)
+        unless slave_of?(master)
+          redis.slaveof(master.host, master.port)
+        end
       end
     end
 
@@ -70,16 +72,16 @@ module RedisFailover
       to_s.hash
     end
 
-    private
-
-    def role
-      fetch_info[:role]
-    end
-
     def fetch_info
       perform_operation do
         symbolize_keys(redis.info)
       end
+    end
+
+    private
+
+    def role
+      fetch_info[:role]
     end
 
     def wait_key
@@ -96,6 +98,13 @@ module RedisFailover
       yield
     rescue
       raise NodeUnreachableError.new(self)
+    end
+
+    def slave_of?(master)
+      info = fetch_info
+      info[:role] == 'slave' &&
+      info[:master_host] == master.host &&
+      info[:master_port] == master.port.to_s
     end
   end
 end
