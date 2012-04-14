@@ -1,6 +1,8 @@
 module RedisFailover
   # Watches a specific redis node for its availability.
   class NodeWatcher
+    include Util
+
     WATCHER_SLEEP_TIME = 3
 
     def initialize(manager, node, max_failures)

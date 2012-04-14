@@ -46,6 +46,15 @@ module RedisFailover
       def config(action, attribute)
         [action, @config[attribute]]
       end
+
+      def force_sync_with_master(serve_stale_reads)
+        @config['slave-serve-stale-data'] = serve_stale_reads ? 'yes' : 'no'
+        @info['master_sync_in_progress'] = '1'
+      end
+
+      def force_sync_done
+        @info['master_sync_in_progress'] = '0'
+      end
     end
 
     attr_reader :host, :port, :available
