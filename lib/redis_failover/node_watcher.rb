@@ -35,8 +35,8 @@ module RedisFailover
         begin
           return if @done
           sleep(WATCHER_SLEEP_TIME)
-          failures = 0
           @node.ping
+          failures = 0
 
           if @node.syncing_with_master? && @node.prohibits_stale_reads?
             notify_unavailable
