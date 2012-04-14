@@ -39,19 +39,28 @@ module RedisFailover
           @node.ping
 
           if @node.syncing_with_master? && @node.prohibits_stale_reads?
+            notify_unavailable
             logger.info("Node #{to_s} not ready yet, still syncing with master.")
           else
-            @manager.notify_state_change(@node, :available)
+            notify_available
             @node.wait
           end
         rescue NodeUnavailableError
           failures += 1
           if failures >= @max_failures
-            @manager.notify_state_change(@node, :unavailable)
+            notify_unavailable
             failures = 0
           end
         end
       end
+    end
+
+    def notify_available
+      @manager.notify_state_change(@node, :available)
+    end
+
+    def notify_unavailable
+      @manager.notify_state_change(@node, :unavailable)
     end
   end
 end

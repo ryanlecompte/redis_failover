@@ -40,6 +40,9 @@ module RedisFailover
       perform_operation do
         unless slave_of?(master)
           redis.slaveof(master.host, master.port)
+          # send a stop waiting signal so that its watcher
+          # can properly handle its state change
+          stop_waiting
         end
       end
     end
