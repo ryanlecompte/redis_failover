@@ -1,7 +1,7 @@
 module RedisFailover
   class Error < StandardError
     attr_reader :original
-    def initialize(msg, original = $!)
+    def initialize(msg = nil, original = $!)
       super(msg)
       @original = original
     end
