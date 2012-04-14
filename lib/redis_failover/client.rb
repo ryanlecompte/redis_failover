@@ -88,7 +88,6 @@ module RedisFailover
       @server_url = "http://#{options[:host]}:#{options[:port]}/redis_servers"
       @master = nil
       @slaves = []
-      @lock = Mutex.new
       build_clients
       start_background_monitor
     end
@@ -159,32 +158,30 @@ module RedisFailover
     end
 
     def build_clients
-      @lock.synchronize do
-        tries = 0
+      tries = 0
 
-        begin
-          logger.info('Checking for new redis nodes.')
-          nodes = fetch_nodes
-          return unless nodes_changed?(nodes)
+      begin
+        logger.info('Checking for new redis nodes.')
+        nodes = fetch_nodes
+        return unless nodes_changed?(nodes)
 
-          logger.info('Node change detected, rebuilding clients.')
-          master = new_clients_for(nodes[:master]).first if nodes[:master]
-          slaves = new_clients_for(*nodes[:slaves])
+        logger.info('Node change detected, rebuilding clients.')
+        master = new_clients_for(nodes[:master]).first if nodes[:master]
+        slaves = new_clients_for(*nodes[:slaves])
 
-          # once clients are successfully created, swap the references
-          @master = master
-          @slaves = slaves
-        rescue => ex
-          logger.error("Failed to fetch nodes from #{@server_url} - #{ex.message}")
-          logger.error(ex.backtrace.join("\n"))
+        # once clients are successfully created, swap the references
+        @master = master
+        @slaves = slaves
+      rescue => ex
+        logger.error("Failed to fetch nodes from #{@server_url} - #{ex.message}")
+        logger.error(ex.backtrace.join("\n"))
 
-          if tries < @max_retries
-            tries += 1
-            sleep(RETRY_WAIT_TIME) && retry
-          end
-
-          raise FailoverServerUnavailableError.new(@server_url)
+        if tries < @max_retries
+          tries += 1
+          sleep(RETRY_WAIT_TIME) && retry
         end
+
+        raise FailoverServerUnavailableError.new(@server_url)
       end
     end
 

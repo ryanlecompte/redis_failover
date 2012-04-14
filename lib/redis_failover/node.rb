@@ -11,12 +11,6 @@ module RedisFailover
       @password = options[:password]
     end
 
-    def ping
-      perform_operation do
-        redis.ping
-      end
-    end
-
     def master?
       role == 'master'
     end
@@ -25,13 +19,8 @@ module RedisFailover
       !master?
     end
 
-    def available?
-      ping
-      if prohibits_stale_reads? && syncing_with_master?
-        logger.info("Node #{to_s} not ready yet, still syncing with master.")
-        return false
-      end
-      true
+    def syncing?
+      prohibits_stale_reads? && syncing_with_master?
     end
 
     def wait_until_unavailable
@@ -86,6 +75,7 @@ module RedisFailover
         symbolize_keys(redis.info)
       end
     end
+    alias_method :ping, :fetch_info
 
     private
 

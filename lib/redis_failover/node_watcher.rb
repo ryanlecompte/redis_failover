@@ -34,8 +34,11 @@ module RedisFailover
           return if @done
           sleep(WATCHER_SLEEP_TIME)
           failures = 0
+          @node.ping
 
-          if @node.available?
+          if @node.syncing?
+            logger.info("Node #{to_s} not ready yet, still syncing with master.")
+          else
             @manager.notify_state_change(@node, :available)
             @node.wait_until_unavailable
           end

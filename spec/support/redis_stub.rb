@@ -39,10 +39,6 @@ module RedisFailover
         @info.dup
       end
 
-      def ping
-        'pong'
-      end
-
       def change_role_to(role)
         @info['role'] = role
       end
