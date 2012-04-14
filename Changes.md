@@ -1,4 +1,4 @@
-HEAD
+0.3.0
 -----------
 - Integrated travis-ci
 - Added background monitor to client for proactively detecting
