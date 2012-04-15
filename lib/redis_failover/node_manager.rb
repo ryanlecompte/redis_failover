@@ -8,7 +8,7 @@ module RedisFailover
       @zkclient = new_zookeeper_client(@options[:zkservers])
       @unavailable = []
       @queue = Queue.new
-      parse_nodes
+      discover_nodes
     end
 
     def start
@@ -114,7 +114,7 @@ module RedisFailover
       logger.info("Successfully promoted #{candidate} to master.")
     end
 
-    def parse_nodes
+    def discover_nodes
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
       raise NoMasterError unless @master = find_master(nodes)
       @slaves = nodes - [@master]

@@ -3,7 +3,7 @@ module RedisFailover
     attr_accessor :master
     public :current_nodes
 
-    def parse_nodes
+    def discover_nodes
       master = Node.new(:host => 'master')
       slave = Node.new(:host => 'slave')
       [master, slave].each { |node| node.extend(RedisStubSupport) }
