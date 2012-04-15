@@ -186,25 +186,20 @@ module RedisFailover
 
     def initialize_path
       # create nodes path if it doesn't already exist in ZK
-      unless @zkclient.stat(:path => ZK_PATH)[:stat].exists
-        res = @zkclient.create(:path => ZK_PATH)
-        if zk_operation_failed?(res)
-          raise ZookeeperError, "Failed to create path #{ZK_PATH}"
-        else
-          logger.info("Successfully created zookeeper path #{ZK_PATH}")
-        end
+      unless @zkclient.stat(ZK_PATH).exists?
+        @zkclient.create(ZK_PATH)
+        logger.info("Successfully created zookeeper path #{ZK_PATH}")
       end
       write_state
     end
 
     def write_state
-      res = @zkclient.set(:path => ZK_PATH, :data => encode(current_nodes))
-      if zk_operation_failed?(res)
-        logger.error("Failed to write current state to zookeeper, result was #{res}" +
-          " - state will be written again on next node state update")
-      else
-        logger.info("Successfully wrote current state to zookeeper.")
-      end
+      @zkclient.set(ZK_PATH, encode(current_nodes))
+    rescue => ex
+      logger.error("Failed to write current state to zookeeper: #{ex.message}" +
+        " - state will be written again on next node state update")
+    else
+      logger.info("Successfully wrote current state to zookeeper.")
     end
   end
 end

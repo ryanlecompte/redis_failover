@@ -1,9 +1,9 @@
+require 'zk'
 require 'redis'
 require 'thread'
 require 'logger'
 require 'timeout'
 require 'optparse'
-require 'zookeeper'
 require 'multi_json'
 require 'securerandom'
 

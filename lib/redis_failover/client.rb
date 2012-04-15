@@ -185,14 +185,12 @@ module RedisFailover
     end
 
     def fetch_nodes
-      watch = Zookeeper::WatcherCallback.new { build_clients }
-      res = @zkclient.get(:path => ZK_PATH, :watcher => watch)
-      if zk_operation_failed?(res)
-        raise ZookeeperError, "Failed to fetch nodes, result was #{res}"
-      end
-
-      nodes = symbolize_keys(decode(res[:data]))
+      data = @zkclient.get(ZK_PATH, :watch => true).first
+      nodes = symbolize_keys(decode(data))
       logger.debug("Fetched nodes: #{nodes}")
+
+      # register a watcher for future changes
+      @zkclient.watcher.register(ZK_PATH) { |event| build_clients }
       nodes
     end
 

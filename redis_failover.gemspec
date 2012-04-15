@@ -18,7 +18,7 @@ Gem::Specification.new do |gem|
   gem.add_dependency('redis')
   gem.add_dependency('redis-namespace')
   gem.add_dependency('multi_json')
-  gem.add_dependency('zookeeper')
+  gem.add_dependency('zk')
 
   gem.add_development_dependency('rake')
   gem.add_development_dependency('rspec')

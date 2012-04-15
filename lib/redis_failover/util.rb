@@ -42,18 +42,14 @@ module RedisFailover
     end
 
     def new_zookeeper_client(servers)
-      client = Zookeeper.new(servers)
-      if client.state != Zookeeper::ZOO_CONNECTED_STATE
+      client = ZK.new(servers)
+      unless client.connected?
         raise ZookeeperError, "Not in connected state, client: #{client}"
       end
       logger.info("Communicating with zookeeper servers #{servers}")
       client
     rescue => ex
       raise ZookeeperError, "Failed to connect, error: #{ex.message}"
-    end
-
-    def zk_operation_failed?(result)
-      result[:rc] != Zookeeper::ZOK
     end
   end
 end
