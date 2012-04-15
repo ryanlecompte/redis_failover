@@ -9,7 +9,8 @@ module RedisFailover
       [master, slave].each { |node| node.extend(RedisStubSupport) }
       master.make_master!
       slave.make_slave!(master)
-      [master, [slave]]
+      @master = master
+      @slaves = [slave]
     end
 
     def slaves

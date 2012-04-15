@@ -5,10 +5,10 @@ module RedisFailover
 
     def initialize(options)
       @options = options
-      @master, @slaves = parse_nodes
       @zkclient = new_zookeeper_client(@options[:zkservers])
       @unavailable = []
       @queue = Queue.new
+      parse_nodes
     end
 
     def start
@@ -116,13 +116,14 @@ module RedisFailover
 
     def parse_nodes
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
-      raise NoMasterError unless master = find_master(nodes)
-      slaves = nodes - [master]
+      raise NoMasterError unless @master = find_master(nodes)
+      @slaves = nodes - [@master]
 
-      logger.info("Managing master (#{master}) and slaves" +
-        " (#{slaves.map(&:to_s).join(', ')})")
+      # ensure that slaves are correctly pointing to this master
+      redirect_slaves_to_master
 
-      [master, slaves]
+      logger.info("Managing master (#{@master}) and slaves" +
+        " (#{@slaves.map(&:to_s).join(', ')})")
     end
 
     def spawn_watchers
@@ -164,6 +165,7 @@ module RedisFailover
       return if @master == node && node.master?
       return if @master && node.slave_of?(@master)
 
+      logger.info("Reconciling node #{node}")
       if @master == node && !node.master?
         # we think the node is a master, but the node doesn't
         node.make_master!
