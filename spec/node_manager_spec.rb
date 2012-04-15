@@ -6,7 +6,7 @@ module RedisFailover
 
     describe '#nodes' do
       it 'returns current master and slave nodes' do
-        manager.nodes.should == {
+        manager.current_nodes.should == {
           :master => 'master:6379',
           :slaves => ['slave:6379'],
           :unavailable => []
@@ -19,7 +19,7 @@ module RedisFailover
         it 'moves slave to unavailable list' do
           slave = manager.slaves.first
           manager.force_unavailable(slave)
-          manager.nodes[:unavailable].should include(slave.to_s)
+          manager.current_nodes[:unavailable].should include(slave.to_s)
         end
       end
 
@@ -35,7 +35,7 @@ module RedisFailover
         end
 
         it 'moves master to unavailable list' do
-          manager.nodes[:unavailable].should include(@master.to_s)
+          manager.current_nodes[:unavailable].should include(@master.to_s)
         end
       end
     end
@@ -50,8 +50,8 @@ module RedisFailover
       context 'slave node with a master present' do
         it 'removes slave from unavailable list' do
           manager.force_available(@slave)
-          manager.nodes[:unavailable].should be_empty
-          manager.nodes[:slaves].should include(@slave.to_s)
+          manager.current_nodes[:unavailable].should be_empty
+          manager.current_nodes[:slaves].should include(@slave.to_s)
         end
 
         it 'makes node a slave of new master' do
@@ -82,7 +82,7 @@ module RedisFailover
         end
 
         it 'slaves list remains empty' do
-          manager.nodes[:slaves].should be_empty
+          manager.current_nodes[:slaves].should be_empty
         end
       end
     end
@@ -92,7 +92,7 @@ module RedisFailover
         it 'adds node to unavailable list' do
           slave = manager.slaves.first
           manager.force_syncing(slave, false)
-          manager.nodes[:unavailable].should include(slave.to_s)
+          manager.current_nodes[:unavailable].should include(slave.to_s)
         end
       end
 
@@ -100,8 +100,8 @@ module RedisFailover
         it 'makes node available' do
           slave = manager.slaves.first
           manager.force_syncing(slave, true)
-          manager.nodes[:unavailable].should_not include(slave.to_s)
-          manager.nodes[:slaves].should include(slave.to_s)
+          manager.current_nodes[:unavailable].should_not include(slave.to_s)
+          manager.current_nodes[:slaves].should include(slave.to_s)
         end
       end
     end

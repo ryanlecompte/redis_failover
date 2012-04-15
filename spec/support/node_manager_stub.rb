@@ -1,6 +1,7 @@
 module RedisFailover
   class NodeManagerStub < NodeManager
     attr_accessor :master
+    public :current_nodes
 
     def parse_nodes
       master = Node.new(:host => 'master')
@@ -44,5 +45,9 @@ module RedisFailover
       notify_state_change(node, :syncing)
       stop_processing
     end
+
+    def initialize_path; end
+    def new_zookeeper_client(servers); end
+    def write_state; end
   end
 end

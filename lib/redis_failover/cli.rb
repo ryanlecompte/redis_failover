@@ -16,11 +16,15 @@ module RedisFailover
           options[:password] = password.strip
         end
 
-        opts.on('-n', '--nodes nodes', 'Comma-separated redis host:port pairs') do |nodes|
+        opts.on('-n', '--nodes redis nodes', 'Comma-separated redis host:port pairs') do |nodes|
           # turns 'host1:port,host2:port' => [{:host => host, :port => port}, ...]
           options[:nodes] = nodes.split(',').map do |node|
             Hash[[:host, :port].zip(node.strip.split(':'))]
           end
+        end
+
+        opts.on('-z', '--zkservers zookeeper servers', 'Comma-separated zookeeper host:port pairs') do |servers|
+          options[:zkservers] = servers
         end
 
         opts.on('--max-failures count',

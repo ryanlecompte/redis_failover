@@ -1,5 +1,4 @@
 require 'set'
-require 'open-uri'
 
 module RedisFailover
   # Redis failover-aware client.
@@ -67,8 +66,7 @@ module RedisFailover
     #
     # Options:
     #
-    #   :host - redis failover server host (required)
-    #   :port - redis failover server port (required)
+    #   :zkservers - comma-separated zookeeper host:port pairs (required)
     #   :password - optional password for redis nodes
     #   :namespace - optional namespace for redis nodes
     #   :logger - optional logger override
@@ -76,20 +74,17 @@ module RedisFailover
     #   :max_retries - max retries for a failure (default 5)
     #
     def initialize(options = {})
-      unless options.values_at(:host, :port).all?
-        raise ArgumentError, ':host and :port options required'
-      end
-
       Util.logger = options[:logger] if options[:logger]
+      @zkservers = options.fetch(:zkservers) { raise ArgumentError, ':zkservers required'}
+      @zkclient = new_zookeeper_client(@zkservers)
       @namespace = options[:namespace]
       @password = options[:password]
       @retry = options[:retry_failure] || true
       @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
-      @server_url = "http://#{options[:host]}:#{options[:port]}/redis_servers"
       @master = nil
       @slaves = []
+      @lock = Mutex.new
       build_clients
-      start_background_monitor
     end
 
     def method_missing(method, *args, &block)
@@ -117,6 +112,7 @@ module RedisFailover
 
     def dispatch(method, *args, &block)
       verify_supported!(method)
+      build_clients
       tries = 0
 
       begin
@@ -159,39 +155,45 @@ module RedisFailover
     end
 
     def build_clients
-      tries = 0
+      @lock.synchronize do
+        tries = 0
 
-      begin
-        logger.info('Checking for new redis nodes.')
-        nodes = fetch_nodes
-        return unless nodes_changed?(nodes)
+        begin
+          nodes = fetch_nodes
+          return unless nodes_changed?(nodes)
 
-        logger.info('Node change detected, rebuilding clients.')
-        master = new_clients_for(nodes[:master]).first if nodes[:master]
-        slaves = new_clients_for(*nodes[:slaves])
+          logger.info("Building new clients for nodes #{nodes}")
+          old_master = @master
+          old_slaves = @slaves
+          master = new_clients_for(nodes[:master]).first if nodes[:master]
+          slaves = new_clients_for(*nodes[:slaves])
+          @master = master
+          @slaves = slaves
+          disconnect(old_master, *old_slaves)
+        rescue => ex
+          logger.error("Failed to fetch nodes from #{@zkservers} - #{ex.message}")
+          logger.error(ex.backtrace.join("\n"))
 
-        # once clients are successfully created, swap the references
-        @master = master
-        @slaves = slaves
-      rescue => ex
-        logger.error("Failed to fetch nodes from #{@server_url} - #{ex.message}")
-        logger.error(ex.backtrace.join("\n"))
+          if tries < @max_retries
+            tries += 1
+            sleep(RETRY_WAIT_TIME) && retry
+          end
 
-        if tries < @max_retries
-          tries += 1
-          sleep(RETRY_WAIT_TIME) && retry
+          raise
         end
-
-        raise FailoverServerUnavailableError.new(@server_url)
       end
     end
 
     def fetch_nodes
-      open(@server_url) do |io|
-        nodes = symbolize_keys(MultiJson.decode(io))
-        logger.info("Fetched nodes: #{nodes}")
-        nodes
+      watch = Zookeeper::WatcherCallback.new { build_clients }
+      res = @zkclient.get(:path => ZK_PATH, :watcher => watch)
+      if zk_operation_failed?(res)
+        raise ZookeeperError, "Failed to fetch nodes, result was #{res}"
       end
+
+      nodes = symbolize_keys(decode(res[:data]))
+      logger.debug("Fetched nodes: #{nodes}")
+      nodes
     end
 
     def new_clients_for(*nodes)
@@ -243,17 +245,13 @@ module RedisFailover
       false
     end
 
-    # Spawns a background thread to periodically fetch the latest
-    # set of nodes from the redis failover server.
-    def start_background_monitor
-      Thread.new do
-        loop do
-          sleep(10)
+    def disconnect(*connections)
+      connections.each do |conn|
+        if conn
           begin
-            build_clients
-          rescue => ex
-            logger.error("Failed to poll for new nodes from #{@server_url} - #{ex.message}")
-            logger.error(ex.backtrace.join("\n"))
+            conn.client.disconnect
+          rescue
+            # best effort
           end
         end
       end

@@ -18,10 +18,13 @@ module RedisFailover
         :unavailable => []
       }
     end
+
+    def new_zookeeper_client(servers)
+    end
   end
 
   describe Client do
-    let(:client) { ClientStub.new(:host => 'localhost', :port => 3000) }
+    let(:client) { ClientStub.new(:zkservers => 'localhost:9281') }
 
     describe '#build_clients' do
       it 'properly parses master' do
@@ -82,8 +85,8 @@ module RedisFailover
 
       it 'fails hard when the failover server is unavailable' do
         expect do
-          Client.new(:host => 'foo', :port => 123445)
-        end.to raise_error(FailoverServerUnavailableError)
+          Client.new(:zkservers => 'localhost:99991')
+        end.to raise_error(ZookeeperError)
       end
 
       it 'properly detects when a node has changed roles' do

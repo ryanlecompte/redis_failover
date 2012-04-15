@@ -3,6 +3,8 @@ module RedisFailover
   module Util
     extend self
 
+    ZK_PATH = '/redis_failover_nodes'
+
     def symbolize_keys(hash)
       Hash[hash.map { |k, v| [k.to_sym, v] }]
     end
@@ -28,6 +30,30 @@ module RedisFailover
 
     def logger
       Util.logger
+    end
+
+    def encode(data)
+      MultiJson.encode(data)
+    end
+
+    def decode(data)
+      return unless data
+      MultiJson.decode(data)
+    end
+
+    def new_zookeeper_client(servers)
+      client = Zookeeper.new(servers)
+      if client.state != Zookeeper::ZOO_CONNECTED_STATE
+        raise ZookeeperError, "Not in connected state, client: #{client}"
+      end
+      logger.info("Communicating with zookeeper servers #{servers}")
+      client
+    rescue => ex
+      raise ZookeeperError, "Failed to connect, error: #{ex.message}"
+    end
+
+    def zk_operation_failed?(result)
+      result[:rc] != Zookeeper::ZOK
     end
   end
 end
