@@ -62,11 +62,11 @@ module RedisFailover
       end
     end
 
-    describe '#stop_waiting' do
+    describe '#wakeup' do
       it 'should gracefully stop waiting' do
         thread = Thread.new { node.wait }
         thread.should be_alive
-        node.stop_waiting
+        node.wakeup
         sleep 0.2
         thread.should_not be_alive
         thread.value.should be_nil

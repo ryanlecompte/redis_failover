@@ -20,7 +20,7 @@ module RedisFailover
 
     def shutdown
       @done = true
-      @node.stop_waiting
+      @node.wakeup
       @monitor_thread.join if @monitor_thread
     rescue
       # best effort

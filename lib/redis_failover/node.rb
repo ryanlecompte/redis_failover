@@ -34,7 +34,7 @@ module RedisFailover
     # Waits until something interesting happens. If the connection
     # with this node dies, the blpop call will raise an error. If
     # the blpop call returns without error, then this will be due to
-    # a graceful shutdown signaled by #stop_waiting or a timeout.
+    # a graceful shutdown signaled by #wakeup or a timeout.
     def wait
       perform_operation do
         redis.blpop(wait_key, MAX_OP_WAIT_TIME - 3)
@@ -42,7 +42,7 @@ module RedisFailover
       end
     end
 
-    def stop_waiting
+    def wakeup
       perform_operation do
         redis.lpush(wait_key, '1')
       end
@@ -52,17 +52,17 @@ module RedisFailover
       perform_operation do
         unless slave_of?(master)
           redis.slaveof(master.host, master.port)
-          # send a stop waiting signal so that its watcher
-          # can properly handle its state change
-          stop_waiting
+          wakeup
         end
       end
     end
 
     def make_master!
       perform_operation do
-        # yes, this is a real redis operation!
-        redis.slaveof('no', 'one')
+        unless master?
+          redis.slaveof('no', 'one')
+          wakeup
+        end
       end
     end
 
