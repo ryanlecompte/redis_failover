@@ -87,6 +87,10 @@ The full set of options that can be passed to RedisFailover::Client are:
      :retry_failure - indicate if failures should be retried (default true)
      :max_retries   - max retries for a failure (default 3)
 
+## Requirements
+
+redis_failover is actively tested against MRI 1.9.2/1.9.3. Other rubies may work, although I don't actively test against them. 1.8 is not supported.
+
 ## Considerations
 
 Note that by default the failover server will mark slaves that are currently syncing with their master as "available" based on the configuration value set for "slave-serve-stale-data" in redis.conf. By default this value is set to "yes" in the configuration, which means that slaves still syncing with their master will be available for servicing read requests. If you don't want this behavior, just set "slave-serve-stale-data" to "no" in your redis.conf file.
