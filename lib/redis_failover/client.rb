@@ -190,7 +190,7 @@ module RedisFailover
       logger.debug("Fetched nodes: #{nodes}")
 
       # register a watcher for future changes
-      @zkclient.watcher.register(ZK_PATH) { |event| build_clients }
+      @zkclient.watcher.register(ZK_PATH) { build_clients }
       nodes
     end
 
