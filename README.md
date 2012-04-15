@@ -1,4 +1,4 @@
-# Automatic Redis Failover Client/Server
+# Automatic Redis Failover Client / Node Manager
 
 [![Build Status](https://secure.travis-ci.org/ryanlecompte/redis_failover.png?branch=master)](http://travis-ci.org/ryanlecompte/redis_failover)
 
