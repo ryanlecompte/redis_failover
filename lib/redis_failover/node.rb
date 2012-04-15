@@ -37,7 +37,7 @@ module RedisFailover
     # a graceful shutdown signaled by #stop_waiting or a timeout.
     def wait
       perform_operation do
-        redis.blpop(wait_key, 0, BLPOP_WAIT_TIME)
+        redis.blpop(wait_key, BLPOP_WAIT_TIME)
         redis.del(wait_key)
       end
     end
