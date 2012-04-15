@@ -4,8 +4,8 @@ require File.expand_path('../lib/redis_failover/version', __FILE__)
 Gem::Specification.new do |gem|
   gem.authors       = ["Ryan LeCompte"]
   gem.email         = ["lecompte@gmail.com"]
-  gem.description   = %(Redis Failover provides a full automatic master/slave failover solution for Ruby)
-  gem.summary       = %(Redis Failover provides a full automatic master/slave failover solution for Ruby)
+  gem.description   = %(Redis Failover is a ZooKeeper-based automatic master/slave failover solution for Ruby)
+  gem.summary       = %(Redis Failover is a ZooKeeper-based automatic master/slave failover solution for Ruby)
   gem.homepage      = "http://github.com/ryanlecompte/redis_failover"
 
   gem.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
