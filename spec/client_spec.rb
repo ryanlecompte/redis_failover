@@ -60,7 +60,7 @@ module RedisFailover
         client.get('foo')
       end
 
-      it 'reconnects with redis failover server when node is unavailable' do
+      it 'reconnects when node is unavailable' do
         class << client
           attr_reader :reconnected
           def build_clients
@@ -83,7 +83,7 @@ module RedisFailover
         client.reconnected.should be_true
       end
 
-      it 'fails hard when the failover server is unavailable' do
+      it 'fails hard when ZooKeeper is unavailable' do
         expect do
           Client.new(:zkservers => 'localhost:99991')
         end.to raise_error(ZookeeperError)

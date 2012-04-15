@@ -1,12 +1,12 @@
 module RedisFailover
-  # Runner is responsible for bootstrapping the redis failover server.
+  # Runner is responsible for bootstrapping the redis Node Manager.
   class Runner
     def self.run(options)
       options = CLI.parse(options)
       @node_manager = NodeManager.new(options)
       trap_signals
       node_manager_thread = Thread.new { @node_manager.start }
-      Util.logger.info("Redis Failover Server successfully started.")
+      Util.logger.info("Redis Node Manager successfully started.")
       node_manager_thread.join
     end
 

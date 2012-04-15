@@ -67,9 +67,9 @@ module RedisFailover
     # Options:
     #
     #   :zkservers - comma-separated zookeeper host:port pairs (required)
-    #   :password - optional password for redis nodes
-    #   :namespace - optional namespace for redis nodes
-    #   :logger - optional logger override
+    #   :password - password for redis nodes (optional)
+    #   :namespace - namespace for redis nodes (optional)
+    #   :logger - logger override (optional)
     #   :retry_failure - indicate if failures should be retried (default true)
     #   :max_retries - max retries for a failure (default 5)
     #
