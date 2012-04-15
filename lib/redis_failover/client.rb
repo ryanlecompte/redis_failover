@@ -123,8 +123,8 @@ module RedisFailover
           # direct everything else to master
           master.send(method, *args, &block)
         end
-      rescue Error, *REDIS_ERRORS
-        logger.error("No suitable node available for operation `#{method}.`")
+      rescue Error, ZookeeperExceptions::ZookeeperException, *REDIS_ERRORS => ex
+        logger.error("Error while handling operation `#{method}` - #{ex.message}")
         build_clients
 
         if tries < @max_retries

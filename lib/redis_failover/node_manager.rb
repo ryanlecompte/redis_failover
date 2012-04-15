@@ -197,9 +197,9 @@ module RedisFailover
 
     def write_state
       @zkclient.set(ZK_PATH, encode(current_nodes))
-    rescue => ex
+    rescue ZookeeperExceptions::ZookeeperException => ex
       logger.error("Failed to write current state to zookeeper: #{ex.message}" +
-        " - state will be written again on next node state update")
+        ", state will be written again on next node state update")
     else
       logger.info("Successfully wrote current state to zookeeper.")
     end
