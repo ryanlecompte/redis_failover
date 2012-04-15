@@ -5,6 +5,8 @@ HEAD
 - Change reachable/unreachable wording to available/unavailable
 - Added node reconciliation, i.e. if a node comes back up, make sure that the node manager and the node agree on current role
 - More efficient use of redis client connections
+- Raise proper error for unsupported operations (i.e., those that don't make sense for a failover client)
+- Properly handle any hanging node operations in the failover server
 
 0.3.0
 -----------

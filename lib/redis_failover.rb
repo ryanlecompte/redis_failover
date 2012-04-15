@@ -1,6 +1,7 @@
 require 'redis'
 require 'thread'
 require 'logger'
+require 'timeout'
 require 'optparse'
 require 'multi_json'
 require 'securerandom'

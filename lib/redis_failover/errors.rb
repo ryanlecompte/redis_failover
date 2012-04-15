@@ -40,4 +40,10 @@ module RedisFailover
         "it was a #{assumed}, but it's now a #{actual}")
     end
   end
+
+  class UnsupportedOperationError < Error
+    def initialize(operation)
+      super("Operation `#{operation}` is currently unsupported")
+    end
+  end
 end

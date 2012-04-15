@@ -90,6 +90,10 @@ module RedisFailover
         client.current_master.change_role_to('slave')
         expect { client.send(:master) }.to raise_error(InvalidNodeRoleError)
       end
+
+      it 'raises error for unsupported operations' do
+        expect { client.select }.to raise_error(UnsupportedOperationError)
+      end
     end
   end
 end

@@ -3,7 +3,7 @@ module RedisFailover
   class Node
     include Util
 
-    BLPOP_WAIT_TIME = 3
+    MAX_OP_WAIT_TIME = 5
 
     attr_reader :host, :port
 
@@ -37,7 +37,7 @@ module RedisFailover
     # a graceful shutdown signaled by #stop_waiting or a timeout.
     def wait
       perform_operation do
-        redis.blpop(wait_key, BLPOP_WAIT_TIME)
+        redis.blpop(wait_key, MAX_OP_WAIT_TIME - 3)
         redis.del(wait_key)
       end
     end
@@ -121,7 +121,9 @@ module RedisFailover
     end
 
     def perform_operation
-      yield
+      Timeout.timeout(MAX_OP_WAIT_TIME) do
+        yield
+      end
     rescue
       raise NodeUnavailableError.new(self)
     end

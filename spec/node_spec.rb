@@ -72,5 +72,13 @@ module RedisFailover
         thread.value.should be_nil
       end
     end
+
+    describe '#perform_operation' do
+      it 'raises error for any operation that hangs for too long' do
+        expect do
+          node.send(:perform_operation) { 1_000_000.times { sleep 0.1 } }
+        end.to raise_error(NodeUnavailableError)
+      end
+    end
   end
 end

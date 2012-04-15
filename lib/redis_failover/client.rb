@@ -9,7 +9,6 @@ module RedisFailover
     RETRY_WAIT_TIME = 3
     REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }.freeze
     REDIS_READ_OPS = Set[
-      :dbsize,
       :echo,
       :exists,
       :get,
@@ -31,14 +30,12 @@ module RedisFailover
       :mget,
       :scard,
       :sdiff,
-      :select,
       :sinter,
       :sismember,
       :smembers,
       :srandmember,
       :strlen,
       :sunion,
-      :ttl,
       :type,
       :zcard,
       :zcount,
@@ -49,6 +46,12 @@ module RedisFailover
       :zrevrangebyscore,
       :zrevrank,
       :zscore
+    ].freeze
+
+    UNSUPPORTED_OPS = Set[
+      :select,
+      :ttl,
+      :dbsize,
     ].freeze
 
     # Performance optimization: to avoid unnecessary method_missing calls,
@@ -113,6 +116,7 @@ module RedisFailover
     end
 
     def dispatch(method, *args, &block)
+      verify_supported!(method)
       tries = 0
 
       begin
@@ -216,6 +220,12 @@ module RedisFailover
         raise InvalidNodeRoleError.new(address_for(node), role, current_role)
       end
       role
+    end
+
+    def verify_supported!(method)
+      if UNSUPPORTED_OPS.include?(method)
+        raise UnsupportedOperationError.new(method)
+      end
     end
 
     def addresses_for(nodes)
