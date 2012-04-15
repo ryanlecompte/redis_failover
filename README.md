@@ -36,7 +36,7 @@ optionally retry the operation.
 
 ## Installation
 
-redis_failover has an external dependency on ZooKeeper. You must have a running ZooKeeper cluster already available in order to use redis_failover. ZooKeeper provides redis_failover with its high availability and data consistency between Redis::Failover clients and the Node Manager daemon.Please see the requirements section below for more information on installing and setting up ZooKeeper if you don't have it running already.
+redis_failover has an external dependency on ZooKeeper. You must have a running ZooKeeper cluster already available in order to use redis_failover. ZooKeeper provides redis_failover with its high availability and data consistency between Redis::Failover clients and the Node Manager daemon. Please see the requirements section below for more information on installing and setting up ZooKeeper if you don't have it running already.
 
 Add this line to your application's Gemfile:
 
