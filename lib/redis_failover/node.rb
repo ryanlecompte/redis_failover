@@ -116,8 +116,6 @@ module RedisFailover
 
     def new_client
       Redis.new(:host => @host, :password => @password, :port => @port)
-    rescue
-      raise NodeUnavailableError.new(self)
     end
 
     def perform_operation
