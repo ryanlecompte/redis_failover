@@ -100,5 +100,6 @@ module RedisFailover
     def redis
       @redis ||= RedisStub.new(:host => @host, :port => @port)
     end
+    alias_method :new_client, :redis
   end
 end

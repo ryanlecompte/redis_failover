@@ -36,20 +36,20 @@ module RedisFailover
     # the blpop call returns without error, then this will be due to
     # a graceful shutdown signaled by #wakeup or a timeout.
     def wait
-      perform_operation do
+      perform_operation do |redis|
         redis.blpop(wait_key, MAX_OP_WAIT_TIME - 3)
         redis.del(wait_key)
       end
     end
 
     def wakeup
-      perform_operation do
+      perform_operation do |redis|
         redis.lpush(wait_key, '1')
       end
     end
 
     def make_slave!(master)
-      perform_operation do
+      perform_operation do |redis|
         unless slave_of?(master)
           redis.slaveof(master.host, master.port)
           wakeup
@@ -58,7 +58,7 @@ module RedisFailover
     end
 
     def make_master!
-      perform_operation do
+      perform_operation do |redis|
         unless master?
           redis.slaveof('no', 'one')
           wakeup
@@ -86,20 +86,20 @@ module RedisFailover
     end
 
     def fetch_info
-      perform_operation do
+      perform_operation do |redis|
         symbolize_keys(redis.info)
       end
     end
     alias_method :ping, :fetch_info
 
     def prohibits_stale_reads?
-      perform_operation do
+      perform_operation do |redis|
         redis.config('get', 'slave-serve-stale-data').last == 'no'
       end
     end
 
     def syncing_with_master?
-      perform_operation do
+      perform_operation do |redis|
         fetch_info[:master_sync_in_progress] == '1'
       end
     end
@@ -114,18 +114,28 @@ module RedisFailover
       @wait_key ||= "_redis_failover_#{SecureRandom.hex(32)}"
     end
 
-    def redis
-      @redis ||= Redis.new(:host => @host, :password => @password, :port => @port)
+    def new_client
+      Redis.new(:host => @host, :password => @password, :port => @port)
     rescue
       raise NodeUnavailableError.new(self)
     end
 
     def perform_operation
+      redis = nil
       Timeout.timeout(MAX_OP_WAIT_TIME) do
-        yield
+        redis = new_client
+        yield redis
       end
     rescue
       raise NodeUnavailableError.new(self)
+    ensure
+      if redis
+        begin
+          redis.client.disconnect
+        rescue
+          raise NodeUnavailableError.new(self)
+        end
+      end
     end
   end
 end
