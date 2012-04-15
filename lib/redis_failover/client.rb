@@ -186,11 +186,11 @@ module RedisFailover
 
     def fetch_nodes
       data = @zkclient.get(ZK_PATH, :watch => true).first
+      # register a watcher for future changes
+      @zkclient.watcher.register(ZK_PATH) { build_clients }
       nodes = symbolize_keys(decode(data))
       logger.debug("Fetched nodes: #{nodes}")
 
-      # register a watcher for future changes
-      @zkclient.watcher.register(ZK_PATH) { build_clients }
       nodes
     end
 
