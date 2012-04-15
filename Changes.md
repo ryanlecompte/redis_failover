@@ -3,6 +3,8 @@ HEAD
 - No longer force newly available slaves to master if already slaves of that master
 - Honor a node's slave-serve-stale-data configuration option; do not mark a sync-with-master-in-progress slave as available if its slave-serve-stale-data is disabled
 - Change reachable/unreachable wording to available/unavailable
+- Added node reconciliation, i.e. if a node comes back up, make sure that the node manager and the node agree on current role
+- More efficient use of redis client connections
 
 0.3.0
 -----------

@@ -6,7 +6,7 @@ module RedisFailover
     def initialize(options)
       @options = options
       @master, @slaves = parse_nodes
-      @unavailable = Set.new
+      @unavailable = []
       @queue = Queue.new
       @lock = Mutex.new
     end
@@ -72,6 +72,8 @@ module RedisFailover
     end
 
     def handle_available(node)
+      reconcile(node)
+
       # no-op if we already know about this node
       return if @master == node || @slaves.include?(node)
       logger.info("Handling available node: #{node}")
@@ -89,6 +91,8 @@ module RedisFailover
     end
 
     def handle_syncing(node)
+      reconcile(node)
+
       if node.prohibits_stale_reads?
         logger.info("Node #{node} not ready yet, still syncing with master.")
         @unavailable << node
@@ -116,14 +120,14 @@ module RedisFailover
     end
 
     def parse_nodes
-      nodes = @options[:nodes].map { |opts| Node.new(opts) }
+      nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
       raise NoMasterError unless master = find_master(nodes)
       slaves = nodes - [master]
 
       logger.info("Managing master (#{master}) and slaves" +
         " (#{slaves.map(&:to_s).join(', ')})")
 
-      [master, Set.new(slaves)]
+      [master, slaves]
     end
 
     def spawn_watchers
@@ -154,6 +158,26 @@ module RedisFailover
         rescue NodeUnavailableError
           # will also be detected by watcher
         end
+      end
+    end
+
+    # It's possible that a newly available node may have been restarted
+    # and completely lost its dynamically set run-time role by the node
+    # manager. This method ensures that the node resumes its role as
+    # determined by the manager.
+    def reconcile(node)
+      return if @master == node && node.master?
+      return if @master && node.slave_of?(@master)
+
+      if @master == node && !node.master?
+        # we think the node is a master, but the node doesn't
+        node.make_master!
+        return
+      end
+
+      # verify that node is a slave for the current master
+      if @master && !node.slave_of?(@master)
+        node.make_slave!(@master)
       end
     end
   end

@@ -3,6 +3,8 @@ module RedisFailover
   class Node
     include Util
 
+    BLPOP_WAIT_TIME = 3
+
     attr_reader :host, :port
 
     def initialize(options = {})
@@ -19,13 +21,23 @@ module RedisFailover
       !master?
     end
 
+    def slave_of?(master)
+      current_master == master
+    end
+
+    def current_master
+      info = fetch_info
+      return unless info[:role] == 'slave'
+      Node.new(:host => info[:master_host], :port => info[:master_port].to_i)
+    end
+
     # Waits until something interesting happens. If the connection
     # with this node dies, the blpop call will raise an error. If
     # the blpop call returns without error, then this will be due to
-    # a graceful shutdown signaled by #stop_waiting.
+    # a graceful shutdown signaled by #stop_waiting or a timeout.
     def wait
       perform_operation do
-        redis.blpop(wait_key, 0)
+        redis.blpop(wait_key, 0, BLPOP_WAIT_TIME)
         redis.del(wait_key)
       end
     end
@@ -103,7 +115,7 @@ module RedisFailover
     end
 
     def redis
-      Redis.new(:host => @host, :password => @password, :port => @port)
+      @redis ||= Redis.new(:host => @host, :password => @password, :port => @port)
     rescue
       raise NodeUnavailableError.new(self)
     end
@@ -112,13 +124,6 @@ module RedisFailover
       yield
     rescue
       raise NodeUnavailableError.new(self)
-    end
-
-    def slave_of?(master)
-      info = fetch_info
-      info[:role] == 'slave' &&
-      info[:master_host] == master.host &&
-      info[:master_port] == master.port.to_s
     end
   end
 end
