@@ -5,7 +5,7 @@ module RedisFailover
 
     def initialize(options)
       @options = options
-      @zkclient = new_zookeeper_client(@options[:zkservers])
+      @zkclient = ZkClient.new(@options[:zkservers])
       @unavailable = []
       @queue = Queue.new
       discover_nodes

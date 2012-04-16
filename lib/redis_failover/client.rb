@@ -76,7 +76,7 @@ module RedisFailover
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
       @zkservers = options.fetch(:zkservers) { raise ArgumentError, ':zkservers required'}
-      @zkclient = new_zookeeper_client(@zkservers)
+      @zkclient = ZkClient.new(@zkservers)
       @namespace = options[:namespace]
       @password = options[:password]
       @retry = options[:retry_failure] || true

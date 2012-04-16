@@ -40,16 +40,5 @@ module RedisFailover
       return unless data
       MultiJson.decode(data)
     end
-
-    def new_zookeeper_client(servers)
-      client = ZK.new(servers)
-      unless client.connected?
-        raise ZookeeperError, "Not in connected state, client: #{client}"
-      end
-      logger.info("Communicating with zookeeper servers #{servers}")
-      client
-    rescue => ex
-      raise ZookeeperError, "Failed to connect, error: #{ex.message}"
-    end
   end
 end
