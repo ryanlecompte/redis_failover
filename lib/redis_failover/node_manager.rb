@@ -5,29 +5,21 @@ module RedisFailover
 
     def initialize(options)
       @options = options
-      @master, @slaves = parse_nodes
+      @zkclient = ZkClient.new(@options[:zkservers])
+      @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @unavailable = []
       @queue = Queue.new
-      @lock = Mutex.new
+      discover_nodes
     end
 
     def start
+      initialize_path
       spawn_watchers
       handle_state_changes
     end
 
     def notify_state_change(node, state)
       @queue << [node, state]
-    end
-
-    def nodes
-      @lock.synchronize do
-        {
-          :master => @master ? @master.to_s : nil,
-          :slaves => @slaves.map(&:to_s),
-          :unavailable => @unavailable.map(&:to_s)
-        }
-      end
     end
 
     def shutdown
@@ -38,20 +30,21 @@ module RedisFailover
 
     def handle_state_changes
       while state_change = @queue.pop
-        @lock.synchronize do
+        begin
           node, state = state_change
-          begin
-            case state
-            when :unavailable then handle_unavailable(node)
-            when :available   then handle_available(node)
-            when :syncing     then handle_syncing(node)
-            else raise InvalidNodeStateError.new(node, state)
-            end
-          rescue NodeUnavailableError
-            # node suddenly became unavailable, silently
-            # handle since the watcher will take care of
-            # keeping track of the node
+          case state
+          when :unavailable then handle_unavailable(node)
+          when :available   then handle_available(node)
+          when :syncing     then handle_syncing(node)
+          else raise InvalidNodeStateError.new(node, state)
           end
+
+          # flush current state
+          write_state
+        rescue NodeUnavailableError
+          # node suddenly became unavailable, silently
+          # handle since the watcher will take care of
+          # keeping track of the node
         end
       end
     end
@@ -104,6 +97,7 @@ module RedisFailover
     end
 
     def promote_new_master(node = nil)
+      delete_path
       @master = nil
 
       # make a specific node or slave the new master
@@ -116,18 +110,21 @@ module RedisFailover
       candidate.make_master!
       @master = candidate
       redirect_slaves_to_master
+      create_path
+      write_state
       logger.info("Successfully promoted #{candidate} to master.")
     end
 
-    def parse_nodes
+    def discover_nodes
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
-      raise NoMasterError unless master = find_master(nodes)
-      slaves = nodes - [master]
+      raise NoMasterError unless @master = find_master(nodes)
+      @slaves = nodes - [@master]
 
-      logger.info("Managing master (#{master}) and slaves" +
-        " (#{slaves.map(&:to_s).join(', ')})")
+      # ensure that slaves are correctly pointing to this master
+      redirect_slaves_to_master
 
-      [master, slaves]
+      logger.info("Managing master (#{@master}) and slaves" +
+        " (#{@slaves.map(&:to_s).join(', ')})")
     end
 
     def spawn_watchers
@@ -169,6 +166,7 @@ module RedisFailover
       return if @master == node && node.master?
       return if @master && node.slave_of?(@master)
 
+      logger.info("Reconciling node #{node}")
       if @master == node && !node.master?
         # we think the node is a master, but the node doesn't
         node.make_master!
@@ -179,6 +177,41 @@ module RedisFailover
       if @master && !node.slave_of?(@master)
         node.make_slave!(@master)
       end
+    end
+
+    def current_nodes
+      {
+        :master => @master ? @master.to_s : nil,
+        :slaves => @slaves.map(&:to_s),
+        :unavailable => @unavailable.map(&:to_s)
+      }
+    end
+
+    def delete_path
+      if @zkclient.stat(@znode).exists?
+        @zkclient.delete(@znode)
+        logger.info("Deleted zookeeper node #{@znode}")
+      end
+    end
+
+    def create_path
+      # create nodes path if it doesn't already exist in ZK
+      unless @zkclient.stat(@znode).exists?
+        @zkclient.create(@znode, encode(current_nodes))
+        logger.info("Created zookeeper node #{@znode}")
+      end
+    end
+
+    def initialize_path
+      create_path
+      write_state
+    end
+
+    def write_state
+      @zkclient.set(@znode, encode(current_nodes))
+    rescue ZookeeperExceptions::ZookeeperException => ex
+      logger.error("Failed to write current state to zookeeper: #{ex.message}" +
+        ", state will be written again on next node state update")
     end
   end
 end

@@ -3,6 +3,8 @@ module RedisFailover
   module Util
     extend self
 
+    DEFAULT_ZNODE_PATH = '/redis_failover_nodes'
+
     def symbolize_keys(hash)
       Hash[hash.map { |k, v| [k.to_sym, v] }]
     end
@@ -28,6 +30,15 @@ module RedisFailover
 
     def logger
       Util.logger
+    end
+
+    def encode(data)
+      MultiJson.encode(data)
+    end
+
+    def decode(data)
+      return unless data
+      MultiJson.decode(data)
     end
   end
 end

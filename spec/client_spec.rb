@@ -18,10 +18,12 @@ module RedisFailover
         :unavailable => []
       }
     end
+
+    def setup_zookeeper_client; end
   end
 
   describe Client do
-    let(:client) { ClientStub.new(:host => 'localhost', :port => 3000) }
+    let(:client) { ClientStub.new(:zkservers => 'localhost:9281') }
 
     describe '#build_clients' do
       it 'properly parses master' do
@@ -30,18 +32,6 @@ module RedisFailover
 
       it 'properly parses slaves' do
         client.current_slaves.first.to_s.should == 'localhost:1111'
-      end
-
-      it 'does not rebuild clients if hosts have not changed' do
-        class << client
-          attr_reader :built_new_client
-          def new_clients_for(*)
-            @built_new_client = true
-          end
-        end
-
-        5.times { client.send(:build_clients) }
-        client.built_new_client.should_not be_true
       end
     end
 
@@ -57,7 +47,7 @@ module RedisFailover
         client.get('foo')
       end
 
-      it 'reconnects with redis failover server when node is unavailable' do
+      it 'reconnects when node is unavailable' do
         class << client
           attr_reader :reconnected
           def build_clients
@@ -78,12 +68,6 @@ module RedisFailover
         client.current_master.make_unavailable!
         client.del('foo')
         client.reconnected.should be_true
-      end
-
-      it 'fails hard when the failover server is unavailable' do
-        expect do
-          Client.new(:host => 'foo', :port => 123445)
-        end.to raise_error(FailoverServerUnavailableError)
       end
 
       it 'properly detects when a node has changed roles' do

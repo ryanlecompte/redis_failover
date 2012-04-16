@@ -9,7 +9,10 @@ class NullObject
   end
 end
 
-RedisFailover::Util.logger = NullObject.new
+module RedisFailover
+  Util.logger = NullObject.new
+  def ZkClient.new(*args); NullObject.new; end
+end
 
 RSpec.configure do |config|
 end

@@ -28,12 +28,6 @@ module RedisFailover
   class NoSlaveError < Error
   end
 
-  class FailoverServerUnavailableError < Error
-    def initialize(failover_server_url)
-      super("Unable to access #{failover_server_url}")
-    end
-  end
-
   class InvalidNodeRoleError < Error
     def initialize(node, assumed, actual)
       super("Invalid role detected for node #{node}, client thought " +
