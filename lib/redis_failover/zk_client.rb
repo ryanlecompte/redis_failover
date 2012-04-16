@@ -52,17 +52,10 @@ module RedisFailover
 
     def build_client
       @lock.synchronize do
-        begin
-          close_client
-          @client = ZK.new(@servers)
-          unless @client.connected?
-            raise ZookeeperError, "Not in connected state, client: #{@client}"
-          end
-          @client.on_expired_session { build_client }
-          logger.info("Communicating with zookeeper servers #{@servers}")
-        rescue ZookeeperExceptions::ZookeeperException => ex
-          raise ZookeeperError, "Failed to connect, error: #{ex.message}"
-        end
+        close_client
+        @client = ZK.new(@servers)
+        @client.on_expired_session { build_client }
+        logger.info("Communicating with zookeeper servers #{@servers}")
       end
     end
 

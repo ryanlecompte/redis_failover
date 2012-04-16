@@ -40,7 +40,4 @@ module RedisFailover
       super("Operation `#{operation}` is currently unsupported")
     end
   end
-
-  class ZookeeperError < Error
-  end
 end
