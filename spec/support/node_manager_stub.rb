@@ -48,7 +48,6 @@ module RedisFailover
     end
 
     def initialize_path; end
-    def new_zookeeper_client(servers); end
     def write_state; end
   end
 end

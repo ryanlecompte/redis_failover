@@ -83,12 +83,6 @@ module RedisFailover
         client.reconnected.should be_true
       end
 
-      it 'fails hard when ZooKeeper is unavailable' do
-        expect do
-          Client.new(:zkservers => 'localhost:99991')
-        end.to raise_error(ZookeeperError)
-      end
-
       it 'properly detects when a node has changed roles' do
         client.current_master.change_role_to('slave')
         expect { client.send(:master) }.to raise_error(InvalidNodeRoleError)
