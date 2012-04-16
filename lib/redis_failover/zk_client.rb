@@ -52,17 +52,11 @@ module RedisFailover
 
     def build_client
       @lock.synchronize do
-        close_client
+        @client.reopen and return if @client
         @client = ZK.new(@servers)
         @client.on_expired_session { build_client }
         logger.info("Communicating with zookeeper servers #{@servers}")
       end
-    end
-
-    def close_client
-      @client.close! if @client
-    rescue ZookeeperExceptions::ZookeeperException
-      # best effort
     end
   end
 end
