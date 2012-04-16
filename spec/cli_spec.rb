@@ -7,11 +7,6 @@ module RedisFailover
         CLI.parse({}).should == {}
       end
 
-      it 'properly parses a server port' do
-        opts = CLI.parse(['-P 2222'])
-        opts.should == {:port => 2222}
-      end
-
       it 'properly parses redis nodes' do
         opts = CLI.parse(['-n host1:1,host2:2,host3:3'])
         opts[:nodes].should == [

@@ -1,14 +1,16 @@
 module RedisFailover
   class NodeManagerStub < NodeManager
     attr_accessor :master
+    public :current_nodes
 
-    def parse_nodes
+    def discover_nodes
       master = Node.new(:host => 'master')
       slave = Node.new(:host => 'slave')
       [master, slave].each { |node| node.extend(RedisStubSupport) }
       master.make_master!
       slave.make_slave!(master)
-      [master, [slave]]
+      @master = master
+      @slaves = [slave]
     end
 
     def slaves
@@ -44,5 +46,10 @@ module RedisFailover
       notify_state_change(node, :syncing)
       stop_processing
     end
+
+    def initialize_path; end
+    def delete_path; end
+    def create_path; end
+    def write_state; end
   end
 end
