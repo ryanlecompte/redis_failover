@@ -76,7 +76,6 @@ module RedisFailover
         end
 
         it 'promotes slave to master' do
-          manager.master.should be_nil
           manager.force_available(@slave)
           manager.master.should == @slave
         end

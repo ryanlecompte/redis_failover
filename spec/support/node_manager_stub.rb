@@ -48,6 +48,8 @@ module RedisFailover
     end
 
     def initialize_path; end
+    def delete_path; end
+    def create_path; end
     def write_state; end
   end
 end

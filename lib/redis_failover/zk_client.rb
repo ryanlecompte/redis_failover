@@ -12,6 +12,11 @@ module RedisFailover
       build_client
     end
 
+    def on_session_expiration(&block)
+      @client.on_expired_session { block.call }
+      @on_session_expiration = block
+    end
+
     def get(*args, &block)
       perform_with_reconnect { @client.get(*args, &block) }
     end
@@ -32,6 +37,10 @@ module RedisFailover
       perform_with_reconnect { @client.create(*args, &block) }
     end
 
+    def delete(*args, &block)
+      perform_with_reconnect { @client.delete(*args, &block) }
+    end
+
     private
 
     def perform_with_reconnect
@@ -43,6 +52,7 @@ module RedisFailover
         if tries < MAX_RECONNECTS
           tries += 1
           build_client
+          @on_session_expiration.call if @on_session_expiration
           sleep(2) && retry
         end
 
@@ -54,11 +64,9 @@ module RedisFailover
       @lock.synchronize do
         if @client
           @client.reopen
-          return
+        else
+          @client = ZK.new(@servers)
         end
-
-        @client = ZK.new(@servers)
-        @client.on_expired_session { build_client }
         logger.info("Communicating with zookeeper servers #{@servers}")
       end
     end

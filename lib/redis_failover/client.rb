@@ -108,10 +108,17 @@ module RedisFailover
 
     def setup_zookeeper_client
       @zkclient = ZkClient.new(@zkservers)
+      @zkclient.on_session_expiration { build_clients }
+
       # register a watcher for future changes
       @zkclient.watcher.register(ZK_PATH) do |event|
-        if event.node_changed?
+        if event.node_created? || event.node_changed?
           build_clients
+        elsif event.node_deleted?
+          @zkclient.stat(ZK_PATH, :watch => true)
+          @lock.synchronize { purge_clients }
+        else
+          logger.error("Unknown ZK node event: #{event.inspect}")
         end
       end
     end
@@ -122,7 +129,6 @@ module RedisFailover
 
     def dispatch(method, *args, &block)
       verify_supported!(method)
-      build_clients
       tries = 0
 
       begin
@@ -135,10 +141,9 @@ module RedisFailover
         end
       rescue Error, ZookeeperExceptions::ZookeeperException, *REDIS_ERRORS => ex
         logger.error("Error while handling operation `#{method}` - #{ex.message}")
-        build_clients
-
         if tries < @max_retries
           tries += 1
+          build_clients
           sleep(RETRY_WAIT_TIME) && retry
         end
 
@@ -147,7 +152,7 @@ module RedisFailover
     end
 
     def master
-      master = @master
+      master = @lock.synchronize { @master }
       if master
         verify_role!(master, :master)
         return master
@@ -157,7 +162,7 @@ module RedisFailover
 
     def slave
       # pick a slave, if none available fallback to master
-      if slave = @slaves.sample
+      if slave = @lock.synchronize { @slaves.sample }
         verify_role!(slave, :slave)
         return slave
       end
@@ -172,15 +177,14 @@ module RedisFailover
           nodes = fetch_nodes
           return unless nodes_changed?(nodes)
 
+          purge_clients
           logger.info("Building new clients for nodes #{nodes}")
-          old_master = @master
-          old_slaves = @slaves
-          master = new_clients_for(nodes[:master]).first if nodes[:master]
-          slaves = new_clients_for(*nodes[:slaves])
-          @master = master
-          @slaves = slaves
-          disconnect(old_master, *old_slaves)
+          new_master = new_clients_for(nodes[:master]).first if nodes[:master]
+          new_slaves = new_clients_for(*nodes[:slaves])
+          @master = new_master
+          @slaves = new_slaves
         rescue => ex
+          purge_clients
           logger.error("Failed to fetch nodes from #{@zkservers} - #{ex.message}")
           logger.error(ex.backtrace.join("\n"))
 
@@ -261,6 +265,13 @@ module RedisFailover
           end
         end
       end
+    end
+
+    def purge_clients
+      logger.info("Purging current redis clients")
+      disconnect(@master, *@slaves)
+      @master = nil
+      @slaves = []
     end
   end
 end

@@ -29,7 +29,6 @@ module RedisFailover
 
     def handle_state_changes
       while state_change = @queue.pop
-        last_nodes = current_nodes
         begin
           node, state = state_change
           case state
@@ -39,10 +38,8 @@ module RedisFailover
           else raise InvalidNodeStateError.new(node, state)
           end
 
-          # flush current state if it changed
-          if last_nodes != current_nodes
-            write_state
-          end
+          # flush current state
+          write_state
         rescue NodeUnavailableError
           # node suddenly became unavailable, silently
           # handle since the watcher will take care of
@@ -99,6 +96,7 @@ module RedisFailover
     end
 
     def promote_new_master(node = nil)
+      delete_path
       @master = nil
 
       # make a specific node or slave the new master
@@ -111,6 +109,8 @@ module RedisFailover
       candidate.make_master!
       @master = candidate
       redirect_slaves_to_master
+      create_path
+      write_state
       logger.info("Successfully promoted #{candidate} to master.")
     end
 
@@ -186,12 +186,23 @@ module RedisFailover
       }
     end
 
-    def initialize_path
+    def delete_path
+      if @zkclient.stat(ZK_PATH).exists?
+        @zkclient.delete(ZK_PATH)
+        logger.info("Deleted zookeeper node #{ZK_PATH}")
+      end
+    end
+
+    def create_path
       # create nodes path if it doesn't already exist in ZK
       unless @zkclient.stat(ZK_PATH).exists?
-        @zkclient.create(ZK_PATH)
-        logger.info("Successfully created zookeeper path #{ZK_PATH}")
+        @zkclient.create(ZK_PATH, encode(current_nodes))
+        logger.info("Created zookeeper node #{ZK_PATH}")
       end
+    end
+
+    def initialize_path
+      create_path
       write_state
     end
 
@@ -200,8 +211,6 @@ module RedisFailover
     rescue ZookeeperExceptions::ZookeeperException => ex
       logger.error("Failed to write current state to zookeeper: #{ex.message}" +
         ", state will be written again on next node state update")
-    else
-      logger.info("Successfully wrote current state to zookeeper.")
     end
   end
 end

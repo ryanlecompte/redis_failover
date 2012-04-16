@@ -19,8 +19,7 @@ module RedisFailover
       }
     end
 
-    def new_zookeeper_client(servers)
-    end
+    def setup_zookeeper_client; end
   end
 
   describe Client do
@@ -33,18 +32,6 @@ module RedisFailover
 
       it 'properly parses slaves' do
         client.current_slaves.first.to_s.should == 'localhost:1111'
-      end
-
-      it 'does not rebuild clients if hosts have not changed' do
-        class << client
-          attr_reader :built_new_client
-          def new_clients_for(*)
-            @built_new_client = true
-          end
-        end
-
-        5.times { client.send(:build_clients) }
-        client.built_new_client.should_not be_true
       end
     end
 
