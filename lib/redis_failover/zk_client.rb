@@ -67,9 +67,7 @@ module RedisFailover
     end
 
     def close_client
-      if @client
-        @client.close!
-      end
+      @client.close! if @client
     rescue ZookeeperExceptions::ZookeeperException
       # best effort
     end
