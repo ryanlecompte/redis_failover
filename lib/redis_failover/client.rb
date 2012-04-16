@@ -67,6 +67,7 @@ module RedisFailover
     # Options:
     #
     #   :zkservers - comma-separated zookeeper host:port pairs (required)
+    #   :znode_path - the Znode path override for redis server list (optional)
     #   :password - password for redis nodes (optional)
     #   :namespace - namespace for redis nodes (optional)
     #   :logger - logger override (optional)
@@ -76,6 +77,7 @@ module RedisFailover
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
       @zkservers = options.fetch(:zkservers) { raise ArgumentError, ':zkservers required'}
+      @znode = options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @namespace = options[:namespace]
       @password = options[:password]
       @retry = options[:retry_failure] || true
@@ -111,11 +113,11 @@ module RedisFailover
       @zkclient.on_session_expiration { build_clients }
 
       # register a watcher for future changes
-      @zkclient.watcher.register(ZK_PATH) do |event|
+      @zkclient.watcher.register(@znode) do |event|
         if event.node_created? || event.node_changed?
           build_clients
         elsif event.node_deleted?
-          @zkclient.stat(ZK_PATH, :watch => true)
+          @zkclient.stat( @znode, :watch => true)
           @lock.synchronize { purge_clients }
         else
           logger.error("Unknown ZK node event: #{event.inspect}")
@@ -199,7 +201,7 @@ module RedisFailover
     end
 
     def fetch_nodes
-      data = @zkclient.get(ZK_PATH, :watch => true).first
+      data = @zkclient.get(@znode, :watch => true).first
       nodes = symbolize_keys(decode(data))
       logger.debug("Fetched nodes: #{nodes}")
 

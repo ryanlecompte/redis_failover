@@ -23,6 +23,11 @@ module RedisFailover
           options[:zkservers] = servers
         end
 
+        opts.on('--znode-path path',
+          'Znode path override for storing redis server list (optional)') do |path|
+          options[:znode_path] = path
+        end
+
         opts.on('--max-failures count',
           'Max failures before manager marks node unavailable (default 3)') do |max|
           options[:max_failures] = Integer(max)
@@ -35,7 +40,6 @@ module RedisFailover
       end
 
       parser.parse(source)
-
       # assume password is same for all redis nodes
       if password = options[:password]
         options[:nodes].each { |opts| opts.update(:password => password) }

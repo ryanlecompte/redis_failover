@@ -6,6 +6,7 @@ module RedisFailover
     def initialize(options)
       @options = options
       @zkclient = ZkClient.new(@options[:zkservers])
+      @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @unavailable = []
       @queue = Queue.new
       discover_nodes
@@ -187,17 +188,17 @@ module RedisFailover
     end
 
     def delete_path
-      if @zkclient.stat(ZK_PATH).exists?
-        @zkclient.delete(ZK_PATH)
-        logger.info("Deleted zookeeper node #{ZK_PATH}")
+      if @zkclient.stat(@znode).exists?
+        @zkclient.delete(@znode)
+        logger.info("Deleted zookeeper node #{@znode}")
       end
     end
 
     def create_path
       # create nodes path if it doesn't already exist in ZK
-      unless @zkclient.stat(ZK_PATH).exists?
-        @zkclient.create(ZK_PATH, encode(current_nodes))
-        logger.info("Created zookeeper node #{ZK_PATH}")
+      unless @zkclient.stat(@znode).exists?
+        @zkclient.create(@znode, encode(current_nodes))
+        logger.info("Created zookeeper node #{@znode}")
       end
     end
 
@@ -207,7 +208,7 @@ module RedisFailover
     end
 
     def write_state
-      @zkclient.set(ZK_PATH, encode(current_nodes))
+      @zkclient.set(@znode, encode(current_nodes))
     rescue ZookeeperExceptions::ZookeeperException => ex
       logger.error("Failed to write current state to zookeeper: #{ex.message}" +
         ", state will be written again on next node state update")
