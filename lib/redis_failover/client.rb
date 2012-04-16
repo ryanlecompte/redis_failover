@@ -53,6 +53,12 @@ module RedisFailover
       :dbsize,
     ].freeze
 
+    ALL_ERRORS = [
+      Error,
+      ZookeeperExceptions::ZookeeperException,
+      REDIS_ERRORS,
+      StandardError].flatten
+
     # Performance optimization: to avoid unnecessary method_missing calls,
     # we proactively define methods that dispatch to the underlying redis
     # calls.
@@ -148,7 +154,7 @@ module RedisFailover
           # direct everything else to master
           master.send(method, *args, &block)
         end
-      rescue Error, ZookeeperExceptions::ZookeeperException, *REDIS_ERRORS => ex
+      rescue *ALL_ERRORS => ex
         logger.error("Error while handling operation `#{method}` - #{ex.message}")
         if tries < @max_retries
           tries += 1
@@ -192,7 +198,7 @@ module RedisFailover
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
           @slaves = new_slaves
-        rescue => ex
+        rescue *ALL_ERRORS => ex
           purge_clients
           logger.error("Failed to fetch nodes from #{@zkservers} - #{ex.message}")
           logger.error(ex.backtrace.join("\n"))
