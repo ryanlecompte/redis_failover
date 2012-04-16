@@ -76,7 +76,6 @@ module RedisFailover
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
       @zkservers = options.fetch(:zkservers) { raise ArgumentError, ':zkservers required'}
-      @zkclient = ZkClient.new(@zkservers)
       @namespace = options[:namespace]
       @password = options[:password]
       @retry = options[:retry_failure] || true
@@ -84,6 +83,7 @@ module RedisFailover
       @master = nil
       @slaves = []
       @lock = Mutex.new
+      setup_zookeeper_client
       build_clients
     end
 
@@ -105,6 +105,16 @@ module RedisFailover
     alias_method :to_s, :inspect
 
     private
+
+    def setup_zookeeper_client
+      @zkclient = ZkClient.new(@zkservers)
+      # register a watcher for future changes
+      @zkclient.watcher.register(ZK_PATH) do |event|
+        if event.node_changed?
+          build_clients
+        end
+      end
+    end
 
     def redis_operation?(method)
       Redis.public_instance_methods(false).include?(method)
@@ -186,8 +196,6 @@ module RedisFailover
 
     def fetch_nodes
       data = @zkclient.get(ZK_PATH, :watch => true).first
-      # register a watcher for future changes
-      @zkclient.watcher.register(ZK_PATH) { build_clients }
       nodes = symbolize_keys(decode(data))
       logger.debug("Fetched nodes: #{nodes}")
 
