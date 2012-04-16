@@ -110,7 +110,14 @@ module RedisFailover
 
     def setup_zookeeper_client
       @zkclient = ZkClient.new(@zkservers)
-      @zkclient.on_session_expiration { build_clients }
+
+      # when session expires / we are disconnected, purge client list
+      @zkclient.on_session_expiration do
+        @lock.synchronize { purge_clients }
+      end
+      @zkclient.event_handler.register_state_handler(:connecting) do
+        @lock.synchronize { purge_clients }
+      end
 
       # register a watcher for future changes
       @zkclient.watcher.register(@znode) do |event|

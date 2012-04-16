@@ -29,6 +29,10 @@ module RedisFailover
       perform_with_reconnect { @client.watcher(*args, &block) }
     end
 
+    def event_handler(*args, &block)
+      perform_with_reconnect { @client.event_handler(*args, &block) }
+    end
+
     def stat(*args, &block)
       perform_with_reconnect { @client.stat(*args, &block) }
     end
