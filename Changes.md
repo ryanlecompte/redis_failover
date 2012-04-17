@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Always try to create path before setting current state in Node Manager.
+
 0.5.1
 -----------
 - More logging around exceptions

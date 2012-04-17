@@ -206,6 +206,7 @@ module RedisFailover
     end
 
     def write_state
+      create_path
       @zkclient.set(@znode, encode(current_nodes))
     end
   end
