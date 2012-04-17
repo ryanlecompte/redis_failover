@@ -65,7 +65,7 @@ module RedisFailover
     #
     # Options:
     #
-    #   :zkservers - comma-separated zookeeper host:port pairs (required)
+    #   :zkservers - comma-separated ZooKeeper host:port pairs (required)
     #   :znode_path - the Znode path override for redis server list (optional)
     #   :password - password for redis nodes (optional)
     #   :namespace - namespace for redis nodes (optional)

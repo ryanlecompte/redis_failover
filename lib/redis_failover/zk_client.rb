@@ -5,6 +5,16 @@ module RedisFailover
     include Util
 
     MAX_RECONNECTS = 3
+    RECONNECTABLE_ERRORS = [
+      ZookeeperExceptions::ZookeeperException::SessionExpired,
+      ZookeeperExceptions::ZookeeperException::SystemError,
+      ZookeeperExceptions::ZookeeperException::ConnectionLoss,
+      ZookeeperExceptions::ZookeeperException::OperationTimeOut,
+      ZookeeperExceptions::ZookeeperException::AuthFailed,
+      ZookeeperExceptions::ZookeeperException::SessionMoved,
+      ZookeeperExceptions::ZookeeperException::ConnectionClosed,
+      ZookeeperExceptions::ZookeeperException::NotConnected
+    ].freeze
 
     def initialize(servers)
       @servers = servers
@@ -56,8 +66,9 @@ module RedisFailover
       tries = 0
       begin
         yield
-      rescue ZookeeperExceptions::ZookeeperException::SessionExpired
-        logger.info("Zookeeper client session expired, rebuilding client.")
+      rescue *RECONNECTABLE_ERRORS => ex
+        logger.error("ZooKeeper client connection error - rebuilding client: #{ex.message}")
+        logger.error(ex.backtrace.join("\n"))
         if tries < MAX_RECONNECTS
           tries += 1
           @on_session_expiration.call if @on_session_expiration
@@ -77,7 +88,7 @@ module RedisFailover
         else
           @client = ZK.new(@servers)
         end
-        logger.info("Communicating with zookeeper servers #{@servers}")
+        logger.info("Communicating with ZooKeeper servers #{@servers}")
       end
     end
   end

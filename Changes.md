@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Handle more ZK exceptions as candidates for reconnecting the client on error.
+
 0.5.2
 -----------
 - Always try to create path before setting current state in Node Manager.

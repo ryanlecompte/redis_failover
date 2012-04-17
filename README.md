@@ -58,7 +58,7 @@ following options:
     Usage: redis_node_manager [OPTIONS]
         -p, --password password          Redis password (optional)
         -n, --nodes redis nodes          Comma-separated redis host:port pairs (required)
-        -z zookeeper servers,            Comma-separated zookeeper host:port pairs (required)
+        -z zookeeper servers,            Comma-separated ZooKeeper host:port pairs (required)
             --zkservers
             --znode-path path            Znode path override for storing redis server list (optional)
             --max-failures count         Max failures before manager marks node unavailable (default 3)
@@ -85,7 +85,7 @@ a drop-in replacement for your existing pure redis client usage.
 
 The full set of options that can be passed to RedisFailover::Client are:
 
-     :zkservers     - comma-separated zookeeper host:port pairs (required)
+     :zkservers     - comma-separated ZooKeeper host:port pairs (required)
      :znode_path    - the Znode path override for redis server list (optional)
      :password      - password for redis nodes (optional)
      :namespace     - namespace for redis nodes (optional)

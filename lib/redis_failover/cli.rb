@@ -20,8 +20,8 @@ module RedisFailover
           end
         end
 
-        opts.on('-z', '--zkservers zookeeper servers',
-          'Comma-separated zookeeper host:port pairs (required)') do |servers|
+        opts.on('-z', '--zkservers ZooKeeper servers',
+          'Comma-separated ZooKeeper host:port pairs (required)') do |servers|
           options[:zkservers] = servers
         end
 
