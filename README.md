@@ -126,6 +126,10 @@ Ryan LeCompte
 
 [@ryanlecompte](https://twitter.com/ryanlecompte)
 
+## Acknowledgements
+
+Special thanks to [Eric Lindvall](https://github.com/eric) and [Jonathan Simms](https://github.com/slyphon) for their invaluable ZooKeeper advice and guidance!
+
 ## Contributing
 
 1. Fork it
