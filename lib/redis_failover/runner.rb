@@ -6,7 +6,7 @@ module RedisFailover
       @node_manager = NodeManager.new(options)
       trap_signals
       node_manager_thread = Thread.new { @node_manager.start }
-      Util.logger.info("Redis Node Manager successfully started.")
+      Util.logger.info("Redis Node Manager v#{VERSION} successfully started (#{RUBY_DESCRIPTION})")
       node_manager_thread.join
     end
 
