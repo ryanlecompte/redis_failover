@@ -1,4 +1,4 @@
-HEAD
+0.5.2
 -----------
 - Always try to create path before setting current state in Node Manager.
 - More explicit rescuing of exceptions.
