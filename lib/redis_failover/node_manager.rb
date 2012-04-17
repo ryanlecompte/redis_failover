@@ -41,10 +41,9 @@ module RedisFailover
 
           # flush current state
           write_state
-        rescue NodeUnavailableError
-          # node suddenly became unavailable, silently
-          # handle since the watcher will take care of
-          # keeping track of the node
+        rescue *ALL_ERRORS => ex
+          logger.error("Error while handling #{state_change.inspect}: #{ex.message}")
+          logger.error(ex.backtrace.join("\n"))
         end
       end
     end
@@ -209,9 +208,6 @@ module RedisFailover
 
     def write_state
       @zkclient.set(@znode, encode(current_nodes))
-    rescue ZookeeperExceptions::ZookeeperException => ex
-      logger.error("Failed to write current state to zookeeper: #{ex.message}" +
-        ", state will be written again on next node state update")
     end
   end
 end

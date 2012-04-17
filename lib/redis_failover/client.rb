@@ -6,7 +6,6 @@ module RedisFailover
     include Util
 
     RETRY_WAIT_TIME = 3
-    REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }.freeze
     REDIS_READ_OPS = Set[
       :echo,
       :exists,
@@ -52,12 +51,6 @@ module RedisFailover
       :ttl,
       :dbsize,
     ].freeze
-
-    ALL_ERRORS = [
-      Error,
-      ZookeeperExceptions::ZookeeperException,
-      REDIS_ERRORS,
-      StandardError].flatten
 
     # Performance optimization: to avoid unnecessary method_missing calls,
     # we proactively define methods that dispatch to the underlying redis
