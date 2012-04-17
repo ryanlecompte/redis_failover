@@ -194,7 +194,7 @@ module RedisFailover
     end
 
     def create_path
-      @zkclient.create(@znode, encode(current_nodes))
+      @zkclient.create(@znode, encode(current_nodes), :ephemeral => true)
       logger.info("Created zookeeper node #{@znode}")
     rescue ZK::Exceptions::NodeExists
       # best effort

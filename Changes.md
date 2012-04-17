@@ -2,6 +2,7 @@
 -----------
 - More logging around exceptions
 - Handle re-watching on client session expirations / disconnections
+- Use an ephemeral node for the list of redis servers
 
 0.5.0
 -----------
