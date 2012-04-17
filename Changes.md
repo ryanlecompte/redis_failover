@@ -1,4 +1,4 @@
-HEAD
+0.5.0
 -----------
 - redis_failover is now built on top of ZooKeeper! This means redis_failover enjoys all of the reliability, redundancy, and data consistency offered by ZooKeeper. The old fragile HTTP-based approach has been removed and will no longer be supported in favor of ZooKeeper. This does mean that in order to use redis_failover, you must have ZooKeeper installed and running. Please see the README for steps on how to do this if you don't already have ZooKeeper running in your production environment.
 
