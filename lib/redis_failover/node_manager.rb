@@ -41,7 +41,7 @@ module RedisFailover
 
           # flush current state
           write_state
-        rescue *ALL_ERRORS => ex
+        rescue StandardError, *CONNECTIVITY_ERRORS => ex
           logger.error("Error while handling #{state_change.inspect}: #{ex.message}")
           logger.error(ex.backtrace.join("\n"))
         end

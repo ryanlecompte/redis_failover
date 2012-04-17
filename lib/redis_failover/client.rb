@@ -83,7 +83,7 @@ module RedisFailover
       @max_retries = @retry ? options.fetch(:max_retries, 3) : 1
       @master = nil
       @slaves = []
-      @lock = Mutex.new
+      @lock = Monitor.new
       setup_zookeeper_client
       build_clients
     end
@@ -112,12 +112,12 @@ module RedisFailover
 
       # when session expires, purge client list
       @zkclient.on_session_expiration do
-        @lock.synchronize { purge_clients }
+        purge_clients
       end
 
       # when we are disconnected, purge client list
       @zkclient.event_handler.register_state_handler(:connecting) do
-        @lock.synchronize { purge_clients }
+        purge_clients
       end
 
       # when session is recovered, watch again
@@ -131,7 +131,7 @@ module RedisFailover
           build_clients
         elsif event.node_deleted?
           @zkclient.stat(@znode, :watch => true)
-          @lock.synchronize { purge_clients }
+          purge_clients
         else
           logger.error("Unknown ZK node event: #{event.inspect}")
         end
@@ -154,7 +154,7 @@ module RedisFailover
           # direct everything else to master
           master.send(method, *args, &block)
         end
-      rescue *ALL_ERRORS => ex
+      rescue *CONNECTIVITY_ERRORS => ex
         logger.error("Error while handling operation `#{method}` - #{ex.message}")
         logger.error(ex.backtrace.join("\n"))
 
@@ -200,7 +200,7 @@ module RedisFailover
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
           @slaves = new_slaves
-        rescue *ALL_ERRORS => ex
+        rescue StandardError, *CONNECTIVITY_ERRORS => ex
           purge_clients
           logger.error("Failed to fetch nodes from #{@zkservers} - #{ex.message}")
           logger.error(ex.backtrace.join("\n"))
@@ -285,10 +285,12 @@ module RedisFailover
     end
 
     def purge_clients
-      logger.info("Purging current redis clients")
-      disconnect(@master, *@slaves)
-      @master = nil
-      @slaves = []
+      @lock.synchronize do
+        logger.info("Purging current redis clients")
+        disconnect(@master, *@slaves)
+        @master = nil
+        @slaves = []
+      end
     end
   end
 end

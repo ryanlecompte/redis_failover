@@ -5,13 +5,13 @@ module RedisFailover
   module Util
     extend self
 
-    DEFAULT_ZNODE_PATH = '/redis_failover_nodes'
-    REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }
-    ALL_ERRORS = [
+    DEFAULT_ZNODE_PATH = '/redis_failover_nodes'.freeze
+    REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }.freeze
+    CONNECTIVITY_ERRORS = [
       RedisFailover::Error,
+      ZK::Exceptions::KeeperException,
       ZookeeperExceptions::ZookeeperException,
-      REDIS_ERRORS,
-      StandardError].flatten
+      REDIS_ERRORS].flatten.freeze
 
     def symbolize_keys(hash)
       Hash[hash.map { |k, v| [k.to_sym, v] }]

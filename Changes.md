@@ -1,6 +1,7 @@
 HEAD
 -----------
 - Always try to create path before setting current state in Node Manager.
+- More explicit rescuing of exceptions.
 
 0.5.1
 -----------
