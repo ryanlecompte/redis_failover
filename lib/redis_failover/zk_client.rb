@@ -67,7 +67,7 @@ module RedisFailover
       begin
         yield
       rescue *RECONNECTABLE_ERRORS => ex
-        logger.error("ZooKeeper client connection error - rebuilding client: #{ex.message}")
+        logger.error("ZooKeeper client connection error - rebuilding client: #{ex.inspect}")
         logger.error(ex.backtrace.join("\n"))
         if tries < MAX_RECONNECTS
           tries += 1

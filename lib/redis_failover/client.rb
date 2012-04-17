@@ -155,7 +155,7 @@ module RedisFailover
           master.send(method, *args, &block)
         end
       rescue *CONNECTIVITY_ERRORS => ex
-        logger.error("Error while handling operation `#{method}` - #{ex.message}")
+        logger.error("Error while handling operation `#{method}` - #{ex.inspect}")
         logger.error(ex.backtrace.join("\n"))
 
         if tries < @max_retries
@@ -202,7 +202,7 @@ module RedisFailover
           @slaves = new_slaves
         rescue StandardError, *CONNECTIVITY_ERRORS => ex
           purge_clients
-          logger.error("Failed to fetch nodes from #{@zkservers} - #{ex.message}")
+          logger.error("Failed to fetch nodes from #{@zkservers} - #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
 
           if tries < @max_retries

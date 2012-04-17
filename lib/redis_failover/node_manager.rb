@@ -42,7 +42,7 @@ module RedisFailover
           # flush current state
           write_state
         rescue StandardError, *CONNECTIVITY_ERRORS => ex
-          logger.error("Error while handling #{state_change.inspect}: #{ex.message}")
+          logger.error("Error while handling #{state_change.inspect}: #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
         end
       end
@@ -190,7 +190,7 @@ module RedisFailover
       @zkclient.delete(@znode)
       logger.info("Deleted ZooKeeper node #{@znode}")
     rescue ZK::Exceptions::NoNode => ex
-      logger.info("Tried to delete missing znode: #{ex.message}")
+      logger.info("Tried to delete missing znode: #{ex.inspect}")
     end
 
     def create_path
