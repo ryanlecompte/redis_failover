@@ -114,6 +114,7 @@ The full set of options that can be passed to RedisFailover::Client are:
 - To learn more about Redis master/slave replication, see the [Redis documentation](http://redis.io/topics/replication).
 - To learn more about ZooKeeper, see the official [ZooKeeper](http://zookeeper.apache.org/) site.
 - See the [Quick ZooKeeper Guide](https://github.com/ryanlecompte/redis_failover/wiki/Quick-ZooKeeper-Guide) for a quick guide to getting ZooKeeper up and running with redis_failover.
+- To learn more about how ZooKeeper handles network partitions, see [ZooKeeper Failure Scenarios](http://wiki.apache.org/hadoop/ZooKeeper/FailureScenarios)
 
 ## License
 
