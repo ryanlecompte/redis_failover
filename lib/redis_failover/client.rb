@@ -71,7 +71,7 @@ module RedisFailover
     #   :namespace - namespace for redis nodes (optional)
     #   :logger - logger override (optional)
     #   :retry_failure - indicate if failures should be retried (default true)
-    #   :max_retries - max retries for a failure (default 5)
+    #   :max_retries - max retries for a failure (default 3)
     #
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
@@ -80,7 +80,7 @@ module RedisFailover
       @namespace = options[:namespace]
       @password = options[:password]
       @retry = options[:retry_failure] || true
-      @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
+      @max_retries = @retry ? options.fetch(:max_retries, 3) : 1
       @master = nil
       @slaves = []
       @lock = Mutex.new
