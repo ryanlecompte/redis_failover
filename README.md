@@ -96,7 +96,7 @@ The full set of options that can be passed to RedisFailover::Client are:
 ## Requirements
 
 - redis_failover is actively tested against MRI 1.9.2/1.9.3. Other rubies may work, although I don't actively test against them. 1.8 is not supported.
-- redis_failover requires a ZooKeeper service cluster to ensure reliability and data consistency. ZooKeeper is very simple and easy to get up and running. Please refer to this [Quick Zookeper Guide](https://github.com/ryanlecompte/redis_failover/wiki/Quick-ZooKeeper-Guide) to get up and running quickly if you don't already have ZooKeeper as a part of your environment.
+- redis_failover requires a ZooKeeper service cluster to ensure reliability and data consistency. ZooKeeper is very simple and easy to get up and running. Please refer to this [Quick ZooKeeper Guide](https://github.com/ryanlecompte/redis_failover/wiki/Quick-ZooKeeper-Guide) to get up and running quickly if you don't already have ZooKeeper as a part of your environment.
 
 ## Considerations
 
