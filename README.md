@@ -107,6 +107,7 @@ The full set of options that can be passed to RedisFailover::Client are:
 ## TODO
 
 - Rework specs to work against a set of real Redis/ZooKeeper nodes as opposed to stubs.
+- Add support for running more than one Node Manager.
 
 ## Resources
 
