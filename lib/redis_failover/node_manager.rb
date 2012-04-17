@@ -189,8 +189,8 @@ module RedisFailover
     def delete_path
       @zkclient.delete(@znode)
       logger.info("Deleted zookeeper node #{@znode}")
-    rescue ZK::Exceptions::NoNode
-      # best effort
+    rescue ZK::Exceptions::NoNode => ex
+      logger.info("Tried to delete missing znode: #{ex.message}")
     end
 
     def create_path
