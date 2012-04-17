@@ -156,6 +156,8 @@ module RedisFailover
         end
       rescue *ALL_ERRORS => ex
         logger.error("Error while handling operation `#{method}` - #{ex.message}")
+        logger.error(ex.backtrace.join("\n"))
+
         if tries < @max_retries
           tries += 1
           build_clients
