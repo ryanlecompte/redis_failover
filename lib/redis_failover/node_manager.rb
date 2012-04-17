@@ -187,18 +187,17 @@ module RedisFailover
     end
 
     def delete_path
-      if @zkclient.stat(@znode).exists?
-        @zkclient.delete(@znode)
-        logger.info("Deleted zookeeper node #{@znode}")
-      end
+      @zkclient.delete(@znode)
+      logger.info("Deleted zookeeper node #{@znode}")
+    rescue ZK::Exceptions::NoNode
+      # best effort
     end
 
     def create_path
-      # create nodes path if it doesn't already exist in ZK
-      unless @zkclient.stat(@znode).exists?
-        @zkclient.create(@znode, encode(current_nodes))
-        logger.info("Created zookeeper node #{@znode}")
-      end
+      @zkclient.create(@znode, encode(current_nodes))
+      logger.info("Created zookeeper node #{@znode}")
+    rescue ZK::Exceptions::NodeExists
+      # best effort
     end
 
     def initialize_path
