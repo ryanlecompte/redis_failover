@@ -110,12 +110,19 @@ module RedisFailover
     def setup_zookeeper_client
       @zkclient = ZkClient.new(@zkservers)
 
-      # when session expires / we are disconnected, purge client list
+      # when session expires, purge client list
       @zkclient.on_session_expiration do
         @lock.synchronize { purge_clients }
       end
+
+      # when we are disconnected, purge client list
       @zkclient.event_handler.register_state_handler(:connecting) do
         @lock.synchronize { purge_clients }
+      end
+
+      # when session is recovered, watch again
+      @zkclient.on_session_recovered do
+        @zkclient.stat(@znode, :watch => true)
       end
 
       # register a watcher for future changes
@@ -123,7 +130,7 @@ module RedisFailover
         if event.node_created? || event.node_changed?
           build_clients
         elsif event.node_deleted?
-          @zkclient.stat( @znode, :watch => true)
+          @zkclient.stat(@znode, :watch => true)
           @lock.synchronize { purge_clients }
         else
           logger.error("Unknown ZK node event: #{event.inspect}")

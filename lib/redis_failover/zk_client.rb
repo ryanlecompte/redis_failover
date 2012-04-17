@@ -17,6 +17,11 @@ module RedisFailover
       @on_session_expiration = block
     end
 
+    def on_session_recovered(&block)
+      @client.on_connected { block.call }
+      @on_session_recovered = block
+    end
+
     def get(*args, &block)
       perform_with_reconnect { @client.get(*args, &block) }
     end
@@ -55,8 +60,9 @@ module RedisFailover
         logger.info("Zookeeper client session expired, rebuilding client.")
         if tries < MAX_RECONNECTS
           tries += 1
-          build_client
           @on_session_expiration.call if @on_session_expiration
+          build_client
+          @on_session_recovered.call if @on_session_recovered
           sleep(2) && retry
         end
 
