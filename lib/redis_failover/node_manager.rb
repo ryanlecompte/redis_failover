@@ -119,12 +119,11 @@ module RedisFailover
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
       raise NoMasterError unless @master = find_master(nodes)
       @slaves = nodes - [@master]
+      logger.info("Managing master (#{@master}) and slaves" +
+        " (#{@slaves.map(&:to_s).join(', ')})")
 
       # ensure that slaves are correctly pointing to this master
       redirect_slaves_to_master
-
-      logger.info("Managing master (#{@master}) and slaves" +
-        " (#{@slaves.map(&:to_s).join(', ')})")
     end
 
     def spawn_watchers

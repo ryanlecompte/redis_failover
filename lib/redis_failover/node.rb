@@ -52,7 +52,7 @@ module RedisFailover
       perform_operation do |redis|
         unless slave_of?(master)
           redis.slaveof(master.host, master.port)
-          logger.info("#{self} now a slave of master #{master}")
+          logger.info("#{self} is now a slave of master #{master}")
           wakeup
         end
       end
