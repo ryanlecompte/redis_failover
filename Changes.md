@@ -1,3 +1,7 @@
+0.5.4
+-----------
+- No longer use problematic ZK#reopen.
+
 0.5.3
 -----------
 - Handle more ZK exceptions as candidates for reconnecting the client on error.
