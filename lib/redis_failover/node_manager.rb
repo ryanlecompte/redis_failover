@@ -128,7 +128,7 @@ module RedisFailover
     end
 
     def spawn_watchers
-      @watchers = [@master, *@slaves].map do |node|
+      @watchers = [@master, @slaves, @unavailable].flatten.map do |node|
         NodeWatcher.new(self, node,  @options[:max_failures] || 3)
       end
       @watchers.each(&:watch)
