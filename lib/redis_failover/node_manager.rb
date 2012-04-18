@@ -86,9 +86,9 @@ module RedisFailover
     def handle_syncing(node)
       reconcile(node)
 
-      if node.prohibits_stale_reads?
+      if node.syncing_with_master? && node.prohibits_stale_reads?
         logger.info("Node #{node} not ready yet, still syncing with master.")
-        @unavailable << node
+        force_unavailable_slave(node)
         return
       end
 
@@ -135,27 +135,29 @@ module RedisFailover
     end
 
     def find_master(nodes)
-      # try to find the master - if the actual master is currently
-      # down, it will be handled by its watcher
       nodes.find do |node|
         begin
           node.master?
         rescue NodeUnavailableError
-          # will eventually be handled by watcher
           false
         end
       end
     end
 
     def redirect_slaves_to_master
-      # redirect each slave to the current master
-      @slaves.each do |slave|
+      @slaves.dup.each do |slave|
         begin
           slave.make_slave!(@master)
         rescue NodeUnavailableError
-          # will also be detected by watcher
+          logger.info("Failed to redirect unreachable slave #{slave} to master #{@master}")
+          force_unavailable_slave(slave)
         end
       end
+    end
+
+    def force_unavailable_slave(node)
+      @slaves.delete(node)
+      @unavailable << node unless @unavailable.include?(node)
     end
 
     # It's possible that a newly available node may have been restarted

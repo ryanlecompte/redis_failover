@@ -177,8 +177,7 @@ module RedisFailover
     end
 
     def master
-      master = @lock.synchronize { @master }
-      if master
+      if master = @lock.synchronize { @master }
         verify_role!(master, :master)
         return master
       end
