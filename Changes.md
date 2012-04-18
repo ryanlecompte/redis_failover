@@ -1,4 +1,4 @@
-HEAD
+0.5.3
 -----------
 - Handle more ZK exceptions as candidates for reconnecting the client on error.
 - Add safety check to actively purge redis clients if a RedisFailover::Client hasn't heard from the Node Manager in a certain time window.
