@@ -110,6 +110,7 @@ module RedisFailover
 
     def setup_zookeeper_client
       @zkclient = ZkClient.new(@zkservers)
+      update_znode_timestamp
 
       # when session expires, purge client list
       @zkclient.on_session_expiration do

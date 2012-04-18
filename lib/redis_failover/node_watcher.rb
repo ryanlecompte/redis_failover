@@ -3,7 +3,7 @@ module RedisFailover
   class NodeWatcher
     include Util
 
-    WATCHER_SLEEP_TIME = 3
+    WATCHER_SLEEP_TIME = 2
 
     def initialize(manager, node, max_failures)
       @manager = manager
