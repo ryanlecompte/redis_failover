@@ -23,6 +23,7 @@ module RedisFailover
     end
 
     def shutdown
+      @queue << nil
       @watchers.each(&:shutdown)
     end
 

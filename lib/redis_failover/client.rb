@@ -5,6 +5,7 @@ module RedisFailover
   class Client
     include Util
 
+    ZNODE_UPDATE_TIMEOUT = 9
     RETRY_WAIT_TIME = 3
     REDIS_READ_OPS = Set[
       :echo,
@@ -128,10 +129,12 @@ module RedisFailover
       # register a watcher for future changes
       @zkclient.watcher.register(@znode) do |event|
         if event.node_created? || event.node_changed?
+          update_znode_timestamp
           build_clients
         elsif event.node_deleted?
-          @zkclient.stat(@znode, :watch => true)
+          update_znode_timestamp
           purge_clients
+          @zkclient.stat(@znode, :watch => true)
         else
           logger.error("Unknown ZK node event: #{event.inspect}")
         end
@@ -143,9 +146,13 @@ module RedisFailover
     end
 
     def dispatch(method, *args, &block)
+      unless recently_heard_from_node_manager?
+        purge_clients
+        raise MissingNodeManagerError.new(ZNODE_UPDATE_TIMEOUT)
+      end
+
       verify_supported!(method)
       tries = 0
-
       begin
         if REDIS_READ_OPS.include?(method)
           # send read operations to a slave
@@ -291,6 +298,15 @@ module RedisFailover
         @master = nil
         @slaves = []
       end
+    end
+
+    def update_znode_timestamp
+      @last_znode_timestamp = Time.now
+    end
+
+    def recently_heard_from_node_manager?
+      return false unless @last_znode_timestamp
+      Time.now - @last_znode_timestamp <= ZNODE_UPDATE_TIMEOUT
     end
   end
 end

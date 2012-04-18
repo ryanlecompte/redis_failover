@@ -19,7 +19,9 @@ module RedisFailover
       }
     end
 
-    def setup_zookeeper_client; end
+    def setup_zookeeper_client
+      update_znode_timestamp
+    end
   end
 
   describe Client do
@@ -37,14 +39,22 @@ module RedisFailover
 
     describe '#dispatch' do
       it 'routes write operations to master' do
-        client.current_master.should_receive(:del)
+        called = false
+        client.current_master.define_singleton_method(:del) do |*args|
+          called = true
+        end
         client.del('foo')
+        called.should be_true
       end
 
       it 'routes read operations to a slave' do
+        called = false
         client.current_slaves.first.change_role_to('slave')
-        client.current_slaves.first.should_receive(:get)
+        client.current_slaves.first.define_singleton_method(:get) do |*args|
+          called = true
+        end
         client.get('foo')
+        called.should be_true
       end
 
       it 'reconnects when node is unavailable' do
@@ -77,6 +87,11 @@ module RedisFailover
 
       it 'raises error for unsupported operations' do
         expect { client.select }.to raise_error(UnsupportedOperationError)
+      end
+
+      it 'raises error when no communication from Node Manager within certain time window' do
+        client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
+        expect { client.del('foo') }.to raise_error(MissingNodeManagerError)
       end
     end
   end

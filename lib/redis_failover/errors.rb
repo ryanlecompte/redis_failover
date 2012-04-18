@@ -40,4 +40,10 @@ module RedisFailover
       super("Operation `#{operation}` is currently unsupported")
     end
   end
+
+  class MissingNodeManagerError < Error
+    def initialize(timeout)
+      super("Failed to hear from Node Manager within #{timeout} seconds")
+    end
+  end
 end
