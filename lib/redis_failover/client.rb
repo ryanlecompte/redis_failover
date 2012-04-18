@@ -109,37 +109,37 @@ module RedisFailover
     private
 
     def setup_zookeeper_client
-      @zkclient = ZkClient.new(@zkservers)
-      update_znode_timestamp
-
-      # when session expires, purge client list
-      @zkclient.on_session_expiration do
-        purge_clients
-      end
-
-      # when we are disconnected, purge client list
-      @zkclient.event_handler.register_state_handler(:connecting) do
-        purge_clients
-      end
-
-      # when session is recovered, watch again
-      @zkclient.on_session_recovered do
-        @zkclient.stat(@znode, :watch => true)
-      end
-
-      # register a watcher for future changes
-      @zkclient.watcher.register(@znode) do |event|
-        if event.node_created? || event.node_changed?
-          update_znode_timestamp
-          build_clients
-        elsif event.node_deleted?
-          update_znode_timestamp
+      @zkclient = ZkClient.new(@zkservers) do |client|
+        # when session expires, purge client list
+        client.on_session_expiration do
           purge_clients
-          @zkclient.stat(@znode, :watch => true)
-        else
-          logger.error("Unknown ZK node event: #{event.inspect}")
+        end
+
+        # when we are disconnected, purge client list
+        client.event_handler.register_state_handler(:connecting) do
+          purge_clients
+        end
+
+        # when session is recovered, watch again
+        client.on_session_recovered do
+          client.stat(@znode, :watch => true)
+        end
+
+        # register a watcher for future changes
+        client.watcher.register(@znode) do |event|
+          if event.node_created? || event.node_changed?
+            update_znode_timestamp
+            build_clients
+          elsif event.node_deleted?
+            update_znode_timestamp
+            purge_clients
+            client.stat(@znode, :watch => true)
+          else
+            logger.error("Unknown ZK node event: #{event.inspect}")
+          end
         end
       end
+      update_znode_timestamp
     end
 
     def redis_operation?(method)

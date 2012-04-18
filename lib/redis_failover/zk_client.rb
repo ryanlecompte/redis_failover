@@ -15,9 +15,18 @@ module RedisFailover
       ZookeeperExceptions::ZookeeperException::ConnectionClosed,
       ZookeeperExceptions::ZookeeperException::NotConnected
     ].freeze
+    WRAPPED_ZK_METHODS = [
+      :get,
+      :set,
+      :watcher,
+      :event_handler,
+      :stat,
+      :create,
+      :delete].freeze
 
-    def initialize(servers)
+    def initialize(servers, &setup_block)
       @servers = servers
+      @setup_block = setup_block
       @lock = Mutex.new
       build_client
     end
@@ -32,32 +41,14 @@ module RedisFailover
       @on_session_recovered = block
     end
 
-    def get(*args, &block)
-      perform_with_reconnect { @client.get(*args, &block) }
-    end
-
-    def set(*args, &block)
-      perform_with_reconnect { @client.set(*args, &block) }
-    end
-
-    def watcher(*args, &block)
-      perform_with_reconnect { @client.watcher(*args, &block) }
-    end
-
-    def event_handler(*args, &block)
-      perform_with_reconnect { @client.event_handler(*args, &block) }
-    end
-
-    def stat(*args, &block)
-      perform_with_reconnect { @client.stat(*args, &block) }
-    end
-
-    def create(*args, &block)
-      perform_with_reconnect { @client.create(*args, &block) }
-    end
-
-    def delete(*args, &block)
-      perform_with_reconnect { @client.delete(*args, &block) }
+    WRAPPED_ZK_METHODS.each do |zk_method|
+      class_eval <<-RUBY
+        def #{zk_method}(*args, &block)
+          perform_with_reconnect do
+            @client.#{zk_method}(*args, &block)
+          end
+        end
+      RUBY
     end
 
     private
@@ -83,11 +74,8 @@ module RedisFailover
 
     def build_client
       @lock.synchronize do
-        if @client
-          @client.reopen
-        else
-          @client = ZK.new(@servers)
-        end
+        @client = ZK.new(@servers)
+        @setup_block.call(self) if @setup_block
         logger.info("Communicating with ZooKeeper servers #{@servers}")
       end
     end
