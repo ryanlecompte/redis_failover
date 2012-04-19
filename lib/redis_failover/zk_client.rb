@@ -4,8 +4,13 @@ module RedisFailover
   class ZkClient
     include Util
 
+    # Time to sleep before retrying a failed operation.
     TIMEOUT = 2
+
+    # Maximum reconnect attempts.
     MAX_RECONNECTS = 3
+
+    # Errors that are candidates for rebuilding the underlying ZK client.
     RECONNECTABLE_ERRORS = [
       ZookeeperExceptions::ZookeeperException::SessionExpired,
       ZookeeperExceptions::ZookeeperException::SystemError,
@@ -16,6 +21,8 @@ module RedisFailover
       ZookeeperExceptions::ZookeeperException::ConnectionClosed,
       ZookeeperExceptions::ZookeeperException::NotConnected
     ].freeze
+
+    # ZK methods that are wrapped with reconnect logic.
     WRAPPED_ZK_METHODS = [
       :get,
       :set,
@@ -59,7 +66,7 @@ module RedisFailover
       begin
         yield
       rescue *RECONNECTABLE_ERRORS => ex
-        logger.error("ZooKeeper client connection error - rebuilding client: #{ex.inspect}")
+        logger.error("ZooKeeper connection error, rebuilding client: #{ex.inspect}")
         logger.error(ex.backtrace.join("\n"))
         if tries < MAX_RECONNECTS
           tries += 1

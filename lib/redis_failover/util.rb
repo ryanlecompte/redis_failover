@@ -1,12 +1,17 @@
 require 'redis_failover/errors'
 
 module RedisFailover
-  # Common utiilty methods.
+  # Common utiilty methods and constants.
   module Util
     extend self
 
+    # Default node in ZooKeeper that contains the current list of available redis nodes.
     DEFAULT_ZNODE_PATH = '/redis_failover_nodes'.freeze
+
+    # Connectivity errors that the redis client raises.
     REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }.freeze
+
+    # Full set of errors related to connectivity.
     CONNECTIVITY_ERRORS = [
       RedisFailover::Error,
       ZK::Exceptions::KeeperException,

@@ -5,6 +5,7 @@ module RedisFailover
   class NodeWatcher
     include Util
 
+    # Time to sleep before checking on the monitored node's status.
     WATCHER_SLEEP_TIME = 2
 
     def initialize(manager, node, max_failures)

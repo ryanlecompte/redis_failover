@@ -5,6 +5,9 @@ module RedisFailover
   class Node
     include Util
 
+    # Maximum amount of time given for any redis operation to complete.
+    # If a redis operation doesn't complete in the alotted time, a
+    # NodeUnavailableError will be raised.
     MAX_OP_WAIT_TIME = 5
 
     attr_reader :host, :port
