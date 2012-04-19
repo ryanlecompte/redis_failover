@@ -4,6 +4,7 @@ module RedisFailover
   class ZkClient
     include Util
 
+    TIMEOUT = 2
     MAX_RECONNECTS = 3
     RECONNECTABLE_ERRORS = [
       ZookeeperExceptions::ZookeeperException::SessionExpired,
@@ -65,7 +66,8 @@ module RedisFailover
           @on_session_expiration.call if @on_session_expiration
           build_client
           @on_session_recovered.call if @on_session_recovered
-          sleep(2) && retry
+          sleep(TIMEOUT)
+          retry
         end
 
         raise
