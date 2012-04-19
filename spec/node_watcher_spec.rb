@@ -6,7 +6,7 @@ module RedisFailover
       @node_states = {}
     end
 
-    def notify_state_change(node, state)
+    def notify_state(node, state)
       @node_states[node] = state
     end
 
@@ -32,7 +32,7 @@ module RedisFailover
         end
 
         it 'properly informs manager of available node' do
-          node_manager.notify_state_change(node, :unavailable)
+          node_manager.notify_state(node, :unavailable)
           watcher = NodeWatcher.new(node_manager, node, 1)
           watcher.watch
           sleep(3)
@@ -43,7 +43,7 @@ module RedisFailover
 
       context 'node is syncing with master' do
         it 'properly informs manager of syncing node' do
-          node_manager.notify_state_change(node, :unavailable)
+          node_manager.notify_state(node, :unavailable)
           node.redis.slaveof('masterhost', 9876)
           node.redis.force_sync_with_master(true)
           watcher = NodeWatcher.new(node_manager, node, 1)

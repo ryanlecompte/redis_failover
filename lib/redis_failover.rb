@@ -1,4 +1,5 @@
 require 'zk'
+require 'set'
 require 'redis'
 require 'thread'
 require 'logger'

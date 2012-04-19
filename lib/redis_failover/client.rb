@@ -1,12 +1,32 @@
-require 'set'
-
 module RedisFailover
-  # Redis failover-aware client.
+  # Redis failover-aware client. RedisFailover::Client is a wrapper over a set of underlying redis
+  # clients, which means all normal redis operations can be performed on an instance of this class.
+  # The class only requires a set of ZooKeeper server addresses to function properly. The client
+  # will automatically retry failed operations, and handle failover to a new master. The client
+  # registers and listens for watcher events from the Node Manager. When these events are received,
+  # the client fetches the latest set of redis nodes from ZooKeeper and rebuilds its internal
+  # Redis clients appropriately. RedisFailover::Client also directs write operations to the master,
+  # and all read operations to the slaves.
+  #
+  # Examples
+  #
+  #   client = RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183')
+  #   client.set('foo', 1) # will be directed to master
+  #   client.get('foo') # will be directed to a slave
+  #
   class Client
     include Util
 
+    # Maximum allowed elapsed time between notifications from the Node Manager.
+    # When this timeout is reached, the client will raise a NoNodeManagerError
+    # and purge its internal redis clients.
     ZNODE_UPDATE_TIMEOUT = 9
+
+    # Amount of time to sleep before retrying a failed operation.
     RETRY_WAIT_TIME = 3
+
+    # Redis read operations that are automatically dispatched to slaves. Any
+    # operation not listed here will be dispatched to the master.
     REDIS_READ_OPS = Set[
       :echo,
       :exists,
@@ -47,6 +67,8 @@ module RedisFailover
       :zscore
     ].freeze
 
+    # Unsupported Redis operations. These don't make sense in a client
+    # that abstracts the master/slave servers.
     UNSUPPORTED_OPS = Set[
       :select,
       :ttl,
@@ -66,13 +88,13 @@ module RedisFailover
     #
     # Options:
     #
-    #   :zkservers - comma-separated ZooKeeper host:port pairs (required)
-    #   :znode_path - the Znode path override for redis server list (optional)
-    #   :password - password for redis nodes (optional)
-    #   :namespace - namespace for redis nodes (optional)
-    #   :logger - logger override (optional)
+    #   :zkservers     - comma-separated ZooKeeper host:port pairs (required)
+    #   :znode_path    - the Znode path override for redis server list (optional)
+    #   :password      - password for redis nodes (optional)
+    #   :namespace     - namespace for redis nodes (optional)
+    #   :logger        - logger override (optional)
     #   :retry_failure - indicate if failures should be retried (default true)
-    #   :max_retries - max retries for a failure (default 3)
+    #   :max_retries   - max retries for a failure (default 3)
     #
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
@@ -89,6 +111,7 @@ module RedisFailover
       build_clients
     end
 
+    # Dispatches redis operations to master/slaves.
     def method_missing(method, *args, &block)
       if redis_operation?(method)
         dispatch(method, *args, &block)
@@ -102,7 +125,7 @@ module RedisFailover
     end
 
     def inspect
-      "#<RedisFailover::Client - master: #{master_name}, slaves: #{slave_names})>"
+      "#<RedisFailover::Client (master: #{master_name}, slaves: #{slave_names})>"
     end
     alias_method :to_s, :inspect
 
@@ -163,13 +186,14 @@ module RedisFailover
           master.send(method, *args, &block)
         end
       rescue *CONNECTIVITY_ERRORS => ex
-        logger.error("Error while handling operation `#{method}` - #{ex.inspect}")
+        logger.error("Error while handling `#{method}` - #{ex.inspect}")
         logger.error(ex.backtrace.join("\n"))
 
         if tries < @max_retries
           tries += 1
           build_clients
-          sleep(RETRY_WAIT_TIME) && retry
+          sleep(RETRY_WAIT_TIME)
+          retry
         end
 
         raise
@@ -214,7 +238,8 @@ module RedisFailover
 
           if tries < @max_retries
             tries += 1
-            sleep(RETRY_WAIT_TIME) && retry
+            sleep(RETRY_WAIT_TIME)
+            retry
           end
 
           raise

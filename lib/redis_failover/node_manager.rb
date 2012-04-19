@@ -1,5 +1,11 @@
 module RedisFailover
-  # NodeManager manages a list of redis nodes.
+  # NodeManager manages a list of redis nodes. Upon startup, the NodeManager
+  # will discover the current redis master and slaves. Each redis node is
+  # monitored by a NodeWatcher instance. The NodeWatchers periodically
+  # report the current state of the redis node it's watching to the
+  # NodeManager via an asynchronous queue. The NodeManager processes the
+  # state reports and reacts appropriately by handling stale/dead nodes,
+  # and promoting a new redis master if it sees fit to do so.
   class NodeManager
     include Util
 
@@ -15,10 +21,10 @@ module RedisFailover
     def start
       initialize_path
       spawn_watchers
-      handle_state_changes
+      handle_state_reports
     end
 
-    def notify_state_change(node, state)
+    def notify_state(node, state)
       @queue << [node, state]
     end
 
@@ -29,10 +35,10 @@ module RedisFailover
 
     private
 
-    def handle_state_changes
-      while state_change = @queue.pop
+    def handle_state_reports
+      while state_report = @queue.pop
         begin
-          node, state = state_change
+          node, state = state_report
           case state
           when :unavailable then handle_unavailable(node)
           when :available   then handle_available(node)
@@ -43,7 +49,7 @@ module RedisFailover
           # flush current state
           write_state
         rescue StandardError, *CONNECTIVITY_ERRORS => ex
-          logger.error("Error while handling #{state_change.inspect}: #{ex.inspect}")
+          logger.error("Error handling #{state_report.inspect}: #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
         end
       end

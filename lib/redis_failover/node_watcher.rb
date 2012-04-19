@@ -1,5 +1,7 @@
 module RedisFailover
-  # Watches a specific redis node for its availability.
+  # NodeWatcher periodically monitors a specific redis node for its availability.
+  # NodeWatcher instances periodically report a redis node's current state
+  # to the NodeManager for proper handling.
   class NodeWatcher
     include Util
 
@@ -55,7 +57,7 @@ module RedisFailover
     end
 
     def notify(state)
-      @manager.notify_state_change(@node, state)
+      @manager.notify_state(@node, state)
     end
   end
 end

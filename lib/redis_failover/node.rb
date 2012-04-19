@@ -1,5 +1,7 @@
 module RedisFailover
-  # Represents a redis node (master or slave).
+  # Represents a redis node (master or slave). Instances of this class
+  # are used by the NodeManager and NodeWatcher to manipulate real redis
+  # servers.
   class Node
     include Util
 
