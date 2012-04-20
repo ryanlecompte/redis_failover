@@ -50,7 +50,7 @@ module RedisFailover
     end
 
     WRAPPED_ZK_METHODS.each do |zk_method|
-      class_eval <<-RUBY, __FILE__, __LINE__ + 1
+      class_eval(<<-RUBY, __FILE__, __LINE__ + 1)
         def #{zk_method}(*args, &block)
           perform_with_reconnect do
             @client.#{zk_method}(*args, &block)
