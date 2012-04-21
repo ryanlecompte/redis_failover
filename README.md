@@ -110,10 +110,6 @@ The full set of options that can be passed to RedisFailover::Client are:
 
 - Note that it's still possible for the RedisFailover::Client instances to see a stale list of servers for a very small window. In most cases this will not be the case due to how ZooKeeper handles distributed communication, but you should be aware that in the worst case the client could write to a "stale" master for a small period of time until the next watch event is received by the client via ZooKeeper.
 
-## TODO
-
-- Rework specs to work against a set of real Redis/ZooKeeper nodes as opposed to stubs.
-
 ## Resources
 
 - To learn more about Redis master/slave replication, see the [Redis documentation](http://redis.io/topics/replication).
