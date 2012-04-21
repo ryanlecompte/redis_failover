@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Add support for running multiple Node Manager processes for added redundancy (#4)
+
 0.5.4
 -----------
 - No longer use problematic ZK#reopen.

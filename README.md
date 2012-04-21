@@ -22,7 +22,8 @@ nodes. Note that detection of a node going down should be nearly instantaneous, 
 used to keep tabs on a node is via a blocking Redis BLPOP call (no polling). This call fails nearly
 immediately when the node actually goes offline. To avoid false positives (i.e., intermittent flaky
 network interruption), the Node Manager will only mark a node as unavailable if it fails to communicate with
-it 3 times (this is configurable via --max-failures, see configuration options below).
+it 3 times (this is configurable via --max-failures, see configuration options below). Note that you can
+deploy multiple Node Manager daemons for added redundancy.
 
 This gem provides a RedisFailover::Client wrapper that is master/slave aware. The client is configured
 with a list of ZooKeeper servers. The client will automatically contact the ZooKeeper cluster to find out
@@ -69,8 +70,11 @@ To start the daemon for a simple master/slave configuration, use the following:
     redis_node_manager -n localhost:6379,localhost:6380 -z localhost:2181,localhost:2182,localhost:2183
 
 The Node Manager will automatically discover the master/slaves upon startup. Note that it is
-a good idea to monitor the redis Node Manager daemon process with a tool like Monit to ensure that it is restarted
-in the case of a failure.
+a good idea to run more than one instance of the Node Manager daemon in your environment. At
+any moment, a single Node Manager process will be designated to monitor the redis servers. If
+this Node Manager process dies or becomes partitioned from the network, another Node Manager
+will be promoted as the primary monitor of redis servers. You can run as many Node Manager
+processes as you'd like for added redundancy.
 
 ## Client Usage
 
@@ -107,7 +111,6 @@ The full set of options that can be passed to RedisFailover::Client are:
 ## TODO
 
 - Rework specs to work against a set of real Redis/ZooKeeper nodes as opposed to stubs.
-- Add support for running more than one Node Manager.
 
 ## Resources
 

@@ -39,6 +39,10 @@ module RedisFailover
       build_client
     end
 
+    def delegate
+      @client
+    end
+
     def on_session_expiration(&block)
       @client.on_expired_session { block.call }
       @on_session_expiration = block

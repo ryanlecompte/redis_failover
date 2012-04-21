@@ -3,7 +3,20 @@ module RedisFailover
     attr_accessor :master
     public :current_nodes
 
+    def initialize(options)
+      super
+      @zklock = Object.new
+      @zklock.instance_eval do
+        def with_lock
+          yield
+        end
+      end
+    end
+
     def discover_nodes
+      # only discover nodes once in testing
+      return if @nodes_discovered
+
       master = Node.new(:host => 'master')
       slave = Node.new(:host => 'slave')
       [master, slave].each { |node| node.extend(RedisStubSupport) }
@@ -11,6 +24,7 @@ module RedisFailover
       slave.make_slave!(master)
       @master = master
       @slaves = [slave]
+      @nodes_discovered = true
     end
 
     def slaves

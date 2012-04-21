@@ -5,6 +5,7 @@ Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].each { |f| require f }
 
 class NullObject
   def method_missing(method, *args, &block)
+    yield if block_given?
     self
   end
 end
@@ -12,6 +13,14 @@ end
 module RedisFailover
   Util.logger = NullObject.new
   def ZkClient.new(*args); NullObject.new; end
+end
+
+module ZK
+  module Locker
+    def self.exclusive_locker(*)
+      NullObject.new
+    end
+  end
 end
 
 RSpec.configure do |config|

@@ -4,6 +4,10 @@ module RedisFailover
   describe NodeManager do
     let(:manager) { NodeManagerStub.new({}) }
 
+    before(:each) do
+      manager.discover_nodes
+    end
+
     describe '#nodes' do
       it 'returns current master and slave nodes' do
         manager.current_nodes.should == {

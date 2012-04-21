@@ -9,19 +9,41 @@ module RedisFailover
   class NodeManager
     include Util
 
+    # Name for the znode that handles exclusive locking between multiple
+    # Node Manager processes. Whoever holds the lock will be considered
+    # the "master" Node Manager, and will be responsible for monitoring
+    # the redis nodes. When a Node Manager that holds the lock disappears
+    # or fails, another Node Manager process will grab the lock and
+    # become the master.
+    LOCK_PATH = 'master_node_manager'
+
+    # Number of seconds to wait before retrying bootstrap process.
+    TIMEOUT = 3
+
     def initialize(options)
+      logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
-      @zkclient = ZkClient.new(@options[:zkservers])
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @unavailable = []
       @queue = Queue.new
-      discover_nodes
     end
 
     def start
-      initialize_path
-      spawn_watchers
-      handle_state_reports
+      @zkclient = ZkClient.new(@options[:zkservers])
+      zklock = ZK::Locker.exclusive_locker(@zkclient.delegate, LOCK_PATH)
+      logger.info('Waiting to become master Node Manager ...')
+      zklock.with_lock do
+        logger.info('Acquired master Node Manager lock')
+        discover_nodes
+        initialize_path
+        spawn_watchers
+        handle_state_reports
+      end
+    rescue *CONNECTIVITY_ERRORS => ex
+      logger.error("Error while attempting to manage nodes: #{ex.inspect}")
+      logger.error(ex.backtrace.join("\n"))
+      sleep(TIMEOUT)
+      retry
     end
 
     def notify_state(node, state)
