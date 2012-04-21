@@ -92,6 +92,7 @@ The full set of options that can be passed to RedisFailover::Client are:
      :zkservers     - comma-separated ZooKeeper host:port pairs (required)
      :znode_path    - the Znode path override for redis server list (optional)
      :password      - password for redis nodes (optional)
+     :db            - db to use for redis nodes (optional)
      :namespace     - namespace for redis nodes (optional)
      :logger        - logger override (optional)
      :retry_failure - indicate if failures should be retried (default true)

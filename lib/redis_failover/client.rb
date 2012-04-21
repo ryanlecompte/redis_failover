@@ -91,6 +91,7 @@ module RedisFailover
     #   :zkservers     - comma-separated ZooKeeper host:port pairs (required)
     #   :znode_path    - the Znode path override for redis server list (optional)
     #   :password      - password for redis nodes (optional)
+    #   :db            - db to use for redis nodes (optional)
     #   :namespace     - namespace for redis nodes (optional)
     #   :logger        - logger override (optional)
     #   :retry_failure - indicate if failures should be retried (default true)
@@ -102,6 +103,7 @@ module RedisFailover
       @znode = options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @namespace = options[:namespace]
       @password = options[:password]
+      @db = options[:db]
       @retry = options[:retry_failure] || true
       @max_retries = @retry ? options.fetch(:max_retries, 3) : 1
       @master = nil
@@ -258,7 +260,10 @@ module RedisFailover
     def new_clients_for(*nodes)
       nodes.map do |node|
         host, port = node.split(':')
-        client = Redis.new(:host => host, :port => port, :password => @password)
+        opts = {:host => host, :port => port}
+        opts.update(:db => @db) if @db
+        opts.update(:password => @password) if @password
+        client = Redis.new(opts)
         if @namespace
           client = Redis::Namespace.new(@namespace, :redis => client)
         end
