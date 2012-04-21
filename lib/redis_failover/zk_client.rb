@@ -30,7 +30,8 @@ module RedisFailover
       :event_handler,
       :stat,
       :create,
-      :delete].freeze
+      :delete,
+      :with_lock].freeze
 
     def initialize(servers, &setup_block)
       @servers = servers

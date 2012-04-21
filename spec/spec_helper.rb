@@ -15,13 +15,5 @@ module RedisFailover
   def ZkClient.new(*args); NullObject.new; end
 end
 
-module ZK
-  module Locker
-    def self.exclusive_locker(*)
-      NullObject.new
-    end
-  end
-end
-
 RSpec.configure do |config|
 end

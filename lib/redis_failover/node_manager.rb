@@ -30,9 +30,8 @@ module RedisFailover
 
     def start
       @zkclient = ZkClient.new(@options[:zkservers])
-      zklock = ZK::Locker.exclusive_locker(@zkclient.delegate, LOCK_PATH)
       logger.info('Waiting to become master Node Manager ...')
-      zklock.with_lock do
+      @zkclient.with_lock(LOCK_PATH) do
         logger.info('Acquired master Node Manager lock')
         discover_nodes
         initialize_path
