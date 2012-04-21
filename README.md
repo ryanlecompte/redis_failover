@@ -57,12 +57,13 @@ The Node Manager is a simple process that should be run as a background daemon. 
 following options:
 
     Usage: redis_node_manager [OPTIONS]
-        -p, --password password          Redis password (optional)
-        -n, --nodes redis nodes          Comma-separated redis host:port pairs (required)
-        -z zookeeper servers,            Comma-separated ZooKeeper host:port pairs (required)
-            --zkservers
-            --znode-path path            Znode path override for storing redis server list (optional)
-            --max-failures count         Max failures before manager marks node unavailable (default 3)
+
+    Specific options:
+        -n, --nodes NODES                Comma-separated redis host:port pairs
+        -z, --zkservers SERVERS          Comma-separated ZooKeeper host:port pairs
+        -p, --password [PASSWORD]        Redis password
+            --znode-path [PATH]          Znode path override for storing redis server list
+            --max-failures [COUNT]       Max failures before manager marks node unavailable
         -h, --help                       Display all options
 
 To start the daemon for a simple master/slave configuration, use the following:

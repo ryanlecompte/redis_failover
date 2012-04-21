@@ -2,6 +2,7 @@ HEAD
 -----------
 - Add support for running multiple Node Manager processes for added redundancy (#4)
 - Add support for specifying a redis database in RedisFailover::Client (#5)
+- Improved Node Manager command-line option parsing
 
 0.5.4
 -----------
