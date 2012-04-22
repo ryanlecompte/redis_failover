@@ -51,7 +51,7 @@ module RedisFailover
 
     def shutdown
       @queue << nil
-      @watchers.each(&:shutdown)
+      @watchers.each(&:shutdown) if @watchers
     end
 
     private
