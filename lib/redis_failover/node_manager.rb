@@ -134,9 +134,10 @@ module RedisFailover
         return
       end
 
+      redirect_slaves_to(candidate)
       candidate.make_master!
       @master = candidate
-      redirect_slaves_to_master
+
       create_path
       write_state
       logger.info("Successfully promoted #{candidate} to master.")
@@ -150,7 +151,7 @@ module RedisFailover
         " (#{@slaves.map(&:to_s).join(', ')})")
 
       # ensure that slaves are correctly pointing to this master
-      redirect_slaves_to_master
+      redirect_slaves_to(@master)
     end
 
     def spawn_watchers
@@ -170,12 +171,12 @@ module RedisFailover
       end
     end
 
-    def redirect_slaves_to_master
+    def redirect_slaves_to(node)
       @slaves.dup.each do |slave|
         begin
-          slave.make_slave!(@master)
+          slave.make_slave!(node)
         rescue NodeUnavailableError
-          logger.info("Failed to redirect unreachable slave #{slave} to master #{@master}")
+          logger.info("Failed to redirect unreachable slave #{slave} to #{node}")
           force_unavailable_slave(slave)
         end
       end

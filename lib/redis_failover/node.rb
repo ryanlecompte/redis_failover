@@ -53,11 +53,11 @@ module RedisFailover
       end
     end
 
-    def make_slave!(master)
+    def make_slave!(node)
       perform_operation do |redis|
-        unless slave_of?(master)
-          redis.slaveof(master.host, master.port)
-          logger.info("#{self} is now a slave of master #{master}")
+        unless slave_of?(node)
+          redis.slaveof(node.host, node.port)
+          logger.info("#{self} is now a slave of #{node}")
           wakeup
         end
       end

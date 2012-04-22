@@ -1,3 +1,7 @@
+HEAD
+-----------
+- When new master promotion occurs, make existing slaves point to new candidate before promoting new master.
+
 0.6.0
 -----------
 - Add support for running multiple Node Manager processes for added redundancy (#4)
