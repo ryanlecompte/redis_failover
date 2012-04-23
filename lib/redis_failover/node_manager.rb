@@ -26,10 +26,15 @@ module RedisFailover
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @unavailable = []
       @queue = Queue.new
+      @zkclient = ZK.new(@options[:zkservers]).tap do |client|
+        client.on_expired_session do
+          logger.info('ZK session expired callback received')
+          client.reopen
+        end
+      end
     end
 
     def start
-      @zkclient = ZkClient.new(@options[:zkservers])
       logger.info('Waiting to become master Node Manager ...')
       @zkclient.with_lock(LOCK_PATH) do
         logger.info('Acquired master Node Manager lock')
