@@ -36,20 +36,27 @@ module RedisFailover
     def initialize(servers, &setup_block)
       @servers = servers
       @setup_block = setup_block
-      @lock = Mutex.new
+      @lock = Monitor.new
+
+      @on_session_expiration = @on_session_recovered = nil
+      @session_expiration_sub = @session_recovered_sub = nil
+
       build_client
     end
 
     def on_session_expiration(&block)
-      @client.on_expired_session { block.call }
-      @on_session_expiration = block
+      @lock.synchronize do
+        @on_session_expiration = block
+      end
     end
 
     def on_session_recovered(&block)
-      @client.on_connected { block.call }
-      @on_session_recovered = block
+      @lock.synchronize do
+        @on_session_recovered = block
+      end
     end
 
+    # method_missing?
     WRAPPED_ZK_METHODS.each do |zk_method|
       class_eval(<<-RUBY, __FILE__, __LINE__ + 1)
         def #{zk_method}(*args, &block)
@@ -61,6 +68,15 @@ module RedisFailover
     end
 
     private
+    def handle_expired_session_event(*ignored)
+      cb = @lock.synchronize { @on_session_expiration }
+      cb.call if cb 
+    end
+
+    def handle_connected_event(*ignored)
+      cb = @lock.synchronize { @on_session_recovered }
+      cb.call if cb
+    end
 
     def perform_with_reconnect
       tries = 0
@@ -84,7 +100,15 @@ module RedisFailover
 
     def build_client
       @lock.synchronize do
+        @session_expiration_sub.unregister if @session_expiration_sub
+        @session_recovered_sub.unregister  if @session_recovered_sub
+        @client.close! if @client
+
         @client = ZK.new(@servers)
+
+        @session_expiration_sub = @client.on_expired_session(&method(:handle_expired_session_event))
+        @session_recovered_sub  = @client.on_connected(&method(:handle_connected_event))
+
         @setup_block.call(self) if @setup_block
         logger.info("Communicating with ZooKeeper servers #{@servers}")
       end
