@@ -1,5 +1,6 @@
 require 'zk'
 require 'set'
+require 'yaml'
 require 'redis'
 require 'thread'
 require 'logger'
