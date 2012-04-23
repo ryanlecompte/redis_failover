@@ -43,20 +43,19 @@ module RedisFailover
       end
 
       parser.parse(source)
+      if config_file = options[:config_file]
+        options = from_file(config_file)
+      end
+
       if required_options_missing?(options)
         puts parser
         exit
-      end
-
-      if config_file = options[:config_file]
-        options = from_file(config_file)
       end
 
       prepare(options)
     end
 
     def self.required_options_missing?(options)
-      return false if options[:config_file]
       return true if options.empty?
       return true unless options.values_at(:nodes, :zkservers).all?
       false
