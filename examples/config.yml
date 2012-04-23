@@ -1,0 +1,14 @@
+# Sample configuration file for Node Manager.
+#   redis_node_manager -C config.yml
+---
+:max_failures: 2
+:nodes:
+  - localhost:6379
+  - localhost:1111
+  - localhost:2222
+  - localhost:3333
+:zkservers:
+  - localhost:2181
+  - localhost:2182
+  - localhost:2183
+:password: foobar

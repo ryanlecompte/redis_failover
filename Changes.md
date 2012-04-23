@@ -1,6 +1,7 @@
 HEAD
 -----------
 - When new master promotion occurs, make existing slaves point to new candidate before promoting new master.
+- Add support for specifying command-line options in a config.yml file for Node Manager.
 
 0.6.0
 -----------

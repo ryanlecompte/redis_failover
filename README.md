@@ -61,14 +61,35 @@ following options:
     Specific options:
         -n, --nodes NODES                Comma-separated redis host:port pairs
         -z, --zkservers SERVERS          Comma-separated ZooKeeper host:port pairs
-        -p, --password [PASSWORD]        Redis password
-            --znode-path [PATH]          Znode path override for storing redis server list
-            --max-failures [COUNT]       Max failures before manager marks node unavailable
+        -p, --password PASSWORD          Redis password
+            --znode-path PATH            Znode path override for storing redis server list
+            --max-failures COUNT         Max failures before manager marks node unavailable
+        -C, --config PATH                Path to YAML configuration file
         -h, --help                       Display all options
 
 To start the daemon for a simple master/slave configuration, use the following:
 
     redis_node_manager -n localhost:6379,localhost:6380 -z localhost:2181,localhost:2182,localhost:2183
+
+The configuration parameters can also be specified in a config.yml file. An example configuration
+would look like the following:
+
+    ---
+    :max_failures: 2
+    :nodes:
+      - localhost:6379
+      - localhost:1111
+      - localhost:2222
+      - localhost:3333
+    :zkservers:
+      - localhost:2181
+      - localhost:2182
+      - localhost:2183
+    :password: foobar
+
+You would then simpy start the Node Manager via the following:
+
+    redis_node_manager -C config.yml
 
 The Node Manager will automatically discover the master/slaves upon startup. Note that it is
 a good idea to run more than one instance of the Node Manager daemon in your environment. At
