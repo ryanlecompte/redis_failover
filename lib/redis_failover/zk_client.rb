@@ -61,7 +61,8 @@ module RedisFailover
       class_eval(<<-RUBY, __FILE__, __LINE__ + 1)
         def #{zk_method}(*args, &block)
           perform_with_reconnect do
-            @client.#{zk_method}(*args, &block)
+            client = @lock.synchronize { @client }
+            client.#{zk_method}(*args, &block)
           end
         end
       RUBY
@@ -70,7 +71,7 @@ module RedisFailover
     private
     def handle_expired_session_event(*ignored)
       cb = @lock.synchronize { @on_session_expiration }
-      cb.call if cb 
+      cb.call if cb
     end
 
     def handle_connected_event(*ignored)
