@@ -18,7 +18,7 @@ module RedisFailover
     LOCK_PATH = 'master_node_manager'
 
     # Number of seconds to wait before retrying bootstrap process.
-    TIMEOUT = 3
+    TIMEOUT = 5
 
     def initialize(options)
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
@@ -29,18 +29,19 @@ module RedisFailover
     end
 
     def start
-      @zkclient = ZkClient.new(@options[:zkservers])
+      @zk = ZK.new(@options[:zkservers])
       logger.info('Waiting to become master Node Manager ...')
-      @zkclient.with_lock(LOCK_PATH) do
+      @zk.with_lock(LOCK_PATH) do
         logger.info('Acquired master Node Manager lock')
         discover_nodes
         initialize_path
         spawn_watchers
         handle_state_reports
       end
-    rescue *CONNECTIVITY_ERRORS => ex
-      logger.error("Error while attempting to manage nodes: #{ex.inspect}")
+    rescue ZK::Exceptions::InterruptedSession => ex
+      logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
+      shutdown
       sleep(TIMEOUT)
       retry
     end
@@ -52,6 +53,7 @@ module RedisFailover
     def shutdown
       @queue << nil
       @watchers.each(&:shutdown) if @watchers
+      @zk.close! if @zk
     end
 
     private
@@ -69,7 +71,10 @@ module RedisFailover
 
           # flush current state
           write_state
-        rescue StandardError, *CONNECTIVITY_ERRORS => ex
+        rescue ZK::Exceptions::InterruptedSession
+          # fail hard if this is a ZK connection-related error
+          raise
+        rescue => ex
           logger.error("Error handling #{state_report.inspect}: #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
         end
@@ -217,14 +222,14 @@ module RedisFailover
     end
 
     def delete_path
-      @zkclient.delete(@znode)
+      @zk.delete(@znode)
       logger.info("Deleted ZooKeeper node #{@znode}")
     rescue ZK::Exceptions::NoNode => ex
       logger.info("Tried to delete missing znode: #{ex.inspect}")
     end
 
     def create_path
-      @zkclient.create(@znode, encode(current_nodes), :ephemeral => true)
+      @zk.create(@znode, encode(current_nodes), :ephemeral => true)
       logger.info("Created ZooKeeper node #{@znode}")
     rescue ZK::Exceptions::NodeExists
       # best effort
@@ -237,7 +242,7 @@ module RedisFailover
 
     def write_state
       create_path
-      @zkclient.set(@znode, encode(current_nodes))
+      @zk.set(@znode, encode(current_nodes))
     end
   end
 end

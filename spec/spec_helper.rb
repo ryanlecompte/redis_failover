@@ -12,8 +12,9 @@ end
 
 module RedisFailover
   Util.logger = NullObject.new
-  def ZkClient.new(*args); NullObject.new; end
 end
+
+def ZK.new(*args); NullObject.new; end
 
 RSpec.configure do |config|
 end

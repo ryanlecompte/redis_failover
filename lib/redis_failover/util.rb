@@ -14,8 +14,7 @@ module RedisFailover
     # Full set of errors related to connectivity.
     CONNECTIVITY_ERRORS = [
       RedisFailover::Error,
-      ZK::Exceptions::KeeperException,
-      ZookeeperExceptions::ZookeeperException,
+      ZK::Exceptions::InterruptedSession,
       REDIS_ERRORS].flatten.freeze
 
     def symbolize_keys(hash)

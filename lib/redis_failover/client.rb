@@ -108,8 +108,9 @@ module RedisFailover
       @max_retries = @retry ? options.fetch(:max_retries, 3) : 1
       @master = nil
       @slaves = []
+      @queue = Queue.new
       @lock = Monitor.new
-      setup_zookeeper_client
+      start_zk
       build_clients
     end
 
@@ -133,38 +134,64 @@ module RedisFailover
 
     private
 
-    def setup_zookeeper_client
-      @zkclient = ZkClient.new(@zkservers) do |client|
-        # when session expires, purge client list
-        client.on_session_expiration do
-          purge_clients
-        end
+    def zk
+      @lock.synchronize { @zk }
+    end
 
-        # when we are disconnected, purge client list
-        client.event_handler.register_state_handler(:connecting) do
-          purge_clients
-        end
-
-        # when session is recovered, watch again
-        client.on_session_recovered do
-          client.stat(@znode, :watch => true)
-        end
-
-        # register a watcher for future changes
-        client.watcher.register(@znode) do |event|
-          if event.node_created? || event.node_changed?
-            update_znode_timestamp
-            build_clients
-          elsif event.node_deleted?
-            update_znode_timestamp
-            purge_clients
-            client.stat(@znode, :watch => true)
+    def start_zk
+      @delivery_thread ||= Thread.new do
+        while event = @queue.pop
+          if event.is_a?(Proc)
+            event.call
           else
-            logger.error("Unknown ZK node event: #{event.inspect}")
+            handle_zk_event(event)
           end
         end
       end
+      reconnect_zk
+    end
+
+    def handle_session_established
+      @lock.synchronize do
+        @zk.watcher.register(@znode) do |event|
+          @queue << event
+        end
+        @zk.on_expired_session do
+          @queue << proc { reconnect_zk }
+        end
+        @zk.event_handler.register_state_handler(:connecting) do
+          @queue << proc { handle_lost_connection }
+        end
+        @zk.on_connected do
+          @zk.stat(@znode, :watch => true)
+        end
+      end
+    end
+
+    def handle_zk_event(event)
       update_znode_timestamp
+      if event.node_created? || event.node_changed?
+        build_clients
+      elsif event.node_deleted?
+        purge_clients
+        zk.stat(@znode, :watch => true)
+      else
+        logger.error("Unknown ZK node event: #{event.inspect}")
+      end
+    end
+
+    def reconnect_zk
+      handle_lost_connection
+      @lock.synchronize do
+        @zk.close! if @zk
+        @zk = ZK.new(@zkservers)
+      end
+      handle_session_established
+      update_znode_timestamp
+    end
+
+    def handle_lost_connection
+      purge_clients
     end
 
     def redis_operation?(method)
@@ -233,7 +260,7 @@ module RedisFailover
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
           @slaves = new_slaves
-        rescue StandardError, *CONNECTIVITY_ERRORS => ex
+        rescue => ex
           purge_clients
           logger.error("Failed to fetch nodes from #{@zkservers} - #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
@@ -250,7 +277,7 @@ module RedisFailover
     end
 
     def fetch_nodes
-      data = @zkclient.get(@znode, :watch => true).first
+      data = zk.get(@znode, :watch => true).first
       nodes = symbolize_keys(decode(data))
       logger.debug("Fetched nodes: #{nodes}")
 

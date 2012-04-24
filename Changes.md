@@ -2,6 +2,7 @@ HEAD
 -----------
 - When new master promotion occurs, make existing slaves point to new candidate before promoting new master.
 - Add support for specifying command-line options in a config.yml file for Node Manager.
+- Upgrade to 0.9 version of ZK client and cleanup ZK connection error handling.
 
 0.6.0
 -----------
