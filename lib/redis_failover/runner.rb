@@ -9,10 +9,6 @@ module RedisFailover
       node_manager_thread.join
     end
 
-    def self.node_manager
-      @node_manager
-    end
-
     def self.trap_signals
       [:INT, :TERM].each do |signal|
         trap(signal) do
