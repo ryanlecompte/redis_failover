@@ -15,7 +15,8 @@ module RedisFailover
     CONNECTIVITY_ERRORS = [
       RedisFailover::Error,
       ZK::Exceptions::InterruptedSession,
-      REDIS_ERRORS].flatten.freeze
+      REDIS_ERRORS
+    ].flatten.freeze
 
     def symbolize_keys(hash)
       Hash[hash.map { |k, v| [k.to_sym, v] }]
