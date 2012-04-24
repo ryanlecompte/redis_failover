@@ -22,6 +22,7 @@ module RedisFailover
       [master, slave].each { |node| node.extend(RedisStubSupport) }
       master.make_master!
       slave.make_slave!(master)
+      @unavailable = []
       @master = master
       @slaves = [slave]
       @nodes_discovered = true
@@ -33,6 +34,7 @@ module RedisFailover
 
     def start_processing
       @thread = Thread.new { start }
+      sleep(1.5)
     end
 
     def stop_processing

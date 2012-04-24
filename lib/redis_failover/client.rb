@@ -105,7 +105,7 @@ module RedisFailover
       @password = options[:password]
       @db = options[:db]
       @retry = options[:retry_failure] || true
-      @max_retries = @retry ? options.fetch(:max_retries, 3) : 1
+      @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
       @master = nil
       @slaves = []
       @queue = Queue.new
@@ -224,7 +224,6 @@ module RedisFailover
           sleep(RETRY_WAIT_TIME)
           retry
         end
-
         raise
       end
     end
@@ -248,7 +247,7 @@ module RedisFailover
 
     def build_clients
       @lock.synchronize do
-        tries = 0
+        retried = false
 
         begin
           nodes = fetch_nodes
@@ -260,17 +259,16 @@ module RedisFailover
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
           @slaves = new_slaves
-        rescue => ex
-          purge_clients
-          logger.error("Failed to fetch nodes from #{@zkservers} - #{ex.inspect}")
+        rescue ZK::Exceptions::InterruptedSession => ex
+          logger.error("ZK error while attempting to build clients: #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
 
-          if tries < @max_retries
-            tries += 1
-            sleep(RETRY_WAIT_TIME)
+          # when ZK is disconnected, retry once
+          unless retried
+            reconnect_zk
+            retried = true
             retry
           end
-
           raise
         end
       end

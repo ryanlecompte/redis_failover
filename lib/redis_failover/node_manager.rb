@@ -24,11 +24,10 @@ module RedisFailover
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
-      @unavailable = []
-      @queue = Queue.new
     end
 
     def start
+      @queue = Queue.new
       @zk = ZK.new(@options[:zkservers])
       logger.info('Waiting to become master Node Manager ...')
       @zk.with_lock(LOCK_PATH) do
@@ -149,6 +148,7 @@ module RedisFailover
     end
 
     def discover_nodes
+      @unavailable = []
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
       raise NoMasterError unless @master = find_master(nodes)
       @slaves = nodes - [@master]
