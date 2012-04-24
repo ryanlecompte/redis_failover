@@ -50,6 +50,7 @@ module RedisFailover
     end
 
     def shutdown
+      @queue.clear
       @queue << nil
       @watchers.each(&:shutdown) if @watchers
       @zk.close! if @zk
