@@ -181,13 +181,13 @@ module RedisFailover
     end
 
     def reconnect_zk
-      handle_lost_connection
       @lock.synchronize do
+        handle_lost_connection
         @zk.close! if @zk
         @zk = ZK.new(@zkservers)
+        handle_session_established
+        update_znode_timestamp
       end
-      handle_session_established
-      update_znode_timestamp
     end
 
     def handle_lost_connection
@@ -200,8 +200,7 @@ module RedisFailover
 
     def dispatch(method, *args, &block)
       unless recently_heard_from_node_manager?
-        purge_clients
-        raise MissingNodeManagerError.new(ZNODE_UPDATE_TIMEOUT)
+        reconnect_zk
       end
 
       verify_supported!(method)

@@ -89,9 +89,10 @@ module RedisFailover
         expect { client.select }.to raise_error(UnsupportedOperationError)
       end
 
-      it 'raises error when no communication from Node Manager within certain time window' do
+      it 'attempts ZK reconnect when no communication from Node Manager within certain time window' do
         client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
-        expect { client.del('foo') }.to raise_error(MissingNodeManagerError)
+        client.should_receive(:reconnect_zk)
+        client.del('foo')
       end
     end
   end
