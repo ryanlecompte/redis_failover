@@ -165,6 +165,7 @@ module RedisFailover
         @zk.on_connected do
           @zk.stat(@znode, :watch => true)
         end
+        @zk.stat(@znode, :watch => true)
       end
     end
 
@@ -200,7 +201,10 @@ module RedisFailover
 
     def dispatch(method, *args, &block)
       unless recently_heard_from_node_manager?
-        reconnect_zk
+        @lock.synchronize do
+          reconnect_zk
+          build_clients
+        end
       end
 
       verify_supported!(method)
