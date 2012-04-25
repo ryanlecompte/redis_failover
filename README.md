@@ -129,7 +129,11 @@ The full set of options that can be passed to RedisFailover::Client are:
 
 - Note that by default the Node Manager will mark slaves that are currently syncing with their master as "available" based on the configuration value set for "slave-serve-stale-data" in redis.conf. By default this value is set to "yes" in the configuration, which means that slaves still syncing with their master will be available for servicing read requests. If you don't want this behavior, just set "slave-serve-stale-data" to "no" in your redis.conf file.
 
+## Limitations
+
 - Note that it's still possible for the RedisFailover::Client instances to see a stale list of servers for a very small window. In most cases this will not be the case due to how ZooKeeper handles distributed communication, but you should be aware that in the worst case the client could write to a "stale" master for a small period of time until the next watch event is received by the client via ZooKeeper.
+
+- Note that currently multiple Node Managers are currently used for redundancy purposes only. The Node Managers do not communicate with each other to perform any type of election or voting to determine if they all agree on promoting a new master. Right now Node Managers that are not "active" just sit and wait until they can grab the lock to become the single decision-maker for which Redis servers are available or not. This means that a scenario could present itself where a Node Manager thinks the Redis master is available, however the actual RedisFailover::Client instances think they can't reach the Redis master (either due to network partitions or the Node Manager flapping due to machine failure, etc). We are exploring ways to improve this situation.
 
 ## Resources
 
