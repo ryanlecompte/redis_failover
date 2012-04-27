@@ -82,7 +82,7 @@ module RedisFailover
     end
 
     def ==(other)
-      return false unless other.is_a?(Node)
+      return false unless Node === other
       return true if self.equal?(other)
       [host, port] == [other.host, other.port]
     end

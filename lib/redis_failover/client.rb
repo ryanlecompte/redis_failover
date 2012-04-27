@@ -141,13 +141,15 @@ module RedisFailover
     def start_zk
       @delivery_thread ||= Thread.new do
         while event = @queue.pop
-          if event.is_a?(Proc)
-            event.call
-          else
-            handle_zk_event(event)
+          begin
+            Proc === event ? event.call : handle_zk_event(event)
+          rescue => ex
+            logger.error("Error while handling event: #{ex.inspect}")
+            logger.error(ex.backtrace.join("\n"))
           end
         end
       end
+
       reconnect_zk
     end
 
