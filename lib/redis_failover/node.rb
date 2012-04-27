@@ -132,13 +132,13 @@ module RedisFailover
         yield redis
       end
     rescue
-      raise NodeUnavailableError.new(self)
+      raise NodeUnavailableError, self, caller
     ensure
       if redis
         begin
           redis.client.disconnect
         rescue
-          raise NodeUnavailableError.new(self)
+          raise NodeUnavailableError, self, caller
         end
       end
     end
