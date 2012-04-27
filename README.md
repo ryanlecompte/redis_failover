@@ -10,7 +10,7 @@ architecture. The existing standard Redis client for Ruby also only supports con
 Redis server. When using master/slave replication, it is desirable to have all writes go to the
 master, and all reads go to one of the N configured slaves.
 
-This gem attempts to address these failover scenarios. A redis failover Node Manager daemon runs as a background
+This gem (built using [ZK][]) attempts to address these failover scenarios. A redis failover Node Manager daemon runs as a background
 process and monitors all of your configured master/slave nodes. When the daemon starts up, it
 automatically discovers the current master/slaves. Background watchers are setup for each of
 the redis nodes. As soon as a node is detected as being offline, it will be moved to an "unavailable" state.
@@ -34,6 +34,8 @@ that it can rebuild its set of Redis connections. The client also acts as a load
 dispatch Redis read operations to one of N slaves, and Redis write operations to the master.
 If it fails to communicate with any node, it will go back and fetch the current list of available servers, and then
 optionally retry the operation.
+
+[ZK]: https://github.com/slyphon/zk
 
 ## Installation
 
