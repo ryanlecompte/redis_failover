@@ -17,7 +17,7 @@ module RedisFailover
     end
 
     def watch
-      @monitor_thread = Thread.new { monitor_node }
+      @monitor_thread ||= Thread.new { monitor_node }
       self
     end
 
