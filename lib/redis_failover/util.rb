@@ -46,12 +46,20 @@ module RedisFailover
     end
 
     def encode(data)
-      MultiJson.encode(data)
+      if MultiJson.respond_to?(:dump)
+        MultiJson.dump(data)
+      else
+        MultiJson.encode(data)
+      end
     end
 
     def decode(data)
       return unless data
-      MultiJson.decode(data)
+      if MultiJson.respond_to?(:adapter)
+        MultiJson.load(data)
+      else
+        MultiJson.decode(data)
+      end
     end
   end
 end
