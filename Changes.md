@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Added manual failover support (can be initiated via RedisFailover::Client#manual_failover)
+
 0.7.0
 -----------
 - When new master promotion occurs, make existing slaves point to new candidate before promoting new master.

@@ -87,7 +87,6 @@ module RedisFailover
     # Creates a new failover redis client.
     #
     # Options:
-    #
     #   :zkservers     - comma-separated ZooKeeper host:port pairs (required)
     #   :znode_path    - the Znode path override for redis server list (optional)
     #   :password      - password for redis nodes (optional)
@@ -96,7 +95,6 @@ module RedisFailover
     #   :logger        - logger override (optional)
     #   :retry_failure - indicate if failures should be retried (default true)
     #   :max_retries   - max retries for a failure (default 3)
-    #
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
       @zkservers = options.fetch(:zkservers) { raise ArgumentError, ':zkservers required'}
@@ -132,8 +130,15 @@ module RedisFailover
     end
     alias_method :to_s, :inspect
 
+    # Force a manual failover to a new server. A specific server can be specified
+    # via options. If no options are passed, a random slave will be selected as
+    # the candidate for the new master.
+    #
+    # Options:
+    #   :host - the host of the failover candidate
+    #   :port - the port of the failover candidate
     def manual_failover(options = {})
-      Manual.new(zk).failover(options)
+      Manual.failover(zk, options)
       self
     end
 

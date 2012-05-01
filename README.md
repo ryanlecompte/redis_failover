@@ -122,6 +122,15 @@ The full set of options that can be passed to RedisFailover::Client are:
      :retry_failure - indicate if failures should be retried (default true)
      :max_retries   - max retries for a failure (default 3)
 
+## Manual Failover
+
+Manual failover can be initiated via RedisFailover::Client#manual_failover. This schedules a manual failover with the
+currently active Node Manager. Once the Node Manager receives the request, it will either failover to the specific
+server passed to #manual_failover, or it will pick a random slave to become the new master. Here's an example:
+
+    client = RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183')
+    client.manual_failover(:host => 'localhost', :port => 2222)
+
 ## Requirements
 
 - redis_failover is actively tested against MRI 1.9.2/1.9.3 and JRuby 1.6.7 (1.9 mode only). Other rubies may work, although I don't actively test against them. 1.8 is not supported.
