@@ -3,16 +3,6 @@ module RedisFailover
     attr_accessor :master
     public :current_nodes
 
-    def initialize(options)
-      super
-      @zklock = Object.new
-      @zklock.instance_eval do
-        def with_lock
-          yield
-        end
-      end
-    end
-
     def discover_nodes
       # only discover nodes once in testing
       return if @nodes_discovered
@@ -26,6 +16,10 @@ module RedisFailover
       @master = master
       @slaves = [slave]
       @nodes_discovered = true
+    end
+
+    def setup_zk
+      @zk = NullObject.new
     end
 
     def slaves
