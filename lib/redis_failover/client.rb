@@ -132,6 +132,11 @@ module RedisFailover
     end
     alias_method :to_s, :inspect
 
+    def manual_failover(options = {})
+      Manual.new(zk).failover(options)
+      self
+    end
+
     private
 
     def zk

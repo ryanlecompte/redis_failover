@@ -24,13 +24,17 @@ module RedisFailover
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
+      @manual_znode = Manual::ZNODE_PATH
+      @mutex = Mutex.new
     end
 
     def start
       @queue = Queue.new
-      @zk = ZK.new(@options[:zkservers])
+      @leader = false
+      setup_zk
       logger.info('Waiting to become master Node Manager ...')
       @zk.with_lock(LOCK_PATH) do
+        @leader = true
         logger.info('Acquired master Node Manager lock')
         discover_nodes
         initialize_path
@@ -58,14 +62,33 @@ module RedisFailover
 
     private
 
+    def setup_zk
+      @zk.close! if @zk
+      @zk = ZK.new(@options[:zkservers])
+
+      @zk.register(@manual_znode) do |event|
+        @mutex.synchronize do
+          if event.node_changed?
+            schedule_manual_failover
+          end
+        end
+      end
+
+      @zk.on_connected do
+        @zk.stat(@manual_znode, :watch => true)
+      end
+      @zk.stat(@manual_znode, :watch => true)
+    end
+
     def handle_state_reports
       while state_report = @queue.pop
         begin
           node, state = state_report
           case state
-          when :unavailable then handle_unavailable(node)
-          when :available   then handle_available(node)
-          when :syncing     then handle_syncing(node)
+          when :unavailable     then handle_unavailable(node)
+          when :available       then handle_available(node)
+          when :syncing         then handle_syncing(node)
+          when :manual_failover then handle_manual_failover(node)
           else raise InvalidNodeStateError.new(node, state)
           end
 
@@ -126,6 +149,17 @@ module RedisFailover
 
       # otherwise, we can use this node
       handle_available(node)
+    end
+
+    def handle_manual_failover(node)
+      # no-op if node to be failed over is already master
+      return if @master == node
+      logger.info("Handling manual failover")
+
+      # make current master a slave, and promote new master
+      @slaves << @master
+      @slaves.delete(node)
+      promote_new_master(node)
     end
 
     def promote_new_master(node = nil)
@@ -244,6 +278,20 @@ module RedisFailover
     def write_state
       create_path
       @zk.set(@znode, encode(current_nodes))
+    end
+
+    def schedule_manual_failover
+      return unless @leader
+      new_master = @zk.get(@manual_znode, :watch => true).first
+      logger.info("Received manual failover request for: #{new_master}")
+
+      node = if new_master == Manual::ANY_SLAVE
+        @slaves.sample
+      else
+        host, port = new_master.split(':', 2)
+        Node.new(:host => host, :port => port, :password => @options[:password])
+      end
+      notify_state(node, :manual_failover) if node
     end
   end
 end
