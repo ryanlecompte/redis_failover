@@ -18,7 +18,7 @@ Gem::Specification.new do |gem|
   gem.add_dependency('redis')
   gem.add_dependency('redis-namespace')
   gem.add_dependency('multi_json', '~> 1')
-  gem.add_dependency('zk', '~> 0.9')
+  gem.add_dependency('zk', '~> 1.0')
 
   gem.add_development_dependency('rake')
   gem.add_development_dependency('rspec')

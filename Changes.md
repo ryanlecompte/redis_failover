@@ -1,6 +1,7 @@
-HEAD
+0.8.0
 -----------
 - Added manual failover support (can be initiated via RedisFailover::Client#manual_failover)
+- Misc. cleanup
 
 0.7.0
 -----------
