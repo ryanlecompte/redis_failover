@@ -131,6 +131,10 @@ server passed to #manual_failover, or it will pick a random slave to become the 
     client = RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183')
     client.manual_failover(:host => 'localhost', :port => 2222)
 
+## Documentation
+
+redis_failover uses YARD for its API documentation. Refer to the generated [API documentation](http://rubydoc.info/gems/redis_failover/) for full coverage.
+
 ## Requirements
 
 - redis_failover is actively tested against MRI 1.9.2/1.9.3 and JRuby 1.6.7 (1.9 mode only). Other rubies may work, although I don't actively test against them. 1.8 is not supported.
