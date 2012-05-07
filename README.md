@@ -133,7 +133,7 @@ server passed to #manual_failover, or it will pick a random slave to become the 
 
 ## Documentation
 
-redis_failover uses YARD for its API documentation. Refer to the generated [API documentation](http://rubydoc.info/gems/redis_failover/) for full coverage.
+redis_failover uses YARD for its API documentation. Refer to the generated [API documentation](http://rubydoc.info/github/ryanlecompte/redis_failover/master/frames) for full coverage.
 
 ## Requirements
 
