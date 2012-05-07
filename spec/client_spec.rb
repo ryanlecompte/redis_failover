@@ -19,7 +19,8 @@ module RedisFailover
       }
     end
 
-    def setup_zookeeper_client
+    def setup_zk
+      @zk = NullObject.new
       update_znode_timestamp
     end
   end

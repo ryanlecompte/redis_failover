@@ -8,6 +8,11 @@ module RedisFailover
     # Time to sleep before checking on the monitored node's status.
     WATCHER_SLEEP_TIME = 2
 
+    # Creates a new instance.
+    #
+    # @param [NodeManager] manager the node manager
+    # @param [Node] node the node to watch
+    # @param [Integer] max_failures the max failues before reporting node as down
     def initialize(manager, node, max_failures)
       @manager = manager
       @node = node
@@ -16,11 +21,16 @@ module RedisFailover
       @done = false
     end
 
+    # Starts the node watcher.
+    #
+    # @note this method returns immediately and causes monitoring to be
+    #   performed in a new background thread
     def watch
       @monitor_thread ||= Thread.new { monitor_node }
       self
     end
 
+    # Performs a graceful shutdown of this watcher.
     def shutdown
       @done = true
       @node.wakeup
@@ -31,6 +41,8 @@ module RedisFailover
 
     private
 
+    # Periodically monitors the redis node and reports state changes to
+    # the {RedisFailover::NodeManager}.
     def monitor_node
       failures = 0
 
@@ -57,6 +69,9 @@ module RedisFailover
       end
     end
 
+    # Notifies the manager of a node's state.
+    #
+    # @param [Symbol] state the node's state
     def notify(state)
       @manager.notify_state(@node, state)
     end

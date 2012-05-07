@@ -1,3 +1,8 @@
+0.8.1
+-----------
+- Added YARD documentation.
+- Improve ZooKeeper client connection management.
+
 0.8.0
 -----------
 - Added manual failover support (can be initiated via RedisFailover::Client#manual_failover)

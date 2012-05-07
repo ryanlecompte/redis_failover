@@ -18,14 +18,24 @@ module RedisFailover
       REDIS_ERRORS
     ].flatten.freeze
 
+    # Symbolizes the keys of the specified hash.
+    #
+    # @param [Hash] hash a hash for which keys should be symbolized
+    # @return [Hash] a new hash with symbolized keys
     def symbolize_keys(hash)
       Hash[hash.map { |k, v| [k.to_sym, v] }]
     end
 
+    # Determines if two arrays are different.
+    #
+    # @param [Array] ary_a the first array
+    # @param [Array] ary_b the second array
+    # @return [Boolean] true if arrays are different, false otherwise
     def different?(ary_a, ary_b)
       ((ary_a | ary_b) - (ary_a & ary_b)).size > 0
     end
 
+    # @return [Logger] the logger instance to use
     def self.logger
       @logger ||= begin
         logger = Logger.new(STDOUT)
@@ -37,18 +47,30 @@ module RedisFailover
       end
     end
 
+    # Sets a new logger to use.
+    #
+    # @param [Logger] logger a new logger to use
     def self.logger=(logger)
       @logger = logger
     end
 
+    # @return [Logger] the logger instance to use
     def logger
       Util.logger
     end
 
+    # Encodes the specified data in JSON format.
+    #
+    # @param [Object] data the data to encode
+    # @return [String] the JSON-encoded data
     def encode(data)
       MultiJson.encode(data)
     end
 
+    # Decodes the specified JSON data.
+    #
+    # @param [String] data the JSON data to decode
+    # @return [Object] the decoded data
     def decode(data)
       return unless data
       MultiJson.decode(data)

@@ -1,6 +1,11 @@
 module RedisFailover
-  # Runner is responsible for bootstrapping the redis Node Manager.
+  # Runner is responsible for bootstrapping the Node Manager.
   class Runner
+    # Launches the Node Manager in a background thread.
+    #
+    # @param [Array] options the command-line options
+    # @note this method blocks and does not return until the
+    #   Node Manager is gracefully stopped
     def self.run(options)
       options = CLI.parse(options)
       @node_manager = NodeManager.new(options)
@@ -9,6 +14,7 @@ module RedisFailover
       node_manager_thread.join
     end
 
+    # Traps shutdown signals.
     def self.trap_signals
       [:INT, :TERM].each do |signal|
         trap(signal) do

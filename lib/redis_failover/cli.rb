@@ -1,6 +1,10 @@
 module RedisFailover
   # Parses server command-line arguments.
   class CLI
+    # Parses the source of options.
+    #
+    # @param [Array] source the command-line options to parse
+    # @return [Hash] the parsed options
     def self.parse(source)
       options = {}
       parser = OptionParser.new do |opts|
@@ -55,12 +59,17 @@ module RedisFailover
       prepare(options)
     end
 
+    # @return [Boolean] true if required options missing, false otherwise
     def self.required_options_missing?(options)
       return true if options.empty?
       return true unless options.values_at(:nodes, :zkservers).all?
       false
     end
 
+    # Parses options from a YAML file.
+    #
+    # @param [String] file the filename
+    # @return [Hash] the parsed options
     def self.from_file(file)
       unless File.exists?(file)
         raise ArgumentError, "File #{file} can't be found"
@@ -72,6 +81,10 @@ module RedisFailover
       options
     end
 
+    # Prepares the options for the rest of the system.
+    #
+    # @param [Hash] options the options to prepare
+    # @return [Hash] the prepared options
     def self.prepare(options)
       options.each_value { |v| v.strip! if v.respond_to?(:strip!) }
       # turns 'host1:port,host2:port' => [{:host => host, :port => port}, ...]
