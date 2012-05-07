@@ -2,6 +2,7 @@
 -----------
 - Added YARD documentation.
 - Improve ZooKeeper client connection management.
+- Upgrade to latest ZK gem stable release.
 
 0.8.0
 -----------
