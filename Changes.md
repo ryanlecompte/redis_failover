@@ -1,4 +1,4 @@
-HEAD
+0.8.2
 -----------
 - Fix method signature for RedisFailover::Client#respond_to_missing? (#12)
 
