@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Fix method signature for RedisFailover::Client#respond_to_missing? (#12)
+
 0.8.1
 -----------
 - Added YARD documentation.

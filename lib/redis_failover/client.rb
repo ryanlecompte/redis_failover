@@ -123,9 +123,11 @@ module RedisFailover
 
     # Determines whether or not an unknown method can be handled.
     #
+    # @param [Symbol] method the method to check
+    # @param [Boolean] include_private determines if private methods should be checked
     # @return [Boolean] indicates if the method can be handled
-    def respond_to_missing?(method)
-      redis_operation?(method)
+    def respond_to_missing?(method, include_private)
+      redis_operation?(method) || super
     end
 
     # @return [String] a string representation of the client
