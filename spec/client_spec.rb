@@ -92,7 +92,7 @@ module RedisFailover
 
       it 'attempts ZK reconnect when no communication from Node Manager within certain time window' do
         client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
-        client.should_receive(:reconnect_zk)
+        client.should_receive(:build_clients)
         client.del('foo')
       end
     end

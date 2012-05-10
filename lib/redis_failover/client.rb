@@ -201,10 +201,7 @@ module RedisFailover
     # @return [Object] the result of dispatching the command
     def dispatch(method, *args, &block)
       unless recently_heard_from_node_manager?
-        @lock.synchronize do
-          reconnect_zk
-          build_clients
-        end
+        build_clients
       end
 
       verify_supported!(method)
@@ -261,30 +258,15 @@ module RedisFailover
     # The current master/slaves are fetched via ZooKeeper.
     def build_clients
       @lock.synchronize do
-        retried = false
+        nodes = fetch_nodes
+        return unless nodes_changed?(nodes)
 
-        begin
-          nodes = fetch_nodes
-          return unless nodes_changed?(nodes)
-
-          purge_clients
-          logger.info("Building new clients for nodes #{nodes}")
-          new_master = new_clients_for(nodes[:master]).first if nodes[:master]
-          new_slaves = new_clients_for(*nodes[:slaves])
-          @master = new_master
-          @slaves = new_slaves
-        rescue ZK::Exceptions::InterruptedSession => ex
-          logger.error("ZK error while attempting to build clients: #{ex.inspect}")
-          logger.error(ex.backtrace.join("\n"))
-
-          # when ZK is disconnected, retry once
-          unless retried
-            reconnect_zk
-            retried = true
-            retry
-          end
-          raise
-        end
+        purge_clients
+        logger.info("Building new clients for nodes #{nodes}")
+        new_master = new_clients_for(nodes[:master]).first if nodes[:master]
+        new_slaves = new_clients_for(*nodes[:slaves])
+        @master = new_master
+        @slaves = new_slaves
       end
     end
 
