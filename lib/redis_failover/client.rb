@@ -148,6 +148,16 @@ module RedisFailover
       self
     end
 
+    # Gracefully performs a shutdown of this client. This method is
+    # mostly useful when the client is used in a forking environment.
+    # When a fork occurs, you can call this method in an after_fork hook,
+    # and then create a new instance of the client. The underlying
+    # ZooKeeper client and redis clients will be closed.
+    def shutdown
+      @zk.close! if @zk
+      purge_clients
+    end
+
     private
 
     # Sets up the underlying ZooKeeper connection.

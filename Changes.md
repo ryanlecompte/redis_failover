@@ -1,3 +1,8 @@
+HEAD
+-----------
+- Added a way to gracefully shutdown a RedisFailover::Client. (#13)
+- Upgraded to latest ZK version that supports forking.
+
 0.8.2
 -----------
 - Fix method signature for RedisFailover::Client#respond_to_missing? (#12)
