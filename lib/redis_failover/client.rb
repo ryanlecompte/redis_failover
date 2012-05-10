@@ -155,7 +155,18 @@ module RedisFailover
     # ZooKeeper client and redis clients will be closed.
     def shutdown
       @zk.close! if @zk
+      @zk = nil
       purge_clients
+    end
+
+    # Reopen will first perform a shutdown of the underlying ZooKeeper client
+    # and redis clients. Next, it attempts to rebuild the ZooKeeper client
+    # and re-create the redis clients after it fetches the most up-to-date
+    # list from ZooKeeper.
+    def reopen
+      shutdown
+      setup_zk
+      build_clients
     end
 
     private
