@@ -258,15 +258,20 @@ module RedisFailover
     # The current master/slaves are fetched via ZooKeeper.
     def build_clients
       @lock.synchronize do
-        nodes = fetch_nodes
-        return unless nodes_changed?(nodes)
+        begin
+          nodes = fetch_nodes
+          return unless nodes_changed?(nodes)
 
-        purge_clients
-        logger.info("Building new clients for nodes #{nodes}")
-        new_master = new_clients_for(nodes[:master]).first if nodes[:master]
-        new_slaves = new_clients_for(*nodes[:slaves])
-        @master = new_master
-        @slaves = new_slaves
+          purge_clients
+          logger.info("Building new clients for nodes #{nodes}")
+          new_master = new_clients_for(nodes[:master]).first if nodes[:master]
+          new_slaves = new_clients_for(*nodes[:slaves])
+          @master = new_master
+          @slaves = new_slaves
+        rescue
+          purge_clients
+          raise
+        end
       end
     end
 
