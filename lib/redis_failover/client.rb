@@ -164,8 +164,8 @@ module RedisFailover
     # and re-create the redis clients after it fetches the most up-to-date
     # list from ZooKeeper.
     def reopen
-      shutdown
-      setup_zk
+      purge_clients
+      @zk ? @zk.reopen : setup_zk
       build_clients
     end
 
