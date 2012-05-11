@@ -295,6 +295,10 @@ module RedisFailover
       logger.debug("Fetched nodes: #{nodes}")
 
       nodes
+    rescue Zookeeper::Exceptions::InheritedConnectionError => e
+      logger.deubg { "d'oh! caught #{e.class} '#{e.message}' reconstructing the zk instance" }
+      @zk.reopen
+      retry
     end
 
     # Builds new Redis clients for the specified nodes.
