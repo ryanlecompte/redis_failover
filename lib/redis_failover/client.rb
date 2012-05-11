@@ -296,7 +296,7 @@ module RedisFailover
 
       nodes
     rescue Zookeeper::Exceptions::InheritedConnectionError => e
-      logger.deubg { "d'oh! caught #{e.class} '#{e.message}' reconstructing the zk instance" }
+      logger.debug { "d'oh! caught #{e.class} '#{e.message}' reconstructing the zk instance" }
       @zk.reopen
       retry
     end
