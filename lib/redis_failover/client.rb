@@ -159,11 +159,10 @@ module RedisFailover
       purge_clients
     end
 
-    # Reopen will first perform a shutdown of the underlying ZooKeeper client
-    # and redis clients. Next, it attempts to rebuild the ZooKeeper client
-    # and re-create the redis clients after it fetches the most up-to-date
-    # list from ZooKeeper.
-    def reopen
+    # Reconnect will first perform a shutdown of the underlying redis clients.
+    # Next, it attempts to reopen the ZooKeeper client and re-create the redis
+    # clients after it fetches the most up-to-date list from ZooKeeper.
+    def reconnect
       purge_clients
       @zk ? @zk.reopen : setup_zk
       build_clients
@@ -295,8 +294,8 @@ module RedisFailover
       logger.debug("Fetched nodes: #{nodes}")
 
       nodes
-    rescue Zookeeper::Exceptions::InheritedConnectionError => e
-      logger.debug { "d'oh! caught #{e.class} '#{e.message}' reconstructing the zk instance" }
+    rescue Zookeeper::Exceptions::InheritedConnectionError => ex
+      logger.debug { "Caught #{ex.class} '#{ex.message}' reconstructing the zk instance" }
       @zk.reopen
       retry
     end

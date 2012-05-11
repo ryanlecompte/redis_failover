@@ -1,6 +1,6 @@
-HEAD
+0.8.3
 -----------
-- Added a way to gracefully shutdown a RedisFailover::Client. (#13)
+- Added a way to gracefully shutdown/reconnect a RedisFailover::Client. (#13)
 - Upgraded to latest ZK version that supports forking.
 - Handle case where the same RedisFailover::Client is referenced by a #multi block (#14)
 
