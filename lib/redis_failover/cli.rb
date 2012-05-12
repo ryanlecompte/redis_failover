@@ -36,7 +36,7 @@ module RedisFailover
           options[:max_failures] = Integer(max)
         end
 
-        opts.on '-C', '--config PATH', "Path to YAML configuration file" do |file|
+        opts.on '-C', '--config PATH', "Path to YAML config file" do |file|
           options[:config_file] = file
         end
 

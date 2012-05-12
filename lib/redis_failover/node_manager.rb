@@ -23,11 +23,11 @@ module RedisFailover
     # Creates a new instance.
     #
     # @param [Hash] options the options used to initialize the manager
-    # @option options [String] :zkservers comma-separated ZooKeeper host:port pairs (required)
-    # @option options [String] :znode_path znode path override for redis server list
+    # @option options [String] :zkservers comma-separated ZK host:port pairs
+    # @option options [String] :znode_path znode path override for redis nodes
     # @option options [String] :password password for redis nodes
     # @option options [Array<String>] :nodes the nodes to manage
-    # @option options [String] :max_failures the max failures for a particular node
+    # @option options [String] :max_failures the max failures for a node
     def initialize(options)
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
@@ -38,7 +38,7 @@ module RedisFailover
 
     # Starts the node manager.
     #
-    # @note This is a blocking method, it does not return until the manager terminates.
+    # @note This method does not return until the manager terminates.
     def start
       @queue = Queue.new
       @leader = false
@@ -60,8 +60,8 @@ module RedisFailover
       retry
     end
 
-    # Notifies the manager of a state change. Used primarily by {RedisFailover::NodeWatcher}
-    # to inform the manager of watched node states.
+    # Notifies the manager of a state change. Used primarily by
+    # {RedisFailover::NodeWatcher} to inform the manager of watched node states.
     #
     # @param [Node] node the node
     # @param [Symbol] state the state
@@ -202,7 +202,7 @@ module RedisFailover
       # make a specific node or slave the new master
       candidate = node || @slaves.pop
       unless candidate
-        logger.error('Failed to promote a new master since no candidate available.')
+        logger.error('Failed to promote a new master, no candidate available.')
         return
       end
 

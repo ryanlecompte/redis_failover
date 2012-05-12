@@ -1,15 +1,18 @@
 module RedisFailover
-  # Redis failover-aware client. RedisFailover::Client is a wrapper over a set of underlying redis
-  # clients, which means all normal redis operations can be performed on an instance of this class.
-  # The class only requires a set of ZooKeeper server addresses to function properly. The client
-  # will automatically retry failed operations, and handle failover to a new master. The client
-  # registers and listens for watcher events from the Node Manager. When these events are received,
-  # the client fetches the latest set of redis nodes from ZooKeeper and rebuilds its internal
-  # Redis clients appropriately. RedisFailover::Client also directs write operations to the master,
-  # and all read operations to the slaves.
+  # Redis failover-aware client. RedisFailover::Client is a wrapper over a set
+  # of underlying redis clients, which means all normal redis operations can be
+  # performed on an instance of this class. The class only requires a set of
+  # ZooKeeper server addresses to function properly. The client will automatically
+  # retry failed operations, and handle failover to a new master. The client
+  # registers and listens for watcher events from the Node Manager. When these
+  # events are received, the client fetches the latest set of redis nodes from
+  # ZooKeeper and rebuilds its internal Redis clients appropriately.
+  # RedisFailover::Client also directs write operations to the master, and all
+  # read operations to the slaves.
   #
   # @example Usage
-  #   client = RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183')
+  #   zk_servers = 'localhost:2181,localhost:2182,localhost:2183'
+  #   client = RedisFailover::Client.new(:zkservers => zk_servers)
   #   client.set('foo', 1) # will be directed to master
   #   client.get('foo') # will be directed to a slave
   #
@@ -86,13 +89,13 @@ module RedisFailover
     # Creates a new failover redis client.
     #
     # @param [Hash] options the options used to initialize the client instance
-    # @option options [String] :zkservers comma-separated ZooKeeper host:port pairs (required)
-    # @option options [String] :znode_path znode path override for redis server list
+    # @option options [String] :zkservers comma-separated ZooKeeper host:port
+    # @option options [String] :znode_path znode path override for redis nodes
     # @option options [String] :password password for redis nodes
     # @option options [String] :db database to use for redis nodes
     # @option options [String] :namespace namespace for redis nodes
     # @option options [Logger] :logger logger override
-    # @option options [Boolean] :retry_failure indicates if failures should be retried
+    # @option options [Boolean] :retry_failure indicates if failures are retried
     # @option options [Integer] :max_retries max retries for a failure
     # @return [RedisFailover::Client]
     def initialize(options = {})
@@ -124,7 +127,7 @@ module RedisFailover
     # Determines whether or not an unknown method can be handled.
     #
     # @param [Symbol] method the method to check
-    # @param [Boolean] include_private determines if private methods should be checked
+    # @param [Boolean] include_private determines if private methods are checked
     # @return [Boolean] indicates if the method can be handled
     def respond_to_missing?(method, include_private)
       redis_operation?(method) || super
@@ -295,7 +298,7 @@ module RedisFailover
 
       nodes
     rescue Zookeeper::Exceptions::InheritedConnectionError => ex
-      logger.debug { "Caught #{ex.class} '#{ex.message}' reconstructing the zk instance" }
+      logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
       @zk.reopen
       retry
     end
@@ -395,7 +398,7 @@ module RedisFailover
       end
     end
 
-    # Disconnects current redis clients and resets this client's view of the world.
+    # Disconnects current redis clients.
     def purge_clients
       @lock.synchronize do
         logger.info("Purging current redis clients")

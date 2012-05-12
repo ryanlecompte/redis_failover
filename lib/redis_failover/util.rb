@@ -5,7 +5,7 @@ module RedisFailover
   module Util
     extend self
 
-    # Default node in ZooKeeper that contains the current list of available redis nodes.
+    # Default node in ZK that contains the current list of available redis nodes.
     DEFAULT_ZNODE_PATH = '/redis_failover_nodes'.freeze
 
     # Connectivity errors that the redis client raises.
