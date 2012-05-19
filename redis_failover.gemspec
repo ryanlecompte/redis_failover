@@ -15,7 +15,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.version       = RedisFailover::VERSION
 
-  gem.add_dependency('redis')
+  gem.add_dependency('redis', '~> 2.2')
   gem.add_dependency('redis-namespace')
   gem.add_dependency('multi_json', '~> 1')
   gem.add_dependency('zk', '~> 1.4')

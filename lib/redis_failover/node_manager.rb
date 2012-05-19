@@ -32,7 +32,7 @@ module RedisFailover
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
-      @manual_znode = Manual::ZNODE_PATH
+      @manual_znode = ManualFailover::ZNODE_PATH
       @mutex = Mutex.new
     end
 
@@ -338,7 +338,7 @@ module RedisFailover
       new_master = @zk.get(@manual_znode, :watch => true).first
       logger.info("Received manual failover request for: #{new_master}")
 
-      node = if new_master == Manual::ANY_SLAVE
+      node = if new_master == ManualFailover::ANY_SLAVE
         @slaves.sample
       else
         host, port = new_master.split(':', 2)

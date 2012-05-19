@@ -147,7 +147,7 @@ module RedisFailover
     # @option options [String] :host the host of the failover candidate
     # @option options [String] :port the port of the failover candidate
     def manual_failover(options = {})
-      Manual.failover(zk, options)
+      ManualFailover.new(zk, options).perform
       self
     end
 
