@@ -40,6 +40,10 @@ module RedisFailover
           options[:config_file] = file
         end
 
+        opts.on '-E', '--environment ENV', 'Config environment to use' do |config_env|
+          options[:config_environment] = config_env
+        end
+
         opts.on('-h', '--help', 'Display all options') do
           puts opts
           exit
@@ -48,7 +52,7 @@ module RedisFailover
 
       parser.parse(source)
       if config_file = options[:config_file]
-        options = from_file(config_file)
+        options = from_file(config_file, options[:config_environment])
       end
 
       if required_options_missing?(options)
@@ -69,12 +73,16 @@ module RedisFailover
     # Parses options from a YAML file.
     #
     # @param [String] file the filename
+    # @params [String] _env the environment
     # @return [Hash] the parsed options
-    def self.from_file(file)
+    def self.from_file(file, _env=nil)
       unless File.exists?(file)
         raise ArgumentError, "File #{file} can't be found"
       end
       options = YAML.load_file(file)
+      if _env && !(options = options[_env.intern])
+        raise ArgumentError, "Environment #{_env} can't be found in config"
+      end
       options[:nodes] = options[:nodes].join(',')
       options[:zkservers] = options[:zkservers].join(',')
 
