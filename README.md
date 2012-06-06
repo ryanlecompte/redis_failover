@@ -67,6 +67,7 @@ following options:
             --znode-path PATH            Znode path override for storing redis server list
             --max-failures COUNT         Max failures before manager marks node unavailable
         -C, --config PATH                Path to YAML configuration file
+        -E, --environment ENV            Config environment to use
         -h, --help                       Display all options
 
 To start the daemon for a simple master/slave configuration, use the following:
@@ -92,6 +93,9 @@ would look like the following:
 You would then simpy start the Node Manager via the following:
 
     redis_node_manager -C config.yml
+
+You can also scope the configuration to a particular environment (e.g., staging/development). See the examples
+directory for configuration file samples.
 
 The Node Manager will automatically discover the master/slaves upon startup. Note that it is
 a good idea to run more than one instance of the Node Manager daemon in your environment. At

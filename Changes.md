@@ -2,6 +2,7 @@ HEAD
 -----------
 - Lock-down gemspec to redis 2.2.x in light of upcoming redis 3.x release. Once sufficient testing
 has been done with the 3.x release, I will relax the constraint in the gemspec.
+- Add environment-scoped configuration file support (oleriesenberg)
 
 0.8.3
 -----------
