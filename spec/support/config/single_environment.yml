@@ -1,0 +1,7 @@
+:nodes:
+  - redis01:6379
+  - redis02:6379
+:zkservers:
+  - zk01:2181
+  - zk02:2181
+  - zk03:2181

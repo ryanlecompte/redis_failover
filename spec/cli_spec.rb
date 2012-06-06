@@ -35,6 +35,17 @@ module RedisFailover
           '1'])
         opts[:max_failures].should == 1
       end
+
+      it 'properly parses the config file' do
+        opts = CLI.parse(['-C', "#{File.dirname(__FILE__)}/support/config/single_environment.yml"])
+        opts[:zkservers].should == 'zk01:2181,zk02:2181,zk03:2181'
+
+        opts = CLI.parse(['-C', "#{File.dirname(__FILE__)}/support/config/multiple_environments.yml", '-E', 'development'])
+        opts[:zkservers].should == 'localhost:2181'
+
+        opts = CLI.parse(['-C', "#{File.dirname(__FILE__)}/support/config/multiple_environments.yml", '-E', 'staging'])
+        opts[:zkservers].should == 'zk01:2181,zk02:2181,zk03:2181'
+      end
     end
   end
 end
