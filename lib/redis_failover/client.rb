@@ -109,7 +109,6 @@ module RedisFailover
       @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
       @master = nil
       @slaves = []
-      @queue = Queue.new
       @lock = Monitor.new
       setup_zk
       build_clients
