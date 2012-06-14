@@ -1,4 +1,4 @@
-HEAD
+0.8.5
 -----------
 - Lock-down gemspec to version 1.1.x of redis-namespace to play nicely with redis 2.2.x.
 
