@@ -36,6 +36,16 @@ module RedisFailover
         opts[:max_failures].should == 1
       end
 
+      it 'properly parses a chroot' do
+        opts = CLI.parse(['-n host:port', '-z localhost:1111', '--with-chroot', '/with/chroot/from/command/line'])
+        opts[:nodes].should == [{
+          :host => 'host',
+          :port => 'port',
+        }]
+
+        opts[:chroot].should == '/with/chroot/from/command/line'
+      end
+
       it 'properly parses the config file' do
         opts = CLI.parse(['-C', "#{File.dirname(__FILE__)}/support/config/single_environment.yml"])
         opts[:zkservers].should == 'zk01:2181,zk02:2181,zk03:2181'
@@ -45,6 +55,20 @@ module RedisFailover
 
         opts = CLI.parse(['-C', "#{File.dirname(__FILE__)}/support/config/multiple_environments.yml", '-E', 'staging'])
         opts[:zkservers].should == 'zk01:2181,zk02:2181,zk03:2181'
+      end
+
+      it 'properly parses the config file that include chroot' do
+        opts = CLI.parse(['-C', "#{File.dirname(__FILE__)}/support/config/single_environment_with_chroot.yml"])
+        opts[:zkservers].should == 'zk01:2181,zk02:2181,zk03:2181'
+        opts[:chroot].should == '/with/chroot'
+
+        opts = CLI.parse(['-C', "#{File.dirname(__FILE__)}/support/config/multiple_environments_with_chroot.yml", '-E', 'development'])
+        opts[:zkservers].should == 'localhost:2181'
+        opts[:chroot].should == '/with/chroot_development'
+
+        opts = CLI.parse(['-C', "#{File.dirname(__FILE__)}/support/config/multiple_environments_with_chroot.yml", '-E', 'staging'])
+        opts[:zkservers].should == 'zk01:2181,zk02:2181,zk03:2181'
+        opts[:chroot].should == '/with/chroot_staging'
       end
     end
   end
