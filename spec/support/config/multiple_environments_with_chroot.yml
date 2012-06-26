@@ -1,0 +1,17 @@
+:development:
+  :nodes:
+    - localhost:6379
+    - localhost:6389
+  :zkservers:
+    - localhost:2181
+  :chroot: /with/chroot_development
+
+:staging:
+  :nodes:
+    - redis01:6379
+    - redis02:6379
+  :zkservers:
+    - zk01:2181
+    - zk02:2181
+    - zk03:2181
+  :chroot: /with/chroot_staging
