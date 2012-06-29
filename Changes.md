@@ -1,5 +1,5 @@
-HEAD
-__________
+0.8.6
+-----------
 - No longer buffer output (kyohsuke)
 - Update redis/zk gem versions to latest (rudionrails)
 
