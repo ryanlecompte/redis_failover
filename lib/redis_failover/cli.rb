@@ -40,6 +40,10 @@ module RedisFailover
           options[:config_file] = file
         end
 
+        opts.on('--with-chroot ROOT', 'Path to ZooKeepers chroot') do |chroot|
+          options[:chroot] = chroot
+        end
+
         opts.on('-E', '--environment ENV', 'Config environment to use') do |config_env|
           options[:config_environment] = config_env
         end

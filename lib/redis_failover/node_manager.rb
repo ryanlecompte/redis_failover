@@ -82,7 +82,7 @@ module RedisFailover
     # Configures the ZooKeeper client.
     def setup_zk
       @zk.close! if @zk
-      @zk = ZK.new(@options[:zkservers])
+      @zk = ZK.new("#{@options[:zkservers]}#{@options[:chroot] || ''}")
 
       @zk.register(@manual_znode) do |event|
         @mutex.synchronize do
