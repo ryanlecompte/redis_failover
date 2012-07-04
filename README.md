@@ -37,6 +37,10 @@ optionally retry the operation.
 
 [ZK]: https://github.com/slyphon/zk
 
+## Architecture Diagram
+
+![redis_failover architecture diagram](https://github.com/ryanlecompte/redis_failover/raw/master/misc/redis_failover.png)
+
 ## Installation
 
 redis_failover has an external dependency on ZooKeeper. You must have a running ZooKeeper cluster already available in order to use redis_failover. ZooKeeper provides redis_failover with its high availability and data consistency between Redis::Failover clients and the Node Manager daemon. Please see the requirements section below for more information on installing and setting up ZooKeeper if you don't have it running already.
