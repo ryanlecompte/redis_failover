@@ -71,11 +71,7 @@ module RedisFailover
 
     # Unsupported Redis operations. These don't make sense in a client
     # that abstracts the master/slave servers.
-    UNSUPPORTED_OPS = Set[
-      :select,
-      :ttl,
-      :dbsize,
-    ].freeze
+    UNSUPPORTED_OPS = Set[:select, :dbsize].freeze
 
     # Performance optimization: to avoid unnecessary method_missing calls,
     # we proactively define methods that dispatch to the underlying redis

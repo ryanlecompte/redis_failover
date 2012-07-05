@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Support TTL operation (#24)
+
 0.8.6
 -----------
 - No longer buffer output (kyohsuke)
