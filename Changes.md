@@ -1,4 +1,4 @@
-HEAD
+0.8.7
 -----------
 - Support TTL operation (#24)
 
