@@ -106,6 +106,7 @@ module RedisFailover
       @master = nil
       @slaves = []
       @lock = Monitor.new
+      @current_client_key = "current-client-#{self.object_id}"
       setup_zk
       build_clients
     end
@@ -228,11 +229,7 @@ module RedisFailover
         end
         raise
       ensure
-        if info = Thread.current[:last_operation_info]
-          if info[:method] == method
-            Thread.current[:last_operation_info] = nil
-          end
-        end
+        free_client
       end
     end
 
@@ -414,32 +411,27 @@ module RedisFailover
       Time.now - @last_znode_timestamp <= ZNODE_UPDATE_TIMEOUT
     end
 
-    # Returns the client to use for the specified operation.
+    # Acquires a client to use for the specified operation.
     #
     # @param [Symbol] method the method for which to retrieve a client
     # @return [Redis] a redis client to use
     # @note
-    #   This method stores the last client/method used to handle the case
-    #   where the same RedisFailover::Client instance is referenced by a
-    #   block passed to multi.
+    #   This method stores a stack of clients used to handle the case
+    #   where the same RedisFailover::Client instance is referenced by
+    #   nested blocks (e.g., block passed to multi).
     def client_for(method)
-      if info = Thread.current[:last_operation_info]
-        return info[:client]
-      elsif REDIS_READ_OPS.include?(method)
-        # send read operations to a slave
-        Thread.current[:last_operation_info] = {
-          :client => slave,
-          :method => method
-        }
-      else
-        # direct everything else to master
-        Thread.current[:last_operation_info] = {
-          :client => master,
-          :method => method
-        }
-      end
+      stack = Thread.current[@current_client_key] ||= []
+      client = stack.last || (REDIS_READ_OPS.include?(method) ? slave : master)
+      stack << client
+      client
+    end
 
-      Thread.current[:last_operation_info][:client]
+    # Pops a client from the thread-local client stack.
+    def free_client
+      if stack = Thread.current[@current_client_key]
+        stack.pop
+      end
+      nil
     end
   end
 end

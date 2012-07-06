@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Use a stack for handling nested blocks in RedisFailover::Client (inspired by connection_pool gem)
+
 0.8.7
 -----------
 - Support TTL operation (#24)
