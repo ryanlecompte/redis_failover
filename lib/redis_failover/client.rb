@@ -105,6 +105,7 @@ module RedisFailover
       @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
       @master = nil
       @slaves = []
+      @node_addresses = {}
       @lock = Monitor.new
       @current_client_key = "current-client-#{self.object_id}"
       setup_zk
@@ -309,6 +310,7 @@ module RedisFailover
         if @namespace
           client = Redis::Namespace.new(@namespace, :redis => client)
         end
+        @node_addresses[client] = node
         client
       end
     end
@@ -361,7 +363,7 @@ module RedisFailover
     # @return [String] the address for the node
     def address_for(node)
       return unless node
-      "#{node.client.host}:#{node.client.port}"
+      @node_addresses[node]
     end
 
     # Determines if the currently known redis servers is different
@@ -397,6 +399,7 @@ module RedisFailover
         disconnect(@master, *@slaves)
         @master = nil
         @slaves = []
+        @node_addresses = {}
       end
     end
 
