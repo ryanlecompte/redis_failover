@@ -67,7 +67,7 @@ module RedisFailover
         thread = Thread.new { node.wait }
         thread.should be_alive
         node.wakeup
-        sleep 0.2
+        sleep 2
         thread.should_not be_alive
         thread.value.should be_nil
       end
