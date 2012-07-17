@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Handle errors raised by redis 3.x client (tsilen) 
+
 0.8.8
 -----------
 - Use a stack for handling nested blocks in RedisFailover::Client (inspired by connection_pool gem)
