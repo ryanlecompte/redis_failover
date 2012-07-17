@@ -8,8 +8,12 @@ module RedisFailover
     # Default node in ZK that contains the current list of available redis nodes.
     DEFAULT_ZNODE_PATH = '/redis_failover_nodes'.freeze
 
-    # Connectivity errors that the redis client raises.
-    REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }.freeze
+    # Connectivity errors that the redis (<3.x) client raises.
+    REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }
+
+    # Connectivity errors that the redis (>3.x) client raises.
+    REDIS_ERRORS << Redis::BaseError if Redis.const_defined?("BaseError")
+    REDIS_ERRORS.freeze
 
     # Full set of errors related to connectivity.
     CONNECTIVITY_ERRORS = [
