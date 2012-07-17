@@ -1,4 +1,4 @@
-HEAD
+0.8.9
 -----------
 - Handle errors raised by redis 3.x client (tsilen) 
 
