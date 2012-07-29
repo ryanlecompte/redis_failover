@@ -231,7 +231,7 @@ module RedisFailover
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
       @watchers = [@master, @slaves, @unavailable].flatten.map do |node|
-        NodeWatcher.new(self, node,  @options[:max_failures] || 3)
+        NodeWatcher.new(self, node, @options[:max_failures] || 3)
       end
       @watchers.each(&:watch)
     end
