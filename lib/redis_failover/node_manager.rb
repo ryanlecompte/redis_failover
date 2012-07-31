@@ -314,8 +314,10 @@ module RedisFailover
 
     # Creates the znode path containing the redis nodes.
     def create_path
-      @zk.create(@znode, encode(current_nodes), :ephemeral => true)
-      logger.info("Created ZooKeeper node #{@znode}")
+      unless @zk.exists?(@znode)
+        @zk.create(@znode, encode(current_nodes), :ephemeral => true)
+        logger.info("Created ZooKeeper node #{@znode}")
+      end
     rescue ZK::Exceptions::NodeExists
       # best effort
     end
