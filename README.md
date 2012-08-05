@@ -160,10 +160,12 @@ redis_failover uses YARD for its API documentation. Refer to the generated [API 
 
 ## Resources
 
+- Check out Steve Whittaker's [redis-failover-test](https://github.com/swhitt/redis-failover-test) project which shows how to test redis_failover in a non-trivial configuration using Vagrant/Chef.
 - To learn more about Redis master/slave replication, see the [Redis documentation](http://redis.io/topics/replication).
 - To learn more about ZooKeeper, see the official [ZooKeeper](http://zookeeper.apache.org/) site.
 - See the [Quick ZooKeeper Guide](https://github.com/ryanlecompte/redis_failover/wiki/Quick-ZooKeeper-Guide) for a quick guide to getting ZooKeeper up and running with redis_failover.
 - To learn more about how ZooKeeper handles network partitions, see [ZooKeeper Failure Scenarios](http://wiki.apache.org/hadoop/ZooKeeper/FailureScenarios)
+
 
 ## License
 
