@@ -9,14 +9,6 @@ module RedisFailover
   class NodeManager
     include Util
 
-    # Name for the znode that handles exclusive locking between multiple
-    # Node Manager processes. Whoever holds the lock will be considered
-    # the "master" Node Manager, and will be responsible for monitoring
-    # the redis nodes. When a Node Manager that holds the lock disappears
-    # or fails, another Node Manager process will grab the lock and
-    # become the master.
-    LOCK_PATH = 'master_node_manager'
-
     # Number of seconds to wait before retrying bootstrap process.
     TIMEOUT = 5
 
@@ -34,6 +26,14 @@ module RedisFailover
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @manual_znode = ManualFailover::ZNODE_PATH
       @mutex = Mutex.new
+
+      # Name for the znode that handles exclusive locking between multiple
+      # Node Manager processes. Whoever holds the lock will be considered
+      # the "master" Node Manager, and will be responsible for monitoring
+      # the redis nodes. When a Node Manager that holds the lock disappears
+      # or fails, another Node Manager process will grab the lock and
+      # become the
+      @lock_path = "#{@znode}_lock".freeze
     end
 
     # Starts the node manager.
@@ -44,7 +44,7 @@ module RedisFailover
       @leader = false
       setup_zk
       logger.info('Waiting to become master Node Manager ...')
-      @zk.with_lock(LOCK_PATH) do
+      @zk.with_lock(@lock_path) do
         @leader = true
         logger.info('Acquired master Node Manager lock')
         discover_nodes
