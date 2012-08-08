@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Make Node Manager's lock path vary with its main znode. (Bira)
+
 0.8.9
 -----------
 - Handle errors raised by redis 3.x client (tsilen) 
