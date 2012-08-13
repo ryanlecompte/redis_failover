@@ -26,7 +26,7 @@ module RedisFailover
   end
 
   describe Client do
-    let(:client) { ClientStub.new(:zkservers => 'localhost:9281') }
+    let(:client) { ClientStub.new(:zkservers => 'localhost:9281', :safe_mode => true) }
 
     describe '#build_clients' do
       it 'properly parses master' do
@@ -48,14 +48,28 @@ module RedisFailover
         called.should be_true
       end
 
-      it 'routes read operations to a slave' do
-        called = false
-        client.current_slaves.first.change_role_to('slave')
-        client.current_slaves.first.define_singleton_method(:get) do |*args|
-          called = true
+      context 'with :master_only false' do
+        it 'routes read operations to a slave' do
+          called = false
+          client.current_slaves.first.change_role_to('slave')
+          client.current_slaves.first.define_singleton_method(:get) do |*args|
+            called = true
+          end
+          client.get('foo')
+          called.should be_true
         end
-        client.get('foo')
-        called.should be_true
+      end
+
+      context 'with :master_only true' do
+        it 'routes read operations to master' do
+          client = ClientStub.new(:zkservers => 'localhost:9281', :master_only => true)
+          called = false
+          client.current_master.define_singleton_method(:get) do |*args|
+            called = true
+          end
+          client.get('foo')
+          called.should be_true
+        end
       end
 
       it 'reconnects when node is unavailable' do
@@ -90,10 +104,21 @@ module RedisFailover
         expect { client.select }.to raise_error(UnsupportedOperationError)
       end
 
-      it 'attempts ZK reconnect when no communication from Node Manager within certain time window' do
-        client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
-        client.should_receive(:build_clients)
-        client.del('foo')
+      context 'with :safe_mode enabled' do
+        it 'rebuilds clients when no communication from Node Manager within certain time window' do
+          client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
+          client.should_receive(:build_clients)
+          client.del('foo')
+        end
+      end
+
+      context 'with :safe_mode disabled' do
+        it 'does not rebuild clients when no communication from Node Manager within certain time window' do
+          client = ClientStub.new(:zkservers => 'localhost:9281', :safe_mode => false)
+          client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
+          client.should_not_receive(:build_clients)
+          client.del('foo')
+        end
       end
     end
   end
