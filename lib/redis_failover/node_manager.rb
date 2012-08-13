@@ -219,13 +219,13 @@ module RedisFailover
     def discover_nodes
       @unavailable = []
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
-      raise NoMasterError unless @master = find_master(nodes)
+      @master = find_master(nodes)
       @slaves = nodes - [@master]
       logger.info("Managing master (#{@master}) and slaves" +
         " (#{@slaves.map(&:to_s).join(', ')})")
 
       # ensure that slaves are correctly pointing to this master
-      redirect_slaves_to(@master)
+      redirect_slaves_to(@master) if @master
     end
 
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
