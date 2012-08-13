@@ -277,7 +277,7 @@ module RedisFailover
     def should_notify?
       return false unless @on_node_change
       return true if @last_notified_master != current_master
-      return true if different?(@last_notified_slaves, current_slaves)
+      return true if different?(Array(@last_notified_slaves), current_slaves)
       false
     end
 
