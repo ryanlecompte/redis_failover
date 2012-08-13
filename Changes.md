@@ -5,6 +5,7 @@ HEAD
 - Introduce :master_only option for RedisFailover::Client (disabled by default). This option configures the client to direct all read/write operations to the master.
 - Introduce :safe_mode option (enabled by default). This option configures the client to purge its redis clients when a ZK session expires or when the client hasn't recently heard from the node manager.
 - Introduce RedisFailover::Client#on_node_change callback notification for when the currently known list of master/slave redis nodes changes.
+- Added #current_master and #current_slaves to RedisFailover::Client. This is useful for programmatically doing things based on the current master/slaves.
 
 0.8.9
 -----------
