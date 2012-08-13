@@ -52,7 +52,7 @@ module RedisFailover
         spawn_watchers
         handle_state_reports
       end
-    rescue ZK::Exceptions::InterruptedSession => ex
+    rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
       shutdown
@@ -83,6 +83,7 @@ module RedisFailover
     def setup_zk
       @zk.close! if @zk
       @zk = ZK.new("#{@options[:zkservers]}#{@options[:chroot] || ''}")
+      @zk.on_expired_session { notify_state(:zk_disconnected, nil) }
 
       @zk.register(@manual_znode) do |event|
         @mutex.synchronize do
@@ -106,12 +107,13 @@ module RedisFailover
           when :available       then handle_available(node)
           when :syncing         then handle_syncing(node)
           when :manual_failover then handle_manual_failover(node)
+          when :zk_disconnected then raise ZKDisconnectedError
           else raise InvalidNodeStateError.new(node, state)
           end
 
           # flush current state
           write_state
-        rescue ZK::Exceptions::InterruptedSession
+        rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError
           # fail hard if this is a ZK connection-related error
           raise
         rescue => ex
