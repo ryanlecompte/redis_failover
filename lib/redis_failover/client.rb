@@ -242,7 +242,9 @@ module RedisFailover
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
           @slaves = new_slaves
-          @on_node_change.call(master_name, slave_names) if @on_node_change
+          if @on_node_change
+           @on_node_change.call(address_for(@master), addresses_for(@slaves))
+          end
         rescue
           purge_clients
           raise
