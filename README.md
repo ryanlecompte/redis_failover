@@ -62,7 +62,6 @@ Or install it yourself as:
 The Node Manager is a simple process that should be run as a background daemon. The daemon supports the
 following options:
 
-```ruby
     Usage: redis_node_manager [OPTIONS]
 
     Specific options:
@@ -74,18 +73,14 @@ following options:
         -C, --config PATH                Path to YAML configuration file
         -E, --environment ENV            Config environment to use
         -h, --help                       Display all options
-```
 
 To start the daemon for a simple master/slave configuration, use the following:
 
-```ruby
     redis_node_manager -n localhost:6379,localhost:6380 -z localhost:2181,localhost:2182,localhost:2183
-```
 
 The configuration parameters can also be specified in a config.yml file. An example configuration
 would look like the following:
 
-```ruby
     ---
     :max_failures: 2
     :nodes:
@@ -98,7 +93,6 @@ would look like the following:
       - localhost:2182
       - localhost:2183
     :password: foobar
-```
 
 You would then simpy start the Node Manager via the following:
 
@@ -127,7 +121,6 @@ a drop-in replacement for your existing pure redis client usage.
 
 The full set of options that can be passed to RedisFailover::Client are:
 
-```ruby
      :zkservers     - comma-separated ZooKeeper host:port pairs (required)
      :znode_path    - the Znode path override for redis server list (optional)
      :password      - password for redis nodes (optional)
@@ -138,17 +131,14 @@ The full set of options that can be passed to RedisFailover::Client are:
      :max_retries   - max retries for a failure (default 3)
      :safe_mode     - indicates if safe mode is used or not (default true)
      :master_only   - indicates if only redis master is used (default false)
-```
 
 The RedisFailover::Client also supports a custom callback that will be invoked whenever the list of redis clients changes. Example usage:
 
-```ruby
     RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183') do |client|
       client.on_node_change do |master, slaves|
         logger.info("Nodes changed! master: #{master}, slaves: #{slaves}")
       end
     end
-```
 
 ## Manual Failover
 
@@ -156,10 +146,8 @@ Manual failover can be initiated via RedisFailover::Client#manual_failover. This
 currently active Node Manager. Once the Node Manager receives the request, it will either failover to the specific
 server passed to #manual_failover, or it will pick a random slave to become the new master. Here's an example:
 
-```ruby
     client = RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183')
     client.manual_failover(:host => 'localhost', :port => 2222)
-```
 
 ## Documentation
 
