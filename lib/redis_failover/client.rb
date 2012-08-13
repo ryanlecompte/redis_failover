@@ -140,7 +140,9 @@ module RedisFailover
     def setup_zk
       @zk = ZK.new(@zkservers)
       @zk.watcher.register(@znode) { |event| handle_zk_event(event) }
-      @zk.on_expired_session { purge_clients if @safe_mode }
+      if @safe_mode
+        @zk.on_expired_session { purge_clients }
+      end
       @zk.on_connected { @zk.stat(@znode, :watch => true) }
       @zk.stat(@znode, :watch => true)
       update_znode_timestamp
