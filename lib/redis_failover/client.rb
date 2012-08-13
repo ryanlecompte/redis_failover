@@ -134,6 +134,22 @@ module RedisFailover
       build_clients
     end
 
+    # Retrieves the current redis master.
+    #
+    # @return [String] the host/port of the current master
+    def current_master
+      master = @lock.synchronize { @master }
+      address_for(master)
+    end
+
+    # Retrieves the current redis slaves.
+    #
+    # @return [Array<String>] an array of known slave host/port addresses
+    def current_slaves
+      slaves = @lock.synchronize { @slaves }
+      addresses_for(slaves)
+    end
+
     private
 
     # Sets up the underlying ZooKeeper connection.
@@ -242,14 +258,27 @@ module RedisFailover
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
           @slaves = new_slaves
-          if @on_node_change
-           @on_node_change.call(address_for(@master), addresses_for(@slaves))
-          end
         rescue
           purge_clients
           raise
+        ensure
+          if should_notify?
+           @on_node_change.call(current_master, current_slaves)
+           @last_notified_master = current_master
+           @last_notified_slaves = current_slaves
+          end
         end
       end
+    end
+
+    # Determines if the on_node_change callback should be invoked.
+    #
+    # @return [Boolean] true if callback should be invoked, false otherwise
+    def should_notify?
+      return false unless @on_node_change
+      return true if @last_notified_master != current_master
+      return true if different?(@last_notified_slaves, current_slaves)
+      false
     end
 
     # Fetches the known redis nodes from ZooKeeper.
