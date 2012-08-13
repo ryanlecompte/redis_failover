@@ -1,6 +1,10 @@
 HEAD
 -----------
 - Make Node Manager's lock path vary with its main znode. (Bira)
+- Node Manager's znode for holding current list of redis nodes is no longer ephemeral. This is unnecessary since the current master should only be changed by redis_failover.
+- Introduce :master_only option for RedisFailover::Client (disabled by default). This option configures the client to direct all read/write operations to the master.
+- Introduce :safe_mode option (enabled by default). This option configures the client to purge its redis clients when a ZK session expires or when the client hasn't recently heard from the node manager.
+- Introduce RedisFailover::Client#on_node_change callback notification for when the currently known list of master/slave redis nodes changes.
 
 0.8.9
 -----------

@@ -129,6 +129,16 @@ The full set of options that can be passed to RedisFailover::Client are:
      :logger        - logger override (optional)
      :retry_failure - indicate if failures should be retried (default true)
      :max_retries   - max retries for a failure (default 3)
+     :safe_mode     - indicates if safe mode is used or not (default true)
+     :master_only   - indicates if only redis master is used (default false)
+
+The RedisFailover::Client also supports a custom callback that will be invoked whenever the list of redis clients changes. Example usage:
+
+    RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183') do |client|
+      client.on_node_change do |master, slaves|
+        logger.info("Nodes changed! master: #{master}, slaves: #{slaves}")
+      end
+    end
 
 ## Manual Failover
 
