@@ -1,4 +1,4 @@
-HEAD
+0.9.0
 -----------
 - Make Node Manager's lock path vary with its main znode. (Bira)
 - Node Manager's znode for holding current list of redis nodes is no longer ephemeral. This is unnecessary since the current master should only be changed by redis_failover.
