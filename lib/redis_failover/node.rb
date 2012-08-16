@@ -181,7 +181,7 @@ module RedisFailover
       if redis
         begin
           redis.client.disconnect
-        rescue
+        rescue => ex
           raise NodeUnavailableError, "#{ex.class}: #{ex.message}", ex.backtrace
         end
       end
