@@ -38,7 +38,7 @@ module RedisFailover
 
     # Creates the znode path used for coordinating manual failovers.
     def create_path
-      @zk.create(self.class.path(@root_znode), node)
+      @zk.create(self.class.path(@root_znode))
     rescue ZK::Exceptions::NodeExists
       # best effort
     end
