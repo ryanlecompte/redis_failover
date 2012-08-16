@@ -23,17 +23,9 @@ module RedisFailover
     def initialize(options)
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
-      @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
-      @manual_znode = ManualFailover::ZNODE_PATH
+      @root_znode = options.fetch(:znode_path, Util::DEFAULT_ROOT_ZNODE_PATH)
       @mutex = Mutex.new
-
-      # Name for the znode that handles exclusive locking between multiple
-      # Node Manager processes. Whoever holds the lock will be considered
-      # the "master" Node Manager, and will be responsible for monitoring
-      # the redis nodes. When a Node Manager that holds the lock disappears
-      # or fails, another Node Manager process will grab the lock and
-      # become the
-      @lock_path = "#{@znode}_lock".freeze
+      @master_manager = false
     end
 
     # Starts the node manager.
@@ -41,17 +33,11 @@ module RedisFailover
     # @note This method does not return until the manager terminates.
     def start
       @queue = Queue.new
-      @leader = false
+      @master_manager = false
       setup_zk
-      logger.info('Waiting to become master Node Manager ...')
-      @zk.with_lock(@lock_path) do
-        @leader = true
-        logger.info('Acquired master Node Manager lock')
-        discover_nodes
-        initialize_path
-        spawn_watchers
-        handle_state_reports
-      end
+      discover_nodes
+      spawn_watchers
+      handle_state_reports
     rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
@@ -83,9 +69,11 @@ module RedisFailover
     def setup_zk
       @zk.close! if @zk
       @zk = ZK.new("#{@options[:zkservers]}#{@options[:chroot] || ''}")
-      @zk.on_expired_session { notify_state(:zk_disconnected, nil) }
+      create_path(@root_znode)
+      create_path("#{@root_znode}/manager_node_state")
 
-      @zk.register(@manual_znode) do |event|
+      @zk.on_expired_session { notify_state(:zk_disconnected, nil) }
+      @zk.register(manual_failover_path) do |event|
         @mutex.synchronize do
           if event.node_changed?
             schedule_manual_failover
@@ -93,8 +81,15 @@ module RedisFailover
         end
       end
 
-      @zk.on_connected { @zk.stat(@manual_znode, :watch => true) }
-      @zk.stat(@manual_znode, :watch => true)
+      @zk.on_connected { @zk.stat(manual_failover_path, :watch => true) }
+      @zk.stat(manual_failover_path, :watch => true)
+      @zk_lock_thread = Thread.new do
+        logger.info('Waiting to become master Node Manager ...')
+        @zk.with_lock(master_manager_lock_path) do
+          @master_manager = true
+          logger.info('Acquired master Node Manager lock')
+        end
+      end
     end
 
     # Handles periodic state reports from {RedisFailover::NodeWatcher} instances.
@@ -102,17 +97,8 @@ module RedisFailover
       while state_report = @queue.pop
         begin
           node, state = state_report
-          case state
-          when :unavailable     then handle_unavailable(node)
-          when :available       then handle_available(node)
-          when :syncing         then handle_syncing(node)
-          when :manual_failover then handle_manual_failover(node)
-          when :zk_disconnected then raise ZKDisconnectedError
-          else raise InvalidNodeStateError.new(node, state)
-          end
-
-          # flush current state
-          write_state
+          update_current_state(node, state)
+          handle_master_state(node, state) if master_manager?
         rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError
           # fail hard if this is a ZK connection-related error
           raise
@@ -198,7 +184,7 @@ module RedisFailover
     # @param [Node] node the optional node to promote
     # @note if no node is specified, a random slave will be used
     def promote_new_master(node = nil)
-      delete_path
+      delete_path(redis_nodes_path)
       @master = nil
 
       # make a specific node or slave the new master
@@ -212,22 +198,18 @@ module RedisFailover
       candidate.make_master!
       @master = candidate
 
-      create_path
-      write_state
+      write_current_redis_nodes
       logger.info("Successfully promoted #{candidate} to master.")
     end
 
     # Discovers the current master and slave nodes.
     def discover_nodes
-      @unavailable = []
+      @reachable, @unreachable, @unavailable = [], [], []
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
       @master = find_master(nodes)
       @slaves = nodes - [@master]
-      logger.info("Managing master (#{@master}) and slaves" +
+      logger.info("Monitoring master (#{@master}) and slaves" +
         " (#{@slaves.map(&:to_s).join(', ')})")
-
-      # ensure that slaves are correctly pointing to this master
-      redirect_slaves_to(@master) if @master
     end
 
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
@@ -306,40 +288,41 @@ module RedisFailover
       }
     end
 
+    def node_reachability_state
+      {
+        :reachable => @reachable.map(&:to_s),
+        :unreachable => @unreachable.map(&:to_s)
+      }
+    end
+
     # Deletes the znode path containing the redis nodes.
-    def delete_path
-      @zk.delete(@znode)
-      logger.info("Deleted ZooKeeper node #{@znode}")
+    def delete_path(path)
+      @zk.delete(path)
+      logger.info("Deleted ZK node #{path}")
     rescue ZK::Exceptions::NoNode => ex
       logger.info("Tried to delete missing znode: #{ex.inspect}")
     end
 
     # Creates the znode path containing the redis nodes.
-    def create_path
-      unless @zk.exists?(@znode)
-        @zk.create(@znode, encode(current_nodes))
-        logger.info("Created ZooKeeper node #{@znode}")
+    def create_path(path, value = nil)
+      unless @zk.exists?(path)
+        @zk.create(path, value)
+        logger.info("Created ZK node #{path}")
       end
     rescue ZK::Exceptions::NodeExists
       # best effort
     end
 
-    # Initializes the znode path containing the redis nodes.
-    def initialize_path
-      create_path
-      write_state
-    end
-
     # Writes the current redis nodes state to the znode path.
-    def write_state
-      create_path
-      @zk.set(@znode, encode(current_nodes))
+    def write_state(path, value)
+      create_path(path, value)
+      @zk.set(path, value)
     end
 
     # Schedules a manual failover to a redis node.
     def schedule_manual_failover
-      return unless @leader
-      new_master = @zk.get(@manual_znode, :watch => true).first
+      return unless @master_manager
+      new_master = @zk.get(manual_failover_path, :watch => true).first
       logger.info("Received manual failover request for: #{new_master}")
 
       node = if new_master == ManualFailover::ANY_SLAVE
@@ -349,6 +332,84 @@ module RedisFailover
         Node.new(:host => host, :port => port, :password => @options[:password])
       end
       notify_state(node, :manual_failover) if node
+    end
+
+    # Produces a FQDN id for this Node Manager.
+    #
+    # @return [String] the FQDN for this Node Manager
+    def manager_id
+      @manager_id ||= [
+        Socket.gethostbyname(Socket.gethostname)[0],
+        Process.pid
+      ].join('-')
+    end
+
+    def write_current_redis_nodes
+      write_state(redis_nodes_path, encode(current_nodes))
+    end
+
+    def current_state_path
+      [@root_znode, 'manager_node_state', manager_id].join('/')
+    end
+
+    def redis_nodes_path
+      "#{@root_znode}/nodes"
+    end
+
+    # Name for the znode that handles exclusive locking between multiple
+    # Node Manager processes. Whoever holds the lock will be considered
+    # the "master" Node Manager, and will be responsible for monitoring
+    # the redis nodes. When a Node Manager that holds the lock disappears
+    # or fails, another Node Manager process will grab the lock and
+    # become the new master.
+    def master_manager_lock_path
+      "#{@root_znode}/master_node_manager_lock"
+    end
+
+    def manual_failover_path
+      ManualFailover.path(@root_znode)
+    end
+
+    def master_manager?
+      @master_manager
+    end
+
+    def handle_master_state(node, state)
+      case state
+      when :unavailable
+        handle_unavailable(node)
+      when :available
+        handle_available(node)
+      when :syncing
+        handle_syncing(node)
+      when :manual_failover
+        handle_manual_failover(node)
+      when :zk_disconnected
+        raise ZKDisconnectedError
+      else
+        raise InvalidNodeStateError.new(node, state)
+      end
+
+      # flush current master state
+      write_current_redis_nodes
+    end
+
+    def update_current_state(node, state)
+      case state
+      when :unavailable
+        @unreachable << node unless @unreachable.include?(node)
+        @reachable.delete(node)
+      when :available, :syncing
+        @reachable << node unless @reachable.include?(node)
+        @unreachable.delete(node)
+      when :zk_disconnected
+        raise ZKDisconnectedError
+      else
+        raise InvalidNodeStateError.new(node, state)
+      end
+
+      # flush current node manager state
+      write_state(current_state_path, encode(node_reachability_state))
     end
   end
 end

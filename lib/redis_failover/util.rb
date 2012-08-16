@@ -51,8 +51,8 @@ module RedisFailover
     # that abstracts the master/slave servers.
     UNSUPPORTED_OPS = Set[:select, :dbsize].freeze
 
-    # Default node in ZK that contains the current list of available redis nodes.
-    DEFAULT_ZNODE_PATH = '/redis_failover_nodes'.freeze
+    # Default root node in ZK used for redis_failover.
+    DEFAULT_ROOT_ZNODE_PATH = '/redis_failover'.freeze
 
     # Connectivity errors that the redis (<3.x) client raises.
     REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }
