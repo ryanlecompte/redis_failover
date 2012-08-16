@@ -239,7 +239,7 @@ module RedisFailover
     # @raise [NoMasterError] if no master fallback is available
     def slave
       # pick a slave, if none available fallback to master
-      if slave = @lock.synchronize { @slaves.sample }
+      if slave = @lock.synchronize { @slaves.shuffle.first }
         verify_role!(slave, :slave)
         return slave
       end

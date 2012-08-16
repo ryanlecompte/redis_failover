@@ -2,6 +2,7 @@ HEAD
 -----------
 - Improve nested exception handling.
 - Fix manual failover support when znode does not first exist.
+- Fixes to work better with 1.8.7.
 
 0.9.0
 -----------

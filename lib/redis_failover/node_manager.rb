@@ -91,6 +91,9 @@ module RedisFailover
             if event.node_created? || event.node_changed?
               schedule_manual_failover
             end
+          rescue => ex
+            logger.error("Error scheduling a manual failover: #{ex.inspect}")
+            logger.error(ex.backtrace.join("\n"))
           ensure
             @zk.stat(@manual_znode, :watch => true)
           end
@@ -349,7 +352,7 @@ module RedisFailover
       logger.info("Current nodes: #{current_nodes.inspect}")
 
       node = if new_master == ManualFailover::ANY_SLAVE
-        @slaves.sample
+        @slaves.shuffle.first
       else
         host, port = new_master.split(':', 2)
         Node.new(:host => host, :port => port, :password => @options[:password])
