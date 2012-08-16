@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Improve nested exception handling.
+
 0.9.0
 -----------
 - Make Node Manager's lock path vary with its main znode. (Bira)

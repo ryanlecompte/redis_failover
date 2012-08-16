@@ -175,14 +175,14 @@ module RedisFailover
         redis = new_client
         yield redis
       end
-    rescue
-      raise NodeUnavailableError, self, caller
+    rescue => ex
+      raise NodeUnavailableError, "#{ex.class}: #{ex.message}", ex.backtrace
     ensure
       if redis
         begin
           redis.client.disconnect
         rescue
-          raise NodeUnavailableError, self, caller
+          raise NodeUnavailableError, "#{ex.class}: #{ex.message}", ex.backtrace
         end
       end
     end
