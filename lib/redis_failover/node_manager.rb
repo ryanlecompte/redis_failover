@@ -346,13 +346,20 @@ module RedisFailover
       new_master = @zk.get(@manual_znode, :watch => true).first
       return unless new_master && new_master.size > 0
       logger.info("Received manual failover request for: #{new_master}")
+      logger.info("Current nodes: #{current_nodes.inspect}")
+
       node = if new_master == ManualFailover::ANY_SLAVE
         @slaves.sample
       else
         host, port = new_master.split(':', 2)
         Node.new(:host => host, :port => port, :password => @options[:password])
       end
-      notify_state(node, :manual_failover) if node
+
+      if node
+        notify_state(node, :manual_failover)
+      else
+        logger.error('Failed to perform manual failover, no candidate found.')
+      end
     end
   end
 end
