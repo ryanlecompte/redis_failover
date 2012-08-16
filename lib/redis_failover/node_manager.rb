@@ -87,9 +87,10 @@ module RedisFailover
 
       @zk.register(@manual_znode) do |event|
         @mutex.synchronize do
-          if event.node_changed?
+          if event.node_created? || event.node_changed?
             schedule_manual_failover
           end
+          @zk.stat(@manual_znode, :watch => true)
         end
       end
 
@@ -340,8 +341,8 @@ module RedisFailover
     def schedule_manual_failover
       return unless @leader
       new_master = @zk.get(@manual_znode, :watch => true).first
+      return unless new_master && new_master.size > 0
       logger.info("Received manual failover request for: #{new_master}")
-
       node = if new_master == ManualFailover::ANY_SLAVE
         @slaves.sample
       else
