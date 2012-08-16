@@ -255,7 +255,7 @@ module RedisFailover
           return unless nodes_changed?(nodes)
 
           purge_clients
-          logger.info("Building new clients for nodes #{nodes}")
+          logger.info("Building new clients for nodes #{nodes.inspect}")
           new_master = new_clients_for(nodes[:master]).first if nodes[:master]
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
@@ -289,7 +289,7 @@ module RedisFailover
     def fetch_nodes
       data = @zk.get(@znode, :watch => true).first
       nodes = symbolize_keys(decode(data))
-      logger.debug("Fetched nodes: #{nodes}")
+      logger.debug("Fetched nodes: #{nodes.inspect}")
 
       nodes
     rescue Zookeeper::Exceptions::InheritedConnectionError => ex
