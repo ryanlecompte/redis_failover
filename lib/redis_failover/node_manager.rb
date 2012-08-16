@@ -87,10 +87,13 @@ module RedisFailover
 
       @zk.register(@manual_znode) do |event|
         @mutex.synchronize do
-          if event.node_created? || event.node_changed?
-            schedule_manual_failover
+          begin
+            if event.node_created? || event.node_changed?
+              schedule_manual_failover
+            end
+          ensure
+            @zk.stat(@manual_znode, :watch => true)
           end
-          @zk.stat(@manual_znode, :watch => true)
         end
       end
 

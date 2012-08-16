@@ -177,6 +177,8 @@ module RedisFailover
       else
         logger.error("Unknown ZK node event: #{event.inspect}")
       end
+    ensure
+      @zk.stat(@znode, :watch => true)
     end
 
     # Determines if a method is a known redis operation.
