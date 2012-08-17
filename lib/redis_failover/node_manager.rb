@@ -398,7 +398,6 @@ module RedisFailover
 
     rescue => ex
       logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
-      logger.error(ex.backtrace.join("\n"))
     end
 
     # Updates the current view of the world for this particular node
@@ -473,7 +472,7 @@ module RedisFailover
             begin
               snapshots = current_node_snapshots
               snapshots.each do |node, snapshot|
-                logger.info(snapshot.to_s)
+                logger.debug(snapshot.to_s)
                 update_master_state(node, snapshot.majority_state)
               end
 

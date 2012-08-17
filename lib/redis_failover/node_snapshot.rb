@@ -30,16 +30,20 @@ module RedisFailover
       @unavailable << node_manager
     end
 
-    # @return [Integer] the number of node managers saying this node is available
+    # @return [Integer] the number of node managers saying
+    # this node is available
     def available_count
       @available.size
     end
 
-    # @return [Integer] the number of node managers saying this node is unavailable
+    # @return [Integer] the number of node managers saying
+    # this node is unavailable
     def unavailable_count
       @unavailable.size
     end
 
+    # @return [Symbol] the node state as determined by the
+    # majority node managers
     def majority_state
       available_count > unavailable_count ? :available : :unavailable
     end

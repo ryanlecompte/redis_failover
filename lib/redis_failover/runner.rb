@@ -10,8 +10,7 @@ module RedisFailover
       options = CLI.parse(options)
       @node_manager = NodeManager.new(options)
       trap_signals
-      @node_manager_thread = Thread.new { @node_manager.start }
-      @node_manager_thread.join
+      @node_manager.start
     end
 
     # Traps shutdown signals.
