@@ -77,8 +77,15 @@ module RedisFailover
       @zk.on_expired_session { notify_state(:zk_disconnected) }
       @zk.register(manual_failover_path) do |event|
         @manual_failover_mutex.synchronize do
-          if event.node_changed?
-            schedule_manual_failover
+          begin
+            if event.node_created? || event.node_changed?
+              schedule_manual_failover
+            end
+          rescue => ex
+            logger.error("Error scheduling a manual failover: #{ex.inspect}")
+            logger.error(ex.backtrace.join("\n"))
+          ensure
+            @zk.stat(@manual_znode, :watch => true)
           end
         end
       end
@@ -345,15 +352,22 @@ module RedisFailover
     def schedule_manual_failover
       return unless @master_manager
       new_master = @zk.get(manual_failover_path, :watch => true).first
+      return unless new_master && new_master.size > 0
       logger.info("Received manual failover request for: #{new_master}")
+      logger.info("Current nodes: #{current_nodes.inspect}")
 
       node = if new_master == ManualFailover::ANY_SLAVE
-        @slaves.sample
+        @slaves.shuffle.first
       else
         host, port = new_master.split(':', 2)
         Node.new(:host => host, :port => port, :password => @options[:password])
       end
-      notify_state(node, :manual_failover) if node
+
+      if node
+        notify_state(node, :manual_failover)
+      else
+        logger.error('Failed to perform manual failover, no candidate found.')
+      end
     end
 
     # Produces a FQDN id for this Node Manager.
