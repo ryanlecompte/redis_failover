@@ -12,38 +12,42 @@ module RedisFailover
     # @param [String] the redis node
     def initialize(node)
       @node = node
-      @reachable = []
-      @unreachable = []
+      @available = []
+      @unavailable = []
     end
 
-    # Declares this node reachable by the specified node manager.
+    # Declares this node available by the specified node manager.
     #
     # @param [String] the znode path for the node manager
-    def reachable_by(node_manager)
-      @reachable << node_manager
+    def viewable_by(node_manager)
+      @available << node_manager
     end
 
-    # Declares this node unreachable by the specified node manager.
+    # Declares this node unavailable by the specified node manager.
     #
     # @param [String] the znode path for the node manager
-    def unreachable_by(node_manager)
-      @unreachable << node_manager
+    def unviewable_by(node_manager)
+      @unavailable << node_manager
     end
 
-    # @return [Integer] the number of node managers saying this node is reachable
-    def reachable_count
-      @reachable.size
+    # @return [Integer] the number of node managers saying this node is available
+    def available_count
+      @available.size
     end
 
-    # @return [Integer] the number of node managers saying this node is unreachable
-    def unreachable_count
-      @unreachable.size
+    # @return [Integer] the number of node managers saying this node is unavailable
+    def unavailable_count
+      @unavailable.size
+    end
+
+    def majority_state
+      available_count > unavailable_count ? :available : :unavailable
     end
 
     # @return [String] a friendly representation of this node snapshot
     def to_s
-      'Node %s reachable by %p, unreachable by %p (%d up, %d down)' %
-        [node, @reachable, @unreachable, reachable_count, unreachable_count]
+      'Node %s available by %p, unavailable by %p (%d up, %d down)' %
+        [node, @available, @unavailable, available_count, unavailable_count]
     end
   end
 end

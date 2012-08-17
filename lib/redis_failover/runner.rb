@@ -20,7 +20,6 @@ module RedisFailover
         trap(signal) do
           Util.logger.info('Shutting down ...')
           @node_manager.shutdown
-          @node_manager_thread.join
           exit(0)
         end
       end
