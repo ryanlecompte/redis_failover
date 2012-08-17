@@ -18,5 +18,6 @@ require 'redis_failover/runner'
 require 'redis_failover/version'
 require 'redis_failover/node_manager'
 require 'redis_failover/node_watcher'
+require 'redis_failover/node_snapshot'
 require 'redis_failover/manual_failover'
 

@@ -71,23 +71,12 @@ module RedisFailover
       @zk.close! if @zk
       @zk = ZK.new("#{@options[:zkservers]}#{@options[:chroot] || ''}")
       create_path(@root_znode)
-      create_path("#{@root_znode}/manager_node_state")
+      create_path(current_state_root)
       create_path(manual_failover_path)
 
       @zk.on_expired_session { notify_state(:zk_disconnected) }
       @zk.register(manual_failover_path) do |event|
-        @manual_failover_mutex.synchronize do
-          begin
-            if event.node_created? || event.node_changed?
-              schedule_manual_failover
-            end
-          rescue => ex
-            logger.error("Error scheduling a manual failover: #{ex.inspect}")
-            logger.error(ex.backtrace.join("\n"))
-          ensure
-            @zk.stat(@manual_znode, :watch => true)
-          end
-        end
+        handle_manual_failover_update(event)
       end
 
       @zk.on_connected { @zk.stat(manual_failover_path, :watch => true) }
@@ -112,6 +101,7 @@ module RedisFailover
           node, state = state_report
           update_current_state(node, state)
           handle_master_state(node, state) if master_manager?
+          puts current_node_snapshots.values.map(&:to_s)
         rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError
           # fail hard if this is a ZK connection-related error
           raise
@@ -348,6 +338,24 @@ module RedisFailover
       @zk.set(path, value)
     end
 
+    # Handles a manual failover znode update.
+    #
+    # @param [ZK::Event] event the ZK event to handle
+    def handle_manual_failover_update(event)
+      @manual_failover_mutex.synchronize do
+        begin
+          if event.node_created? || event.node_changed?
+            schedule_manual_failover
+          end
+        rescue => ex
+          logger.error("Error scheduling a manual failover: #{ex.inspect}")
+          logger.error(ex.backtrace.join("\n"))
+        ensure
+          @zk.stat(@manual_znode, :watch => true)
+        end
+      end
+    end
+
     # Schedules a manual failover to a redis node.
     def schedule_manual_failover
       return unless @master_manager
@@ -386,10 +394,15 @@ module RedisFailover
       write_state(redis_nodes_path, encode(current_nodes))
     end
 
+    # @return [String] root path for current node manager state
+    def current_state_root
+      "#{@root_znode}/manager_node_state"
+    end
+
     # @return [String] the znode path for this node manager's view
     # of reachable nodes
     def current_state_path
-      [@root_znode, 'manager_node_state', manager_id].join('/')
+      "#{current_state_root}/#{manager_id}"
     end
 
     # @return [String] the znode path for the master redis nodes config
@@ -472,6 +485,33 @@ module RedisFailover
       logger.error(ex.backtrace.join("\n"))
       @master_manager = false
       notify_state(:zk_disconnected)
+    end
+
+    # Fetches each currently running node manager's view of the
+    # world in terms of which nodes they think are reachable/unreachable.
+    #
+    # @return [Hash<String, Array>] a hash of node manager to host states
+    def fetch_node_manager_states
+      states = {}
+      @zk.children(current_state_root).each do |child|
+        full_path = "#{current_state_root}/#{child}"
+        states[child] = decode(@zk.get(full_path).first)
+      end
+      states
+    end
+
+    # Builds current snapshots of nodes across all running node managers.
+    #
+    # @return [Hash<String, NodeSnapshot>] the snapshots for all nodes
+    def current_node_snapshots
+      snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k) }
+      fetch_node_manager_states.each do |node_manager, states|
+        reachable, unreachable = states.values_at('reachable', 'unreachable')
+        reachable.each { |node| snapshots[node].reachable_by(node_manager) }
+        unreachable.each { |node| snapshots[node].unreachable_by(node_manager) }
+      end
+
+      snapshots
     end
   end
 end
