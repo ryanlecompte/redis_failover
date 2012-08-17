@@ -32,34 +32,33 @@ module RedisFailover
     end
 
     def stop_processing
-      @queue << nil
       @thread.value
     end
 
     def force_unavailable(node)
       start_processing
       node.redis.make_unavailable!
-      notify_state(node, :unavailable)
+      update_master_state(node, :unavailable)
       stop_processing
     end
 
     def force_available(node)
       start_processing
       node.redis.make_available!
-      notify_state(node, :available)
+      update_master_state(node, :available)
       stop_processing
     end
 
     def force_syncing(node, serve_stale_reads)
       start_processing
       node.redis.force_sync_with_master(serve_stale_reads)
-      notify_state(node, :syncing)
+      update_master_state(node, :available)
       stop_processing
     end
 
-    def initialize_path; end
-    def delete_path; end
-    def create_path; end
-    def write_state; end
+    def delete_path(*args); end
+    def create_path(*args); end
+    def write_state(*args); end
+    def wait_until_master; end
   end
 end

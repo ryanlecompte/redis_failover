@@ -50,7 +50,7 @@ module RedisFailover
           watcher.watch
           sleep(3)
           watcher.shutdown
-          node_manager.state_for(node).should == :syncing
+          node_manager.state_for(node).should == :available
         end
       end
     end
