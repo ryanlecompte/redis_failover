@@ -2,8 +2,6 @@ module RedisFailover
   # Represents a snapshot of a particular node as seen by all currently running
   # redis node managers.
   class NodeSnapshot
-    include Util
-
     # @return [String] the redis node
     attr_reader :node
 

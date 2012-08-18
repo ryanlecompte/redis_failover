@@ -32,7 +32,6 @@ module RedisFailover
     #
     # @note This method does not return until the manager terminates.
     def start
-      @master_manager = false
       setup_zk
       discover_nodes
       spawn_watchers
@@ -59,8 +58,8 @@ module RedisFailover
 
     # Performs a graceful shutdown of the manager.
     def shutdown
-      @watchers.each(&:shutdown) if @watchers
       @master_manager = false
+      @watchers.each(&:shutdown) if @watchers
     end
 
     private
@@ -71,12 +70,9 @@ module RedisFailover
       @zk = ZK.new("#{@options[:zkservers]}#{@options[:chroot] || ''}")
       create_path(@root_znode)
       create_path(current_state_root)
-
       @zk.register(manual_failover_path) do |event|
         handle_manual_failover_update(event)
       end
-
-      @zk.on_connected { @zk.stat(manual_failover_path, :watch => true) }
       @zk.stat(manual_failover_path, :watch => true)
     end
 
@@ -172,7 +168,7 @@ module RedisFailover
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
       @watchers = [@master, @slaves, @unavailable].flatten.compact.map do |node|
-        NodeWatcher.new(self, node, @options[:max_failures] || 3)
+        NodeWatcher.new(self, node, @options.fetch(:max_failures, 3))
       end
       @watchers.each(&:watch)
     end
@@ -395,9 +391,11 @@ module RedisFailover
       else
         raise InvalidNodeStateError.new(node, state)
       end
-
+    rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError
+      # fail hard if this is a ZK connection-related error
+      raise
     rescue => ex
-      logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
+      logger.error("Error handling state report: #{ex.inspect}")
     end
 
     # Updates the current view of the world for this particular node
@@ -478,13 +476,10 @@ module RedisFailover
 
               # flush current master state
               write_current_redis_nodes
-            rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError
-              # fail hard if this is a ZK connection-related error
-              raise
             end
-
-            sleep(TIMEOUT)
           end
+
+          sleep(TIMEOUT)
         end
       end
     end
