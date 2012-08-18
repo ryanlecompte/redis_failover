@@ -36,7 +36,7 @@ module RedisFailover
       discover_nodes
       spawn_watchers
       wait_until_master
-    rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError => ex
+    rescue ZK::Exceptions::InterruptedSession => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
       shutdown
@@ -391,7 +391,7 @@ module RedisFailover
       else
         raise InvalidNodeStateError.new(node, state)
       end
-    rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError
+    rescue ZK::Exceptions::InterruptedSession
       # fail hard if this is a ZK connection-related error
       raise
     rescue => ex

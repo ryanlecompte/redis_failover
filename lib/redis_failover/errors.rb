@@ -44,8 +44,4 @@ module RedisFailover
       super("Operation `#{operation}` is currently unsupported")
     end
   end
-
-  # Raised when we detect an expired ZK session.
-  class ZKDisconnectedError < Error
-  end
 end
