@@ -52,28 +52,18 @@ module RedisFailover
     # @return [Symbol] the node state as determined by the
     # majority node managers
     def state
-      case
-      when majority_mode?
+      case @decision_mode
+      when :majority
         available_count > unavailable_count ? :available : :unavailable
-      when consensus_mode?
+      when :consensus
         all_available? ? :available : :unavailable
       end
     end
 
-    # @return [Boolean] true if using majority mode, false otherwise
-    def majority_mode?
-      @decision_mode == :majority
-    end
-
-    # @return [Boolean] true if using consensus mode, false otherwise
-    def consensus_mode?
-      @decision_mode == :consensus
-    end
-
     # @return [String] a friendly representation of this node snapshot
     def to_s
-      'Node %s available by %p, unavailable by %p (%d up, %d down)' %
-        [node, @available, @unavailable, available_count, unavailable_count]
+      'Node %s available by %p, unavailable by %p (%d up, %d down, %s)' %
+        [node, @available, @unavailable, available_count, unavailable_count, @decision_mode]
     end
   end
 end
