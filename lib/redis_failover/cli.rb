@@ -48,6 +48,11 @@ module RedisFailover
           options[:config_environment] = config_env
         end
 
+        opts.on('--decision-mode MODE',
+         'Decision mode used when monitoring nodes (majority or consensus)') do |mode|
+          options[:decision_mode] = mode
+        end
+
         opts.on('-h', '--help', 'Display all options') do
           puts opts
           exit
@@ -59,7 +64,7 @@ module RedisFailover
         options = from_file(config_file, options[:config_environment])
       end
 
-      if required_options_missing?(options)
+      if invalid_options?(options)
         puts parser
         exit
       end
@@ -68,9 +73,13 @@ module RedisFailover
     end
 
     # @return [Boolean] true if required options missing, false otherwise
-    def self.required_options_missing?(options)
+    def self.invalid_options?(options)
       return true if options.empty?
       return true unless options.values_at(:nodes, :zkservers).all?
+      if (mode = options[:decision_mode]) && !%w(majority consensus).include?(mode)
+        return true
+      end
+
       false
     end
 
@@ -111,6 +120,10 @@ module RedisFailover
       # assume password is same for all redis nodes
       if password = options[:password]
         options[:nodes].each { |opts| opts.update(:password => password) }
+      end
+
+      if mode = options[:decision_mode]
+        options[:decision_mode] = mode.to_sym
       end
 
       options

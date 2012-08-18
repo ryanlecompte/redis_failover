@@ -24,6 +24,7 @@ module RedisFailover
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
       @root_znode = options.fetch(:znode_path, Util::DEFAULT_ROOT_ZNODE_PATH)
+      @decision_mode = options.fetch(:decision_mode, :majority)
       @lock = Mutex.new
       @master_manager = false
     end
@@ -442,7 +443,7 @@ module RedisFailover
     # @return [Hash<String, NodeSnapshot>] the snapshots for all nodes
     def current_node_snapshots
       nodes = {}
-      snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k) }
+      snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k, @decision_mode) }
       fetch_node_manager_states.each do |node_manager, states|
         available, unavailable = states.values_at(:available, :unavailable)
         available.each do |node_string|
@@ -463,7 +464,8 @@ module RedisFailover
       logger.info('Waiting to become master Node Manager ...')
       @zk.with_lock('master_manager_lock') do
         @master_manager = true
-        logger.info('Acquired master Node Manager lock')
+        logger.info("Acquired master Node Manager lock. " +
+          "Managing nodes in #{@decision_mode} mode.")
         seed_initial_node_states
 
         # Periodically update master config state.
@@ -473,7 +475,7 @@ module RedisFailover
               snapshots = current_node_snapshots
               snapshots.each do |node, snapshot|
                 logger.debug(snapshot.to_s)
-                update_master_state(node, snapshot.majority_state)
+                update_master_state(node, snapshot.state)
               end
 
               # flush current master state
