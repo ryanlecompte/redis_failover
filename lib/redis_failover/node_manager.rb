@@ -50,7 +50,9 @@ module RedisFailover
     # @param [Node] node the node
     # @param [Symbol] state the state
     def notify_state(node, state = nil)
-      update_current_state(node, state)
+      @lock.synchronize do
+        update_current_state(node, state)
+      end
     rescue => ex
       logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
