@@ -398,7 +398,7 @@ module RedisFailover
       # fail hard if this is a ZK connection-related error
       raise
     rescue => ex
-      logger.error("Error handling state report: #{ex.inspect}")
+      logger.error("Error handling state report for #{[node, state].inspect}: #{ex.inspect}")
     end
 
     # Updates the current view of the world for this particular node
