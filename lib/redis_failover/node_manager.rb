@@ -11,6 +11,8 @@ module RedisFailover
 
     # Number of seconds to wait before retrying bootstrap process.
     TIMEOUT = 5
+    # Number of seconds for checking node snapshots.
+    CHECK_INTERVAL = 10
 
     # Creates a new instance.
     #
@@ -380,10 +382,12 @@ module RedisFailover
     # this node manager instance is serving as the master manager.
     #
     # @param [Node] node the node to handle
-    # @param [Symbol] state the node state
-    def update_master_state(node, state)
+    # @param [NodeSnapshot] snapshot the node snapshot
+    def update_master_state(node, snapshot)
+      state = snapshot.state
       case state
       when :unavailable
+        logger.info(snapshot)
         handle_unavailable(node)
       when :available
         if node.syncing_with_master?
@@ -474,8 +478,7 @@ module RedisFailover
             begin
               snapshots = current_node_snapshots
               snapshots.each do |node, snapshot|
-                logger.debug(snapshot.to_s)
-                update_master_state(node, snapshot.state)
+                update_master_state(node, snapshot)
               end
 
               # flush current master state
@@ -483,7 +486,7 @@ module RedisFailover
             end
           end
 
-          sleep(TIMEOUT)
+          sleep(CHECK_INTERVAL)
         end
       end
     end

@@ -62,7 +62,7 @@ module RedisFailover
 
     # @return [String] a friendly representation of this node snapshot
     def to_s
-      'Node %s available by %p, unavailable by %p (%d up, %d down, %s)' %
+      'Node %s available by %p, unavailable by %p (%d up, %d down, %s mode)' %
         [node, @available, @unavailable, available_count, unavailable_count, @decision_mode]
     end
   end
