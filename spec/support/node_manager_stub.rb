@@ -38,21 +38,21 @@ module RedisFailover
     def force_unavailable(node)
       start_processing
       node.redis.make_unavailable!
-      update_master_state(node, :unavailable)
+      update_master_state(node, OpenStruct.new(:state => :unavailable))
       stop_processing
     end
 
     def force_available(node)
       start_processing
       node.redis.make_available!
-      update_master_state(node, :available)
+      update_master_state(node, OpenStruct.new(:state => :available))
       stop_processing
     end
 
     def force_syncing(node, serve_stale_reads)
       start_processing
       node.redis.force_sync_with_master(serve_stale_reads)
-      update_master_state(node, :available)
+      update_master_state(node, OpenStruct.new(:state => :available))
       stop_processing
     end
 
