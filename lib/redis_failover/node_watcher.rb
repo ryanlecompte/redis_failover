@@ -59,12 +59,16 @@ module RedisFailover
             notify(:available)
             @node.wait
           end
-        rescue NodeUnavailableError
+        rescue NodeUnavailableError => ex
+          logger.debug("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
           if failures >= @max_failures
             notify(:unavailable)
             failures = 0
           end
+        rescue => ex
+          logger.error("Unexpected error while monitoring node #{@node}: #{ex.inspect}")
+          logger.error(ex.backtrace.join("\n"))
         end
       end
     end
