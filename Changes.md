@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Improved exception handling in NodeWatcher.
+
 0.9.1
 -----------
 - Improve nested exception handling.
