@@ -15,6 +15,7 @@ module RedisFailover
 end
 
 def ZK.new(*args); NullObject.new; end
+def (ZK::Group).new(*args); NullObject.new; end
 
 RSpec.configure do |config|
 end

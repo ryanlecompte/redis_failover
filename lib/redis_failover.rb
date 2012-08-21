@@ -1,4 +1,6 @@
 require 'zk'
+require 'zk-group'
+
 require 'set'
 require 'yaml'
 require 'redis'

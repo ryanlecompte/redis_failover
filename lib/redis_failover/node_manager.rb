@@ -11,6 +11,8 @@ module RedisFailover
 
     # Number of seconds to wait before retrying bootstrap process.
     TIMEOUT = 5
+    # Default client failover ACK timeout.
+    DEFAULT_ACK_TIMEOUT = 10
 
     # Creates a new instance.
     #
@@ -23,7 +25,8 @@ module RedisFailover
     def initialize(options)
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
-      @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
+      @znode = @options[:znode_path] || DEFAULT_ZNODE_PATH
+      @failover_ack_timeout = @options[:failover_ack_timeout] || DEFAULT_ACK_TIMEOUT
       @manual_znode = ManualFailover::ZNODE_PATH
       @mutex = Mutex.new
 
@@ -205,7 +208,42 @@ module RedisFailover
     # @param [Node] node the optional node to promote
     # @note if no node is specified, a random slave will be used
     def promote_new_master(node = nil)
+      clients_lock = Mutex.new
+      presence_group = ZK::Group.new(@zk, CLIENT_PRESENCE_GROUP)
+      presence_group.create
+
+      ack_group = ZK::Group.new(@zk, CLIENT_FAILOVER_ACK_GROUP)
+      ack_group.create
+
+      clients = presence_group.member_names
       delete_path
+
+      # At this point the path is deleted. We only care about clients that
+      # were previously known but have now left. We don't care about new
+      # clients that appear, because we've already deleted the znode and
+      # they will automatically see the new master once we write out the
+      # new config.
+      presence_group.on_membership_change do |old_members, current_members|
+        clients_lock.synchronize do
+          clients -= diff(clients, current_members)
+        end
+      end
+
+      # Wait up to N seconds for all clients to ACK for failover.
+      deadline = Time.now + @failover_ack_timeout
+      condition = lambda do
+        clients_lock.synchronize do
+          ack_group.member_names.size >= clients.size
+        end
+      end
+      if sleep_until(deadline, &condition)
+        logger.info('Received failover ACK from all clients')
+      else
+        logger.info("Failed to receive failover ACK from all clients " +
+                    "after #{@failover_ack_timeout}s")
+      end
+
+      logger.info('Attempting failover to a new master.')
       @master = nil
 
       # make a specific node or slave the new master

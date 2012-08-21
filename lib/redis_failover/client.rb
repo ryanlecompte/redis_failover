@@ -56,6 +56,7 @@ module RedisFailover
       @slaves = []
       @node_addresses = {}
       @lock = Monitor.new
+      @presence_group_lock = Mutex.new
       @current_client_key = "current-client-#{self.object_id}"
       yield self if block_given?
 
@@ -157,11 +158,57 @@ module RedisFailover
       @zk = ZK.new(@zkservers)
       @zk.watcher.register(@znode) { |event| handle_zk_event(event) }
       if @safe_mode
-        @zk.on_expired_session { purge_clients }
+        @zk.on_expired_session do
+          purge_clients
+          @presence_group = nil
+        end
       end
-      @zk.on_connected { @zk.stat(@znode, :watch => true) }
+
+      @zk.on_connected do
+        join_presence_group
+        @zk.stat(@znode, :watch => true)
+      end
+
       @zk.stat(@znode, :watch => true)
+      join_presence_group
       update_znode_timestamp
+    end
+
+    # Joins the ZK presence group.
+    def join_presence_group
+      @presence_group_lock.synchronize do
+        return if @presence_group
+        @presence_group = ZK::Group.new(@zk, CLIENT_PRESENCE_GROUP)
+        @presence_group.create
+        @presence_group.join
+        logger.info("Successfully joined ZK group #{CLIENT_PRESENCE_GROUP}")
+      end
+    rescue => ex
+      logger.error("Failed to join ZK group #{CLIENT_PRESENCE_GROUP}: #{ex.inspect}")
+      logger.error(ex.backtrace.join("\n"))
+    end
+
+    # Joins the ZK failover ACK group.
+    def join_failover_ack_group
+      failover_ack_group = ZK::Group.new(@zk, CLIENT_FAILOVER_ACK_GROUP)
+      failover_ack_group.create
+      @failover_ack_member = failover_ack_group.join
+      logger.info("Successfully joined ZK group #{CLIENT_FAILOVER_ACK_GROUP}")
+    rescue => ex
+      logger.error("Failed to join ZK group #{CLIENT_FAILOVER_ACK_GROUP}: #{ex.inspect}")
+      logger.error(ex.backtrace.join("\n"))
+    end
+
+    # Leaves the ZK failover ACK group.
+    def leave_failover_ack_group
+      if @failover_ack_member
+        @failover_ack_member.leave
+        @failover_ack_member = nil
+        logger.info("Successfully left ZK group #{CLIENT_FAILOVER_ACK_GROUP}")
+      end
+    rescue => ex
+      logger.error("Failed to leave ZK group #{CLIENT_FAILOVER_ACK_GROUP}: #{ex.inspect}")
+      logger.error(ex.backtrace.join("\n"))
     end
 
     # Handles a ZK event.
@@ -171,12 +218,17 @@ module RedisFailover
       update_znode_timestamp
       if event.node_created? || event.node_changed?
         build_clients
+        leave_failover_ack_group
       elsif event.node_deleted?
         purge_clients
+        join_failover_ack_group
         @zk.stat(@znode, :watch => true)
       else
         logger.error("Unknown ZK node event: #{event.inspect}")
       end
+    rescue => ex
+      logger.error("Failed to handle ZK event: #{ex.inspect}")
+      logger.error(ex.backtrace.join("\n"))
     ensure
       @zk.stat(@znode, :watch => true)
     end
@@ -260,9 +312,10 @@ module RedisFailover
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
           @slaves = new_slaves
-        rescue
+        rescue => ex
           purge_clients
-          raise
+          # no need to raise when znode is not yet created
+          raise unless ex.is_a?(ZK::Exceptions::NoNode)
         ensure
           if should_notify?
            @on_node_change.call(current_master, current_slaves)
