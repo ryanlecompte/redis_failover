@@ -215,7 +215,7 @@ module RedisFailover
       ack_group = ZK::Group.new(@zk, CLIENT_FAILOVER_ACK_GROUP)
       ack_group.create
 
-      clients = presence_group.member_names
+      clients = presence_group.member_names(:watch => true)
       delete_path
 
       # At this point the path is deleted. We only care about clients that
@@ -236,11 +236,12 @@ module RedisFailover
           ack_group.member_names.size >= clients.size
         end
       end
+      logger.info('Waiting for ACK from clients to begin failover ...')
       if sleep_until(deadline, &condition)
         logger.info('Received failover ACK from all clients')
       else
         logger.info("Failed to receive failover ACK from all clients " +
-                    "after #{@failover_ack_timeout}s")
+          "after #{@failover_ack_timeout}s")
       end
 
       logger.info('Attempting failover to a new master.')
