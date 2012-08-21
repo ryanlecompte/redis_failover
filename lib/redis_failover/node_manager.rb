@@ -208,13 +208,10 @@ module RedisFailover
     # @param [Node] node the optional node to promote
     # @note if no node is specified, a random slave will be used
     def promote_new_master(node = nil)
-      clients_lock = Mutex.new
       presence_group = ZK::Group.new(@zk, CLIENT_PRESENCE_GROUP)
       presence_group.create
-
       ack_group = ZK::Group.new(@zk, CLIENT_FAILOVER_ACK_GROUP)
       ack_group.create
-
       clients = presence_group.member_names(:watch => true)
       delete_path
 
@@ -223,6 +220,7 @@ module RedisFailover
       # clients that appear, because we've already deleted the znode and
       # they will automatically see the new master once we write out the
       # new config.
+      clients_lock = Mutex.new
       presence_group.on_membership_change do |old_members, current_members|
         clients_lock.synchronize do
           clients -= diff(clients, current_members)
@@ -237,7 +235,7 @@ module RedisFailover
         end
       end
       logger.info('Waiting for ACK from clients to begin failover ...')
-      if sleep_until(deadline, &condition)
+      if wait_until(deadline, &condition)
         logger.info('Received failover ACK from all clients')
       else
         logger.info("Failed to receive failover ACK from all clients " +
