@@ -18,12 +18,7 @@ module RedisFailover
       @end_group = group_for(end_name)
       @start_members = @start_group.member_names(:watch => true)
       logger.info("Created latch (#{self}) with start count: #{@start_members.size}")
-
-      @start_group.on_membership_change do |old_members, current_members|
-        @lock.synchronize do
-          @start_members -= diff(@start_members, current_members)
-        end
-      end
+      watch_start_group
     end
 
     # Waits until all members from start group appear in the end group, or a
@@ -70,6 +65,15 @@ module RedisFailover
 
       # timeout exceeded
       false
+    end
+
+    # Watches the start group for membership changes.
+    def watch_start_group
+      @start_group.on_membership_change do |old_members, current_members|
+        @lock.synchronize do
+          @start_members -= diff(@start_members, current_members)
+        end
+      end
     end
 
     # Gracefully stop watching start/end groups.
