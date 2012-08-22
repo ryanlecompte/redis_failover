@@ -140,22 +140,5 @@ module RedisFailover
       return unless data
       MultiJson.decode(data)
     end
-
-    # Waits until the deadline or the condition evaluates to true.
-    #
-    # @param [Time] deadline the deadline time
-    # @param [Proc] condition the condition at which to stop sleeping
-    # @return [Boolean] true if condition met before deadline, false otherwise
-    def wait_until(deadline, &condition)
-      remaining = deadline - Time.now
-      while remaining > 0
-        return true if condition.call
-        sleep([remaining, 1].min)
-        remaining = deadline - Time.now
-      end
-
-      # timeout exceeded
-      false
-    end
   end
 end

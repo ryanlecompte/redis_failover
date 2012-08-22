@@ -158,7 +158,7 @@ module RedisFailover
       reconcile(node)
 
       # no-op if we already know about this node
-      return if @master == node || @slaves.include?(node)
+      return if @master == node || (@master && @slaves.include?(node))
       logger.info("Handling available node: #{node}")
 
       if @master
@@ -208,34 +208,11 @@ module RedisFailover
     # @param [Node] node the optional node to promote
     # @note if no node is specified, a random slave will be used
     def promote_new_master(node = nil)
-      presence_group = ZK::Group.new(@zk, CLIENT_PRESENCE_GROUP)
-      presence_group.create
-      ack_group = ZK::Group.new(@zk, CLIENT_FAILOVER_ACK_GROUP)
-      ack_group.create
-      clients = presence_group.member_names(:watch => true)
+      latch = Latch.new(@zk, CLIENT_PRESENCE_GROUP, CLIENT_FAILOVER_ACK_GROUP, @failover_ack_timeout)
       delete_path
 
-      # At this point the path is deleted. We only care about clients that
-      # were previously known but have now left. We don't care about new
-      # clients that appear, because we've already deleted the znode and
-      # they will automatically see the new master once we write out the
-      # new config.
-      clients_lock = Mutex.new
-      presence_group.on_membership_change do |old_members, current_members|
-        clients_lock.synchronize do
-          clients -= diff(clients, current_members)
-        end
-      end
-
-      # Wait up to N seconds for all clients to ACK for failover.
-      deadline = Time.now + @failover_ack_timeout
-      condition = lambda do
-        clients_lock.synchronize do
-          ack_group.member_names.size >= clients.size
-        end
-      end
       logger.info('Waiting for ACK from clients to begin failover ...')
-      if wait_until(deadline, &condition)
+      if latch.await
         logger.info('Received failover ACK from all clients')
       else
         logger.info("Failed to receive failover ACK from all clients " +
@@ -276,7 +253,7 @@ module RedisFailover
 
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
-      @watchers = [@master, @slaves, @unavailable].flatten.map do |node|
+      @watchers = [@master, @slaves, @unavailable].flatten.compact.map do |node|
         NodeWatcher.new(self, node, @options[:max_failures] || 3)
       end
       @watchers.each(&:watch)
