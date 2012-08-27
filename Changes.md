@@ -1,4 +1,4 @@
-HEAD
+0.9.2
 -----------
 - Improved exception handling in NodeWatcher.
 
