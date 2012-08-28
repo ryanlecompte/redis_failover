@@ -11,6 +11,12 @@ module RedisFailover
 
     # Number of seconds to wait before retrying bootstrap process.
     TIMEOUT = 5
+    # ZK Errors that the Node Manager cares about.
+    ZK_ERRORS = [
+      ZK::Exceptions::LockAssertionFailedError,
+      ZK::Exceptions::InterruptedSession,
+      ZKDisconnectedError
+    ].freeze
 
     # Creates a new instance.
     #
@@ -26,6 +32,7 @@ module RedisFailover
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @manual_znode = ManualFailover::ZNODE_PATH
       @mutex = Mutex.new
+      @shutdown = false
 
       # Name for the znode that handles exclusive locking between multiple
       # Node Manager processes. Whoever holds the lock will be considered
@@ -40,11 +47,12 @@ module RedisFailover
     #
     # @note This method does not return until the manager terminates.
     def start
+      return if @shutdown
       @queue = Queue.new
       @leader = false
       setup_zk
       logger.info('Waiting to become master Node Manager ...')
-      @zk.with_lock(@lock_path) do
+      with_lock do
         @leader = true
         logger.info('Acquired master Node Manager lock')
         discover_nodes
@@ -52,7 +60,7 @@ module RedisFailover
         spawn_watchers
         handle_state_reports
       end
-    rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError => ex
+    rescue *ZK_ERRORS => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
       shutdown
@@ -71,10 +79,12 @@ module RedisFailover
 
     # Performs a graceful shutdown of the manager.
     def shutdown
+      @shutdown = true
       @queue.clear
       @queue << nil
       @watchers.each(&:shutdown) if @watchers
       @zk.close! if @zk
+      @zk_lock = nil
     end
 
     private
@@ -107,6 +117,9 @@ module RedisFailover
     # Handles periodic state reports from {RedisFailover::NodeWatcher} instances.
     def handle_state_reports
       while state_report = @queue.pop
+        # Ensure that we still have the master lock.
+        @zk_lock.assert!
+
         begin
           node, state = state_report
           case state
@@ -120,7 +133,7 @@ module RedisFailover
 
           # flush current state
           write_state
-        rescue ZK::Exceptions::InterruptedSession, ZKDisconnectedError
+        rescue *ZK_ERRORS
           # fail hard if this is a ZK connection-related error
           raise
         rescue => ex
@@ -155,7 +168,7 @@ module RedisFailover
       reconcile(node)
 
       # no-op if we already know about this node
-      return if @master == node || @slaves.include?(node)
+      return if @master == node || (@master && @slaves.include?(node))
       logger.info("Handling available node: #{node}")
 
       if @master
@@ -341,6 +354,15 @@ module RedisFailover
     def write_state
       create_path
       @zk.set(@znode, encode(current_nodes))
+    end
+
+    # Executes a block wrapped in a ZK exclusive lock.
+    def with_lock
+      @zk_lock = @zk.locker(@lock_path)
+      @zk_lock.lock(true)
+      yield
+    ensure
+      @zk_lock.unlock! if @zk_lock
     end
 
     # Schedules a manual failover to a redis node.
