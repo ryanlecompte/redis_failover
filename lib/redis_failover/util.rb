@@ -54,6 +54,12 @@ module RedisFailover
     # Default node in ZK that contains the current list of available redis nodes.
     DEFAULT_ZNODE_PATH = '/redis_failover_nodes'.freeze
 
+    # Name of ZK group for client presence.
+    CLIENT_PRESENCE_GROUP = 'redis_failover_client_presence'.freeze
+
+    # Name of ZK group for client failover ack.
+    CLIENT_FAILOVER_ACK_GROUP = 'redis_failover_client_failover_ack'.freeze
+
     # Connectivity errors that the redis (<3.x) client raises.
     REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }
 
@@ -82,7 +88,16 @@ module RedisFailover
     # @param [Array] ary_b the second array
     # @return [Boolean] true if arrays are different, false otherwise
     def different?(ary_a, ary_b)
-      ((ary_a | ary_b) - (ary_a & ary_b)).size > 0
+      !diff(ary_a, ary_b).empty?
+    end
+
+    # Produces a diff between the two arrays.
+    #
+    # @param [Array] ary_a the first array
+    # @param [Array] ary_b the second array
+    # @return [Array] an array of diff elements
+    def diff(ary_a, ary_b)
+      (ary_a | ary_b) - (ary_a & ary_b)
     end
 
     # @return [Logger] the logger instance to use

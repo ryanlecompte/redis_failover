@@ -1,6 +1,7 @@
 0.9.2
 -----------
 - Improved exception handling in NodeWatcher.
+- Introduced coordinated failover between clients and the node manager using ZK groups.
 
 0.9.1
 -----------

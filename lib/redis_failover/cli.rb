@@ -48,6 +48,11 @@ module RedisFailover
           options[:config_environment] = config_env
         end
 
+        opts.on('--failover-ack-timeout TIMEOUT',
+          'Number of seconds to wait for clients to ACK when failing over') do |seconds|
+          options[:failover_ack_timeout] = Integer(seconds)
+        end
+
         opts.on('-h', '--help', 'Display all options') do
           puts opts
           exit
