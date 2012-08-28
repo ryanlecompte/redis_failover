@@ -1,6 +1,6 @@
 HEAD
 -----------
-- Add lock asserts for Node Manager.
+- Add lock assert for Node Manager.
 
 0.9.2
 -----------
