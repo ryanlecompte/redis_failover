@@ -115,7 +115,7 @@ module RedisFailover
 
     # Handles periodic state reports from {RedisFailover::NodeWatcher} instances.
     def handle_state_reports
-      while state_report = @queue.pop
+      while running? && (state_report = @queue.pop)
         # Ensure that we still have the master lock.
         @zk_lock.assert!
 
@@ -384,6 +384,11 @@ module RedisFailover
       else
         logger.error('Failed to perform manual failover, no candidate found.')
       end
+    end
+
+    # @return [Boolean] true if still running, false otherwise
+    def running?
+      !@shutdown
     end
   end
 end
