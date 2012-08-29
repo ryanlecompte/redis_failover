@@ -1,4 +1,4 @@
-HEAD
+0.9.3
 -----------
 - Add lock assert for Node Manager.
 
