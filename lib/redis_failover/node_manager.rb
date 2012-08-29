@@ -62,7 +62,6 @@ module RedisFailover
       end
     rescue *ZK_ERRORS => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
-      logger.error(ex.backtrace.join("\n"))
       shutdown
       sleep(TIMEOUT)
       retry
