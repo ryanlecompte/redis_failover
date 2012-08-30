@@ -239,7 +239,7 @@ module RedisFailover
     # Discovers the current master and slave nodes.
     def discover_nodes
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
-      @master = find_existing_master || find_new_master(nodes)
+      @master = find_existing_master || find_master(nodes)
       @unavailable = []
       @slaves = nodes - [@master]
 
