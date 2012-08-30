@@ -238,15 +238,35 @@ module RedisFailover
 
     # Discovers the current master and slave nodes.
     def discover_nodes
-      @unavailable = []
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
-      @master = find_master(nodes)
+      @master = find_existing_master || find_new_master(nodes)
+      @unavailable = []
       @slaves = nodes - [@master]
-      logger.info("Managing master (#{@master}) and slaves" +
-        " (#{@slaves.map(&:to_s).join(', ')})")
 
       # ensure that slaves are correctly pointing to this master
       redirect_slaves_to(@master) if @master
+      logger.info("Managing master (#{@master}) and slaves" +
+        " (#{@slaves.map(&:to_s).join(', ')})")
+    end
+
+    # Seeds the initial node master from an existing znode config.
+    def find_existing_master
+      if @zk.exists?(@znode) && (data = @zk.get(@znode).first)
+        nodes = symbolize_keys(decode(data))
+        master = node_from(nodes[:master])
+        logger.info("Found master from existing config: #{master}")
+        master
+      end
+    end
+
+    # Creates a Node instance from a string.
+    #
+    # @param [String] node_string a string representation of a node (e.g., host:port)
+    # @return [Node] the Node representation
+    def node_from(node_string)
+      return if node_string.nil?
+      host, port = node_string.split(':', 2)
+      Node.new(:host => host, :port => port, :password => @options[:password])
     end
 
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
