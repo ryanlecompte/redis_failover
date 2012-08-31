@@ -391,7 +391,10 @@ module RedisFailover
     # Executes a block wrapped in a ZK exclusive lock.
     def with_lock
       @zk_lock = @zk.locker(@lock_path)
-      @zk_lock.lock(true)
+      until @zk_lock.lock
+        return unless running?
+        sleep(TIMEOUT)
+      end
       yield
     ensure
       @zk_lock.unlock! if @zk_lock
