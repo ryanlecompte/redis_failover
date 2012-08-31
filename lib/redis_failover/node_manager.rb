@@ -32,6 +32,7 @@ module RedisFailover
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @manual_znode = ManualFailover::ZNODE_PATH
       @mutex = Mutex.new
+      @leader = false
       @master = nil
       @slaves = []
       @unavailable = []
@@ -43,7 +44,6 @@ module RedisFailover
     # @note This method does not return until the manager terminates.
     def start
       @queue = Queue.new
-      @leader = false
       setup_zk
       logger.info('Waiting to become master Node Manager ...')
       with_lock do
@@ -71,6 +71,7 @@ module RedisFailover
 
     # Performs a graceful shutdown of the manager.
     def shutdown
+      @leader = false
       @queue.clear
       @queue << nil
       @watchers.each(&:shutdown) if @watchers
@@ -384,7 +385,8 @@ module RedisFailover
     # Perform a manual failover to a redis node.
     def perform_manual_failover
       @mutex.synchronize do
-        return unless @leader
+        return unless @leader && @zk_lock
+        @zk_lock.assert!
         new_master = @zk.get(@manual_znode, :watch => true).first
         return unless new_master && new_master.size > 0
         logger.info("Received manual failover request for: #{new_master}")
