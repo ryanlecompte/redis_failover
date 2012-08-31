@@ -10,7 +10,7 @@ module RedisFailover
     include Util
 
     # Number of seconds to wait before retrying bootstrap process.
-    TIMEOUT = 5
+    TIMEOUT = 3
     # ZK Errors that the Node Manager cares about.
     ZK_ERRORS = [
       ZK::Exceptions::LockAssertionFailedError,
@@ -32,7 +32,6 @@ module RedisFailover
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @manual_znode = ManualFailover::ZNODE_PATH
       @mutex = Mutex.new
-      @shutdown = false
 
       # Name for the znode that handles exclusive locking between multiple
       # Node Manager processes. Whoever holds the lock will be considered
@@ -47,7 +46,6 @@ module RedisFailover
     #
     # @note This method does not return until the manager terminates.
     def start
-      return if @shutdown
       @queue = Queue.new
       @leader = false
       setup_zk
@@ -63,7 +61,6 @@ module RedisFailover
     rescue *ZK_ERRORS => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
       shutdown
-      sleep(TIMEOUT)
       retry
     end
 
@@ -78,10 +75,10 @@ module RedisFailover
 
     # Performs a graceful shutdown of the manager.
     def shutdown
-      @shutdown = true
       @queue.clear
       @queue << nil
       @watchers.each(&:shutdown) if @watchers
+      sleep(TIMEOUT)
       @zk.close! if @zk
       @zk_lock = nil
     end
@@ -115,7 +112,7 @@ module RedisFailover
 
     # Handles periodic state reports from {RedisFailover::NodeWatcher} instances.
     def handle_state_reports
-      while running? && (state_report = @queue.pop)
+      while state_report = @queue.pop
         # Ensure that we still have the master lock.
         @zk_lock.assert!
 
@@ -238,9 +235,9 @@ module RedisFailover
 
     # Discovers the current master and slave nodes.
     def discover_nodes
-      @unavailable = []
       nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
-      @master = find_master(nodes)
+      @master = find_existing_master || find_master(nodes)
+      @unavailable = []
       @slaves = nodes - [@master]
       logger.info("Managing master (#{@master}) and slaves" +
         " (#{@slaves.map(&:to_s).join(', ')})")
@@ -249,9 +246,32 @@ module RedisFailover
       redirect_slaves_to(@master) if @master
     end
 
+    # Seeds the initial node master from an existing znode config.
+    def find_existing_master
+      if data = @zk.get(@znode).first
+        nodes = symbolize_keys(decode(data))
+        master = node_from(nodes[:master])
+        logger.info("Master from existing config: #{master || 'none'}")
+        master
+      end
+    rescue ZK::Exceptions::NoNode
+      # blank slate, no last known master
+      nil
+    end
+
+    # Creates a Node instance from a string.
+    #
+    # @param [String] node_string a string representation of a node (e.g., host:port)
+    # @return [Node] the Node representation
+    def node_from(node_string)
+      return if node_string.nil?
+      host, port = node_string.split(':', 2)
+      Node.new(:host => host, :port => port, :password => @options[:password])
+    end
+
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
-      @watchers = [@master, @slaves, @unavailable].flatten.map do |node|
+      @watchers = [@master, @slaves, @unavailable].flatten.compact.map do |node|
         NodeWatcher.new(self, node, @options[:max_failures] || 3)
       end
       @watchers.each(&:watch)
@@ -384,11 +404,6 @@ module RedisFailover
       else
         logger.error('Failed to perform manual failover, no candidate found.')
       end
-    end
-
-    # @return [Boolean] true if still running, false otherwise
-    def running?
-      !@shutdown
     end
   end
 end
