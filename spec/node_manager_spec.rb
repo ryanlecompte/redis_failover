@@ -109,7 +109,7 @@ module RedisFailover
       end
     end
 
-    describe '#find_master' do
+    describe '#guess_master' do
       let(:node1) { Node.new(:host => 'node1').extend(RedisStubSupport) }
       let(:node2) { Node.new(:host => 'node2').extend(RedisStubSupport) }
       let(:node3) { Node.new(:host => 'node3').extend(RedisStubSupport) }
@@ -117,19 +117,19 @@ module RedisFailover
       it 'raises error when no master is found' do
         node1.make_slave!(node3)
         node2.make_slave!(node3)
-        expect { manager.find_master([node1, node2]) }.to raise_error(NoMasterError)
+        expect { manager.guess_master([node1, node2]) }.to raise_error(NoMasterError)
       end
 
       it 'raises error when multiple masters found' do
         node1.make_master!
         node2.make_master!
-        expect { manager.find_master([node1, node2]) }.to raise_error(MultipleMastersError)
+        expect { manager.guess_master([node1, node2]) }.to raise_error(MultipleMastersError)
       end
 
       it 'raises error when a node can not be reached' do
         node1.make_master!
         node2.redis.make_unavailable!
-        expect { manager.find_master([node1, node2]) }.to raise_error(NodeUnavailableError)
+        expect { manager.guess_master([node1, node2]) }.to raise_error(NodeUnavailableError)
       end
     end
   end

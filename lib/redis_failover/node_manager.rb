@@ -32,6 +32,7 @@ module RedisFailover
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @manual_znode = ManualFailover::ZNODE_PATH
       @mutex = Mutex.new
+      @shutdown = false
       @leader = false
       @master = nil
       @slaves = []
@@ -43,6 +44,7 @@ module RedisFailover
     #
     # @note This method does not return until the manager terminates.
     def start
+      return unless running?
       @queue = Queue.new
       setup_zk
       logger.info('Waiting to become master Node Manager ...')
@@ -56,7 +58,7 @@ module RedisFailover
       end
     rescue *ZK_ERRORS => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
-      shutdown
+      reset
       retry
     end
 
@@ -69,8 +71,8 @@ module RedisFailover
       @queue << [node, state]
     end
 
-    # Performs a graceful shutdown of the manager.
-    def shutdown
+    # Performs a reset of the manager.
+    def reset
       @leader = false
       @queue.clear
       @queue << nil
@@ -78,6 +80,12 @@ module RedisFailover
       sleep(TIMEOUT)
       @zk.close! if @zk
       @zk_lock = nil
+    end
+
+    # Initiates a graceful shutdown.
+    def shutdown
+      @shutdown = true
+      reset
     end
 
     private
@@ -107,7 +115,7 @@ module RedisFailover
 
     # Handles periodic state reports from {RedisFailover::NodeWatcher} instances.
     def handle_state_reports
-      while state_report = @queue.pop
+      while running? && (state_report = @queue.pop)
         # Ensure that we still have the master lock.
         @zk_lock.assert!
 
@@ -231,9 +239,14 @@ module RedisFailover
 
     # Discovers the current master and slave nodes.
     def discover_nodes
+      return unless running?
       @mutex.synchronize do
         nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
-        @master = find_existing_master || find_master(nodes)
+        if @master = find_existing_master
+          logger.info("Using master #{@master} from existing znode config.")
+        elsif @master = guess_master(nodes)
+          logger.info("Guessed master #{@master} from known redis nodes.")
+        end
         @slaves = nodes - [@master]
         logger.info("Managing master (#{@master}) and slaves " +
           "(#{@slaves.map(&:to_s).join(', ')})")
@@ -242,7 +255,15 @@ module RedisFailover
         redirect_slaves_to(@master)
       end
     rescue NodeUnavailableError, NoMasterError, MultipleMastersError => ex
-      logger.warn("Failed to discover master node: #{ex.inspect}. Will retry in #{TIMEOUT}s.")
+      msg = <<-MSG.gsub(/\s+/, ' ')
+        Failed to discover master node: #{ex.inspect}
+        In order to ensure a safe startup, redis_failover requires that all redis
+        nodes be accessible, and only a single node indicating that it's the master.
+        In order to fix this, you can perform a manual failover via redis_failover,
+        or manually fix the individual redis servers. This discovery process will
+        retry in #{TIMEOUT}s.
+      MSG
+      logger.warn(msg)
       sleep(TIMEOUT)
       retry
     end
@@ -252,7 +273,7 @@ module RedisFailover
       if data = @zk.get(@znode).first
         nodes = symbolize_keys(decode(data))
         master = node_from(nodes[:master])
-        logger.info("Master from existing config: #{master || 'none'}")
+        logger.info("Master from existing znode config: #{master || 'none'}")
         master
       end
     rescue ZK::Exceptions::NoNode
@@ -282,7 +303,7 @@ module RedisFailover
     #
     # @param [Array<Node>] nodes the nodes to search
     # @return [Node] the found master node, nil if not found
-    def find_master(nodes)
+    def guess_master(nodes)
       master_nodes = nodes.select { |node| node.master? }
       raise NoMasterError if master_nodes.empty?
       raise MultipleMastersError.new(master_nodes) if master_nodes.size > 1
@@ -384,6 +405,8 @@ module RedisFailover
 
     # Perform a manual failover to a redis node.
     def perform_manual_failover
+      return unless running?
+
       @mutex.synchronize do
         return unless @leader && @zk_lock
         @zk_lock.assert!
@@ -405,6 +428,11 @@ module RedisFailover
           logger.error('Failed to perform manual failover, no candidate found.')
         end
       end
+    end
+
+    # @return [Boolean] true if running, false otherwise
+    def running?
+      !@shutdown
     end
   end
 end
