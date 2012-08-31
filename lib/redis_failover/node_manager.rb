@@ -251,12 +251,15 @@ module RedisFailover
 
     # Seeds the initial node master from an existing znode config.
     def find_existing_master
-      if @zk.exists?(@znode) && (data = @zk.get(@znode).first)
+      if data = @zk.get(@znode).first
         nodes = symbolize_keys(decode(data))
         master = node_from(nodes[:master])
         logger.info("Master from existing config: #{master || 'none'}")
         master
       end
+    rescue ZK::Exceptions::NoNode
+      # blank slate, no last known master
+      nil
     end
 
     # Creates a Node instance from a string.
