@@ -1,3 +1,8 @@
+0.9.4
+-----------
+- Preserve original master by reading from existing znode state.
+- Prevent Timeout::Error from bringing down the process (#32) (@eric)
+
 0.9.3
 -----------
 - Add lock assert for Node Manager.
