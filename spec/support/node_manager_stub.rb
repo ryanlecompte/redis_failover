@@ -1,6 +1,7 @@
 module RedisFailover
   class NodeManagerStub < NodeManager
     attr_accessor :master
+    # HACK - this will go away once we refactor the tests to use a real ZK/Redis server.
     public :current_nodes, :find_master
 
     def discover_nodes
