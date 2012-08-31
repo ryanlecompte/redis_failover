@@ -111,12 +111,10 @@ module RedisFailover
     # Handles periodic state reports from {RedisFailover::NodeWatcher} instances.
     def handle_state_reports
       while running? && (state_report = @queue.pop)
-        # Ensure that we still have the master lock.
-        @zk_lock.assert!
-
         begin
           @mutex.synchronize do
             return unless running?
+            @zk_lock.assert!
             node, state = state_report
             case state
             when :unavailable     then handle_unavailable(node)
