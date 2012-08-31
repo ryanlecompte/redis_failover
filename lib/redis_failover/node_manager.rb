@@ -116,6 +116,7 @@ module RedisFailover
 
         begin
           @mutex.synchronize do
+            return unless running?
             node, state = state_report
             case state
             when :unavailable     then handle_unavailable(node)
@@ -234,8 +235,8 @@ module RedisFailover
 
     # Discovers the current master and slave nodes.
     def discover_nodes
-      return unless running?
       @mutex.synchronize do
+        return unless running?
         nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
         if @master = find_existing_master
           logger.info("Using master #{@master} from existing znode config.")
@@ -400,10 +401,8 @@ module RedisFailover
 
     # Perform a manual failover to a redis node.
     def perform_manual_failover
-      return unless running?
-
       @mutex.synchronize do
-        return unless @leader && @zk_lock
+        return unless running? && @leader && @zk_lock
         @zk_lock.assert!
         new_master = @zk.get(@manual_znode, :watch => true).first
         return unless new_master && new_master.size > 0
