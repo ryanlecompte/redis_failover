@@ -10,7 +10,7 @@ module RedisFailover
     include Util
 
     # Number of seconds to wait before retrying bootstrap process.
-    TIMEOUT = 5
+    TIMEOUT = 3
     # ZK Errors that the Node Manager cares about.
     ZK_ERRORS = [
       ZK::Exceptions::LockAssertionFailedError,
@@ -32,7 +32,6 @@ module RedisFailover
       @znode = @options[:znode_path] || Util::DEFAULT_ZNODE_PATH
       @manual_znode = ManualFailover::ZNODE_PATH
       @mutex = Mutex.new
-      @shutdown = false
 
       # Name for the znode that handles exclusive locking between multiple
       # Node Manager processes. Whoever holds the lock will be considered
@@ -47,7 +46,6 @@ module RedisFailover
     #
     # @note This method does not return until the manager terminates.
     def start
-      return if @shutdown
       @queue = Queue.new
       @leader = false
       setup_zk
@@ -63,7 +61,6 @@ module RedisFailover
     rescue *ZK_ERRORS => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
       shutdown
-      sleep(TIMEOUT)
       retry
     end
 
@@ -78,10 +75,10 @@ module RedisFailover
 
     # Performs a graceful shutdown of the manager.
     def shutdown
-      @shutdown = true
       @queue.clear
       @queue << nil
       @watchers.each(&:shutdown) if @watchers
+      sleep(TIMEOUT)
       @zk.close! if @zk
       @zk_lock = nil
     end
@@ -115,7 +112,7 @@ module RedisFailover
 
     # Handles periodic state reports from {RedisFailover::NodeWatcher} instances.
     def handle_state_reports
-      while running? && (state_report = @queue.pop)
+      while state_report = @queue.pop
         # Ensure that we still have the master lock.
         @zk_lock.assert!
 
@@ -407,11 +404,6 @@ module RedisFailover
       else
         logger.error('Failed to perform manual failover, no candidate found.')
       end
-    end
-
-    # @return [Boolean] true if still running, false otherwise
-    def running?
-      !@shutdown
     end
   end
 end
