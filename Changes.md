@@ -1,3 +1,7 @@
+0.9.5
+-----------
+- Introduce a safer master node discovery process for the Node Manager (#34)
+
 0.9.4
 -----------
 - Preserve original master by reading from existing znode state.
