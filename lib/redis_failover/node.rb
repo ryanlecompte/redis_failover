@@ -118,7 +118,6 @@ module RedisFailover
     end
     alias_method :eql?, :==
 
-
     # @return [Integer] a hash value for this node
     def hash
       to_s.hash
