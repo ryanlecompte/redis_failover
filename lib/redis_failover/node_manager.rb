@@ -97,15 +97,8 @@ module RedisFailover
       @zk.on_expired_session { notify_state(:zk_disconnected, nil) }
 
       @zk.register(@manual_znode) do |event|
-        begin
-          if event.node_created? || event.node_changed?
-            perform_manual_failover
-          end
-        rescue => ex
-          logger.error("Error handling a manual failover: #{ex.inspect}")
-          logger.error(ex.backtrace.join("\n"))
-        ensure
-          @zk.stat(@manual_znode, :watch => true)
+        if event.node_created? || event.node_changed?
+          perform_manual_failover
         end
       end
 
@@ -414,20 +407,19 @@ module RedisFailover
         return unless new_master && new_master.size > 0
         logger.info("Received manual failover request for: #{new_master}")
         logger.info("Current nodes: #{current_nodes.inspect}")
-
-        node = if new_master == ManualFailover::ANY_SLAVE
-          @slaves.shuffle.first
-        else
-          host, port = new_master.split(':', 2)
-          Node.new(:host => host, :port => port, :password => @options[:password])
-        end
-
+        node = new_master == ManualFailover::ANY_SLAVE ?
+          @slaves.shuffle.first : node_from(new_master)
         if node
           handle_manual_failover(node)
         else
           logger.error('Failed to perform manual failover, no candidate found.')
         end
       end
+    rescue => ex
+      logger.error("Error handling a manual failover: #{ex.inspect}")
+      logger.error(ex.backtrace.join("\n"))
+    ensure
+      @zk.stat(@manual_znode, :watch => true)
     end
 
     # @return [Boolean] true if running, false otherwise
