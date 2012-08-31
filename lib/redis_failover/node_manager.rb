@@ -242,11 +242,11 @@ module RedisFailover
       @master = find_existing_master || find_master(nodes)
       @unavailable = []
       @slaves = nodes - [@master]
+      logger.info("Managing master (#{@master}) and slaves" +
+        " (#{@slaves.map(&:to_s).join(', ')})")
 
       # ensure that slaves are correctly pointing to this master
       redirect_slaves_to(@master) if @master
-      logger.info("Managing master (#{@master}) and slaves" +
-        " (#{@slaves.map(&:to_s).join(', ')})")
     end
 
     # Seeds the initial node master from an existing znode config.
@@ -254,7 +254,7 @@ module RedisFailover
       if @zk.exists?(@znode) && (data = @zk.get(@znode).first)
         nodes = symbolize_keys(decode(data))
         master = node_from(nodes[:master])
-        logger.info("Found master from existing config: #{master}")
+        logger.info("Master from existing config: #{master || 'none'}")
         master
       end
     end
@@ -271,7 +271,7 @@ module RedisFailover
 
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
-      @watchers = [@master, @slaves, @unavailable].flatten.map do |node|
+      @watchers = [@master, @slaves, @unavailable].flatten.compact.map do |node|
         NodeWatcher.new(self, node, @options[:max_failures] || 3)
       end
       @watchers.each(&:watch)
