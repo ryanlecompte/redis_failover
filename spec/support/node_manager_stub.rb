@@ -1,7 +1,7 @@
 module RedisFailover
   class NodeManagerStub < NodeManager
     attr_accessor :master
-    public :current_nodes
+    public :current_nodes, :find_master
 
     def discover_nodes
       # only discover nodes once in testing
