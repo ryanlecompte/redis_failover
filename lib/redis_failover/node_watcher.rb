@@ -66,7 +66,7 @@ module RedisFailover
             notify(:unavailable)
             failures = 0
           end
-        rescue => ex
+        rescue Exception => ex
           logger.error("Unexpected error while monitoring node #{@node}: #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
         end
