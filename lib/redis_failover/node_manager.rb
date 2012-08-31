@@ -84,8 +84,10 @@ module RedisFailover
 
     # Initiates a graceful shutdown.
     def shutdown
-      @shutdown = true
-      reset
+      @mutex.synchronize do
+        @shutdown = true
+        reset
+      end
     end
 
     private
