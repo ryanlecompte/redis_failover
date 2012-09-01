@@ -1,4 +1,4 @@
-HEAD
+0.9.6
 -----------
 - Handle the node discovery error condition where the znode points to a master that is now a slave.
 
