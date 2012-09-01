@@ -51,10 +51,11 @@ module RedisFailover
       with_lock do
         @leader = true
         logger.info('Acquired master Node Manager lock')
-        discover_nodes
-        initialize_path
-        spawn_watchers
-        handle_state_reports
+        if discover_nodes
+          initialize_path
+          spawn_watchers
+          handle_state_reports
+        end
       end
     rescue *ZK_ERRORS => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
@@ -74,19 +75,17 @@ module RedisFailover
     # Performs a reset of the manager.
     def reset
       @leader = false
-      @queue.clear
-      @queue << nil
       @watchers.each(&:shutdown) if @watchers
-      sleep(TIMEOUT)
+      @queue.clear
       @zk.close! if @zk
       @zk_lock = nil
     end
 
     # Initiates a graceful shutdown.
     def shutdown
+      logger.info('Shutting down ...')
       @mutex.synchronize do
         @shutdown = true
-        reset
       end
     end
 
@@ -232,9 +231,10 @@ module RedisFailover
     end
 
     # Discovers the current master and slave nodes.
+    # @return [Boolean] true if nodes successfully discovered, false otherwise
     def discover_nodes
       @mutex.synchronize do
-        return unless running?
+        return false unless running?
         nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
         if @master = find_existing_master
           logger.info("Using master #{@master} from existing znode config.")
@@ -244,9 +244,9 @@ module RedisFailover
         @slaves = nodes - [@master]
         logger.info("Managing master (#{@master}) and slaves " +
           "(#{@slaves.map(&:to_s).join(', ')})")
-
         # ensure that slaves are correctly pointing to this master
         redirect_slaves_to(@master)
+        true
       end
     rescue NodeUnavailableError, NoMasterError, MultipleMastersError => ex
       msg = <<-MSG.gsub(/\s+/, ' ')
@@ -391,11 +391,13 @@ module RedisFailover
     # Executes a block wrapped in a ZK exclusive lock.
     def with_lock
       @zk_lock = @zk.locker(@lock_path)
-      until @zk_lock.lock
-        return unless running?
+      while running? && !@zk_lock.lock
         sleep(TIMEOUT)
       end
-      yield
+
+      if running?
+        yield
+      end
     ensure
       @zk_lock.unlock! if @zk_lock
     end

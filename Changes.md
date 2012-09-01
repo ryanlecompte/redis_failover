@@ -1,6 +1,7 @@
 0.9.5
 -----------
 - Introduce a safer master node discovery process for the Node Manager (#34)
+- Improved shutdown process for Node Manager
 
 0.9.4
 -----------

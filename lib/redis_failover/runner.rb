@@ -8,22 +8,20 @@ module RedisFailover
     #   Node Manager is gracefully stopped
     def self.run(options)
       options = CLI.parse(options)
-      @node_manager = NodeManager.new(options)
-      trap_signals
-      @node_manager_thread = Thread.new { @node_manager.start }
-      @node_manager_thread.join
+      node_manager = NodeManager.new(options)
+      trap_signals(node_manager)
+      node_manager.start
     end
 
     # Traps shutdown signals.
-    def self.trap_signals
+    # @param [NodeManager] node_manager the node manager
+    def self.trap_signals(node_manager)
       [:INT, :TERM].each do |signal|
         trap(signal) do
-          Util.logger.info('Shutting down ...')
-          @node_manager.shutdown
-          @node_manager_thread.join
-          exit(0)
+          node_manager.shutdown
         end
       end
     end
+    private_class_method :trap_signals
   end
 end

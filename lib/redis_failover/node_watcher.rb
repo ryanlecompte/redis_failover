@@ -35,8 +35,8 @@ module RedisFailover
       @done = true
       @node.wakeup
       @monitor_thread.join if @monitor_thread
-    rescue
-      # best effort
+    rescue => ex
+      logger.warn("Failed to gracefully shutdown watcher for #{@node}")
     end
 
     private

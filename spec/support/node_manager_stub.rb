@@ -6,7 +6,7 @@ module RedisFailover
 
     def discover_nodes
       # only discover nodes once in testing
-      return if @nodes_discovered
+      return true if @nodes_discovered
 
       master = Node.new(:host => 'master')
       slave = Node.new(:host => 'slave')
