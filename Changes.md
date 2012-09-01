@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Handle the node discovery error condition where the znode points to a master that is now a slave.
+
 0.9.5
 -----------
 - Introduce a safer master node discovery process for the Node Manager (#34)

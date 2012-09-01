@@ -11,11 +11,20 @@ module RedisFailover
 
     # Number of seconds to wait before retrying bootstrap process.
     TIMEOUT = 3
+
     # ZK Errors that the Node Manager cares about.
     ZK_ERRORS = [
       ZK::Exceptions::LockAssertionFailedError,
       ZK::Exceptions::InterruptedSession,
       ZKDisconnectedError
+    ].freeze
+
+    # Errors that can happen during the node discovery process.
+    NODE_DISCOVERY_ERRORS = [
+      InvalidNodeRoleError,
+      NodeUnavailableError,
+      NoMasterError,
+      MultipleMastersError
     ].freeze
 
     # Creates a new instance.
@@ -248,7 +257,7 @@ module RedisFailover
         redirect_slaves_to(@master)
         true
       end
-    rescue NodeUnavailableError, NoMasterError, MultipleMastersError => ex
+    rescue *NODE_DISCOVERY_ERRORS => ex
       msg = <<-MSG.gsub(/\s+/, ' ')
         Failed to discover master node: #{ex.inspect}
         In order to ensure a safe startup, redis_failover requires that all redis
@@ -268,6 +277,12 @@ module RedisFailover
         nodes = symbolize_keys(decode(data))
         master = node_from(nodes[:master])
         logger.info("Master from existing znode config: #{master || 'none'}")
+        # Check for case where a node previously thought to be the master was
+        # somehow manually reconfigured to be a slave outside of the node manager's
+        # control.
+        if master && master.slave?
+          raise InvalidNodeRoleError.new(node, :master, :slave)
+        end
         master
       end
     rescue ZK::Exceptions::NoNode
