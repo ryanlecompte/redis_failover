@@ -281,7 +281,7 @@ module RedisFailover
         # somehow manually reconfigured to be a slave outside of the node manager's
         # control.
         if master && master.slave?
-          raise InvalidNodeRoleError.new(node, :master, :slave)
+          raise InvalidNodeRoleError.new(master, :master, :slave)
         end
         master
       end
