@@ -64,6 +64,21 @@ module RedisFailover
       build_clients
     end
 
+    # Stubs this method to return this RedisFailover::Client object.
+    #
+    # Some libraries (Resque) assume they can access the `client` via this method,
+    # but we don't want to actually ever expose the internal Redis connections.
+    #
+    # By returning `self` here, we can add stubs for functionality like #reconnect,
+    # and everything will Just Work.
+    #
+    # Takes an *args array for safety only.
+    #
+    # @return [RedisFailover::Client]
+    def client(*args)
+      self
+    end
+
     # Specifies a callback to invoke when the current redis node list changes.
     #
     # @param [Proc] a callback with current master and slaves as arguments
