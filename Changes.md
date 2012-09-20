@@ -19,6 +19,7 @@
 0.9.2
 -----------
 - Improved exception handling in NodeWatcher.
+- Stubbed Client#client to return itself, fixes a fork reconnect bug with Resque (dbalatero)
 
 0.9.1
 -----------

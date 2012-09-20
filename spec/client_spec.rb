@@ -38,6 +38,12 @@ module RedisFailover
       end
     end
 
+    describe '#client' do
+      it 'should return itself as a delegate' do
+        client.client.should == client
+      end
+    end
+
     describe '#dispatch' do
       it 'routes write operations to master' do
         called = false
