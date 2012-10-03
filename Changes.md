@@ -1,4 +1,4 @@
-HEAD
+0.9.7.1
 -----------
 - Stop repeated attempts to acquire exclusive lock in Node Manager (#36)
 
