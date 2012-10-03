@@ -95,6 +95,9 @@ module RedisFailover
       logger.info('Shutting down ...')
       @mutex.synchronize do
         @shutdown = true
+        unless @leader
+          reset
+        end
       end
     end
 
@@ -406,8 +409,12 @@ module RedisFailover
     # Executes a block wrapped in a ZK exclusive lock.
     def with_lock
       @zk_lock = @zk.locker(@lock_path)
-      while running? && !@zk_lock.lock
-        sleep(TIMEOUT)
+
+      begin
+        @zk_lock.lock!(true)
+      rescue Exception
+        # handle shutdown case
+        running? ? raise : return
       end
 
       if running?

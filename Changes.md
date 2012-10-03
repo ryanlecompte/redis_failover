@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Stop repeated attempts to acquire exclusive lock in Node Manager (#36)
+
 0.9.7
 -----------
 - Stubbed Client#client to return itself, fixes a fork reconnect bug with Resque (dbalatero)
