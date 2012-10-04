@@ -40,7 +40,7 @@ module RedisFailover
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
       @root_znode = options.fetch(:znode_path, Util::DEFAULT_ROOT_ZNODE_PATH)
-      @node_strategy = Strategy.for(options.fetch(:node_strategy, :majority))
+      @node_strategy = NodeStrategy.for(options.fetch(:node_strategy, :majority))
       @master_manager = false
       @lock = Mutex.new
       @shutdown = false

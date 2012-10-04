@@ -1,8 +1,8 @@
 require 'spec_helper'
 
 module RedisFailover
-  module Strategy
-    Strategy.for(:single)
+  module NodeStrategy
+    NodeStrategy.for(:single)
 
     describe Single do
       let(:snapshot) { NodeSnapshot.new(Node.new(:host => 'localhost', :port => '123')) }
@@ -11,7 +11,7 @@ module RedisFailover
         let(:node) { Node.new(:host => 'localhost', :port => '123') }
 
         it 'returns the unavailable state if any node manager reports as down' do
-          strategy = Strategy.for(:single)
+          strategy = NodeStrategy.for(:single)
           snapshot.unviewable_by('nm1')
           snapshot.viewable_by('nm2')
           snapshot.viewable_by('nm3')

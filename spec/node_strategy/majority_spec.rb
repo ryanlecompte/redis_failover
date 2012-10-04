@@ -1,8 +1,8 @@
 require 'spec_helper'
 
 module RedisFailover
-  module Strategy
-    Strategy.for(:majority)
+  module NodeStrategy
+    NodeStrategy.for(:majority)
 
     describe Majority do
       let(:snapshot) { NodeSnapshot.new(Node.new(:host => 'localhost', :port => '123')) }
@@ -11,7 +11,7 @@ module RedisFailover
         let(:node) { Node.new(:host => 'localhost', :port => '123') }
 
         it 'returns the unavailable state if unavailable by the majority of node managers' do
-          strategy = Strategy.for(:majority)
+          strategy = NodeStrategy.for(:majority)
           snapshot.viewable_by('nm1')
           snapshot.unviewable_by('nm2')
           snapshot.unviewable_by('nm3')

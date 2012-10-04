@@ -1,5 +1,5 @@
 module RedisFailover
-  module Strategy
+  module NodeStrategy
     # Marks the node as unavailable if any node manager reports the node as down.
     class Single
       # Returns the state determined by this strategy.

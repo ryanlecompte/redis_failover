@@ -1,8 +1,8 @@
 require 'spec_helper'
 
 module RedisFailover
-  module Strategy
-    Strategy.for(:consensus)
+  module NodeStrategy
+    NodeStrategy.for(:consensus)
 
     describe Consensus do
       let(:snapshot) { NodeSnapshot.new(Node.new(:host => 'localhost', :port => '123')) }
@@ -11,7 +11,7 @@ module RedisFailover
         let(:node) { Node.new(:host => 'localhost', :port => '123') }
 
         it 'returns the unavailable state if unavailable by all node managers' do
-          strategy = Strategy.for(:consensus)
+          strategy = NodeStrategy.for(:consensus)
           snapshot.unviewable_by('nm1')
           snapshot.unviewable_by('nm2')
           snapshot.unviewable_by('nm3')
@@ -19,7 +19,7 @@ module RedisFailover
         end
 
         it 'returns the available state if unavailable by some node managers' do
-          strategy = Strategy.for(:consensus)
+          strategy = NodeStrategy.for(:consensus)
           snapshot.unviewable_by('nm1')
           snapshot.unviewable_by('nm2')
           snapshot.viewable_by('nm3')
