@@ -44,9 +44,6 @@ module RedisFailover
       @master_manager = false
       @lock = Mutex.new
       @shutdown = false
-      @master = nil
-      @slaves = []
-      @unavailable = []
     end
 
     # Starts the node manager.
@@ -91,7 +88,7 @@ module RedisFailover
       logger.info('Shutting down ...')
       @lock.synchronize do
         @shutdown = true
-        exit(0)
+        exit
       end
     end
 
@@ -399,7 +396,7 @@ module RedisFailover
       logger.error("Error scheduling a manual failover: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
     ensure
-      @zk.stat(@manual_znode, :watch => true)
+      @zk.stat(manual_failover_path, :watch => true)
     end
 
     # Produces a FQDN id for this Node Manager.
@@ -464,7 +461,7 @@ module RedisFailover
       else
         raise InvalidNodeStateError.new(node, state)
       end
-    rescue ZK::Exceptions::InterruptedSession
+    rescue *ZK_ERRORS
       # fail hard if this is a ZK connection-related error
       raise
     rescue => ex
@@ -480,10 +477,10 @@ module RedisFailover
     def update_current_state(node, state)
       case state
       when :unavailable
-        @monitored_unavailable << node unless @monitored_unavailable.include?(node)
+        @monitored_unavailable |= [node]
         @monitored_available.delete(node)
       when :available
-        @monitored_available << node unless @monitored_available.include?(node)
+        @monitored_available |= [node]
         @monitored_unavailable.delete(node)
       else
         raise InvalidNodeStateError.new(node, state)
@@ -541,11 +538,14 @@ module RedisFailover
         # by the time we've become the primary node manager.
         discover_nodes
 
+        # ensure that slaves are correctly pointing to this master
+        redirect_slaves_to(@master)
+
         # Periodically update master config state.
         while running? && master_manager?
+          @zk_lock.assert!
           @lock.synchronize do
-            snapshots = current_node_snapshots
-            snapshots.each do |node, snapshot|
+            current_node_snapshots.each do |node, snapshot|
               update_master_state(node, snapshot)
             end
 
@@ -591,7 +591,7 @@ module RedisFailover
       @lock.synchronize do
         return unless running? && @master_manager && @zk_lock
         @zk_lock.assert!
-        new_master = @zk.get(@manual_znode, :watch => true).first
+        new_master = @zk.get(manual_failover_path, :watch => true).first
         return unless new_master && new_master.size > 0
         logger.info("Received manual failover request for: #{new_master}")
         logger.info("Current nodes: #{current_nodes.inspect}")
