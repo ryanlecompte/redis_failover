@@ -1,3 +1,7 @@
+HEAD
+-----------
+- Add support for Redis#client's location method. Fixes a compatibility issue with redis_failover and Sidekiq.
+
 0.9.7.1
 -----------
 - Stop repeated attempts to acquire exclusive lock in Node Manager (#36)

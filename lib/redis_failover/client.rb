@@ -79,6 +79,14 @@ module RedisFailover
       self
     end
 
+    # Delegates to the underlying Redis client to fetch the location.
+    # This method always returns the location of the master.
+    #
+    # @return [String] the redis location
+    def location
+      dispatch(:client).location
+    end
+
     # Specifies a callback to invoke when the current redis node list changes.
     #
     # @param [Proc] a callback with current master and slaves as arguments
