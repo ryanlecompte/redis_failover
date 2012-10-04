@@ -1,4 +1,4 @@
-HEAD
+0.9.7.2
 -----------
 - Add support for Redis#client's location method. Fixes a compatibility issue with redis_failover and Sidekiq.
 
