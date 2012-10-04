@@ -41,6 +41,7 @@ module RedisFailover
       @options = options
       @root_znode = options.fetch(:znode_path, Util::DEFAULT_ROOT_ZNODE_PATH)
       @node_strategy = NodeStrategy.for(options.fetch(:node_strategy, :majority))
+      @nodes = Array(@options[:nodes]).map { |opts| Node.new(opts) }.uniq
       @master_manager = false
       @lock = Mutex.new
       @shutdown = false
@@ -52,7 +53,6 @@ module RedisFailover
     def start
       return unless running?
       setup_zk
-      discover_nodes
       spawn_watchers
       wait_until_master
     rescue *ZK_ERRORS => ex
@@ -210,16 +210,14 @@ module RedisFailover
     def discover_nodes
       @lock.synchronize do
         return unless running?
-        @monitored_available, @monitored_unavailable, @unavailable = [], [], []
-        nodes = @options[:nodes].map { |opts| Node.new(opts) }.uniq
+        @unavailable = []
         if @master = find_existing_master
           logger.info("Using master #{@master} from existing znode config.")
-        elsif @master = guess_master(nodes)
+        elsif @master = guess_master(@nodes)
           logger.info("Guessed master #{@master} from known redis nodes.")
         end
-        @slaves = nodes - [@master]
-        logger.info("Monitoring master (#{@master}) and slaves " +
-          "(#{@slaves.map(&:to_s).join(', ')})")
+        @slaves = @nodes - [@master]
+        logger.info("Managing master (#{@master}) and slaves #{stringify_nodes(@slaves)}")
       end
     rescue *NODE_DISCOVERY_ERRORS => ex
       msg = <<-MSG.gsub(/\s+/, ' ')
@@ -266,10 +264,12 @@ module RedisFailover
 
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
-      @watchers = [@master, @slaves, @unavailable].flatten.compact.map do |node|
+      @monitored_available, @monitored_unavailable = [], []
+      @watchers = @nodes.map do |node|
         NodeWatcher.new(self, node, @options.fetch(:max_failures, 3))
       end
       @watchers.each(&:watch)
+      logger.info("Monitoring redis nodes at #{stringify_nodes(@nodes)}")
     end
 
     # Searches for the master node.
@@ -618,6 +618,11 @@ module RedisFailover
     # @return [String] the name of the node strategy
     def strategy_name
       @node_strategy.class.to_s.split('::').last.upcase
+    end
+
+    # @return [String] a stringified version of redis nodes
+    def stringify_nodes(nodes)
+      "(#{nodes.map(&:to_s).join(', ')})"
     end
   end
 end

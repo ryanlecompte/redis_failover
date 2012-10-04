@@ -13,6 +13,7 @@ module RedisFailover
       [master, slave].each { |node| node.extend(RedisStubSupport) }
       master.make_master!
       slave.make_slave!(master)
+      @nodes = [master, slave]
       @unavailable = []
       @master = master
       @slaves = [slave]
