@@ -40,7 +40,7 @@ module RedisFailover
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
       @root_znode = options.fetch(:znode_path, Util::DEFAULT_ROOT_ZNODE_PATH)
-      @decision_mode = options.fetch(:decision_mode, :majority)
+      @node_strategy = Strategy.for(options.fetch(:node_strategy, :majority))
       @master_manager = false
       @lock = Mutex.new
       @shutdown = false
@@ -58,6 +58,7 @@ module RedisFailover
     rescue *ZK_ERRORS => ex
       logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
       reset
+      sleep(TIMEOUT)
       retry
     end
 
@@ -447,7 +448,7 @@ module RedisFailover
     # @param [Node] node the node to handle
     # @param [NodeSnapshot] snapshot the node snapshot
     def update_master_state(node, snapshot)
-      state = snapshot.state
+      state = @node_strategy.determine_state(snapshot)
       case state
       when :unavailable
         logger.info(snapshot)
@@ -510,7 +511,7 @@ module RedisFailover
     # @return [Hash<String, NodeSnapshot>] the snapshots for all nodes
     def current_node_snapshots
       nodes = {}
-      snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k, @decision_mode) }
+      snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k) }
       fetch_node_manager_states.each do |node_manager, states|
         available, unavailable = states.values_at(:available, :unavailable)
         available.each do |node_string|
@@ -532,8 +533,7 @@ module RedisFailover
 
       with_lock do
         @master_manager = true
-        logger.info("Acquired master Node Manager lock. " +
-          "Managing nodes in #{@decision_mode} mode.")
+        logger.info("Acquired master Node Manager lock. Using strategy #{strategy_name}")
         # Re-discover nodes, since the state of the world may have been changed
         # by the time we've become the primary node manager.
         discover_nodes
@@ -613,6 +613,11 @@ module RedisFailover
     # @return [Boolean] true if running, false otherwise
     def running?
       !@shutdown
+    end
+
+    # @return [String] the name of the node strategy
+    def strategy_name
+      @node_strategy.class.to_s.split('::').last.upcase
     end
   end
 end

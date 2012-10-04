@@ -48,9 +48,9 @@ module RedisFailover
           options[:config_environment] = config_env
         end
 
-        opts.on('--decision-mode MODE',
-         'Decision mode used when monitoring nodes (majority or consensus)') do |mode|
-          options[:decision_mode] = mode
+        opts.on('--node-strategy STRATEGY',
+         'Strategy used when determining availability of nodes (single, majority or consensus)') do |strategy|
+          options[:node_strategy] = strategy
         end
 
         opts.on('-h', '--help', 'Display all options') do
@@ -76,7 +76,8 @@ module RedisFailover
     def self.invalid_options?(options)
       return true if options.empty?
       return true unless options.values_at(:nodes, :zkservers).all?
-      if (mode = options[:decision_mode]) && !%w(majority consensus).include?(mode)
+      if (strategy = options[:node_strategy]) &&
+        !%w(single majority consensus).include?(strategy)
         return true
       end
 
@@ -122,8 +123,8 @@ module RedisFailover
         options[:nodes].each { |opts| opts.update(:password => password) }
       end
 
-      if mode = options[:decision_mode]
-        options[:decision_mode] = mode.to_sym
+      if strategy = options[:node_strategy]
+        options[:node_strategy] = strategy.to_sym
       end
 
       options

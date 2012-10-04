@@ -8,11 +8,9 @@ module RedisFailover
     # Creates a new instance.
     #
     # @param [String] the redis node
-    # @param [Symbol] decision_mode the decision mode
     # @see NodeManager#initialize
-    def initialize(node, decision_mode)
+    def initialize(node)
       @node = node
-      @decision_mode = decision_mode
       @available = []
       @unavailable = []
     end
@@ -49,21 +47,16 @@ module RedisFailover
       available_count > 0 && unavailable_count == 0
     end
 
-    # @return [Symbol] the node state as determined by the
-    # majority node managers
-    def state
-      case @decision_mode
-      when :majority
-        available_count > unavailable_count ? :available : :unavailable
-      when :consensus
-        all_available? ? :available : :unavailable
-      end
+    # @return [Boolean] true if all node managers indicated that this
+    # node was unviewable
+    def all_unavailable?
+      unavailable_count > 0 && available_count == 0
     end
 
     # @return [String] a friendly representation of this node snapshot
     def to_s
-      'Node %s available by %p, unavailable by %p (%d up, %d down, %s mode)' %
-        [node, @available, @unavailable, available_count, unavailable_count, @decision_mode]
+      'Node %s available by %p, unavailable by %p (%d up, %d down)' %
+        [node, @available, @unavailable, available_count, unavailable_count]
     end
   end
 end
