@@ -25,6 +25,13 @@ module RedisFailover
   class NoMasterError < Error
   end
 
+  # Raised when more than one master is found on startup.
+  class MultipleMastersError < Error
+    def initialize(nodes)
+      super("Multiple nodes with master role: #{nodes.map(&:to_s)}")
+    end
+  end
+
   # Raised when no slave is currently available.
   class NoSlaveError < Error
   end

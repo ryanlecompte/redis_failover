@@ -155,7 +155,7 @@ redis_failover uses YARD for its API documentation. Refer to the generated [API 
 
 ## Requirements
 
-- redis_failover is actively tested against MRI 1.9.2/1.9.3 and JRuby 1.6.7 (1.9 mode only). Other rubies may work, although I don't actively test against them.
+- redis_failover is actively tested against MRI 1.8.7/1.9.2/1.9.3 and JRuby 1.6.7 (1.9 mode only). Other rubies may work, although I don't actively test against them.
 - redis_failover requires a ZooKeeper service cluster to ensure reliability and data consistency. ZooKeeper is very simple and easy to get up and running. Please refer to this [Quick ZooKeeper Guide](https://github.com/ryanlecompte/redis_failover/wiki/Quick-ZooKeeper-Guide) to get up and running quickly if you don't already have ZooKeeper as a part of your environment.
 
 ## Considerations
@@ -175,6 +175,7 @@ redis_failover uses YARD for its API documentation. Refer to the generated [API 
 - To learn more about ZooKeeper, see the official [ZooKeeper](http://zookeeper.apache.org/) site.
 - See the [Quick ZooKeeper Guide](https://github.com/ryanlecompte/redis_failover/wiki/Quick-ZooKeeper-Guide) for a quick guide to getting ZooKeeper up and running with redis_failover.
 - To learn more about how ZooKeeper handles network partitions, see [ZooKeeper Failure Scenarios](http://wiki.apache.org/hadoop/ZooKeeper/FailureScenarios)
+- Slides for a [lightning talk](http://www.slideshare.net/ryanlecompte/handling-redis-failover-with-zookeeper) that I gave at BaRuCo 2012.
 - Feel free to join #zk-gem on the IRC freenode network. We're usually hanging out there talking about ZooKeeper and redis_failover.
 
 

@@ -118,7 +118,6 @@ module RedisFailover
     end
     alias_method :eql?, :==
 
-
     # @return [Integer] a hash value for this node
     def hash
       to_s.hash
@@ -175,13 +174,13 @@ module RedisFailover
         redis = new_client
         yield redis
       end
-    rescue => ex
+    rescue Exception => ex
       raise NodeUnavailableError, "#{ex.class}: #{ex.message}", ex.backtrace
     ensure
       if redis
         begin
           redis.client.disconnect
-        rescue => ex
+        rescue Exception => ex
           raise NodeUnavailableError, "#{ex.class}: #{ex.message}", ex.backtrace
         end
       end

@@ -1,3 +1,37 @@
+HEAD
+-----------
+- Add support for Redis#client's location method. Fixes a compatibility issue with redis_failover and Sidekiq.
+
+0.9.7.1
+-----------
+- Stop repeated attempts to acquire exclusive lock in Node Manager (#36)
+
+0.9.7
+-----------
+- Stubbed Client#client to return itself, fixes a fork reconnect bug with Resque (dbalatero)
+
+0.9.6
+-----------
+- Handle the node discovery error condition where the znode points to a master that is now a slave.
+
+0.9.5
+-----------
+- Introduce a safer master node discovery process for the Node Manager (#34)
+- Improved shutdown process for Node Manager
+
+0.9.4
+-----------
+- Preserve original master by reading from existing znode state.
+- Prevent Timeout::Error from bringing down the process (#32) (@eric)
+
+0.9.3
+-----------
+- Add lock assert for Node Manager.
+
+0.9.2
+-----------
+- Improved exception handling in NodeWatcher.
+
 0.9.1
 -----------
 - Improve nested exception handling.

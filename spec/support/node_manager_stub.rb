@@ -1,11 +1,12 @@
 module RedisFailover
   class NodeManagerStub < NodeManager
     attr_accessor :master
-    public :current_nodes
+    # HACK - this will go away once we refactor the tests to use a real ZK/Redis server.
+    public :current_nodes, :guess_master
 
     def discover_nodes
       # only discover nodes once in testing
-      return if @nodes_discovered
+      return true if @nodes_discovered
 
       master = Node.new(:host => 'master')
       slave = Node.new(:host => 'slave')
