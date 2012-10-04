@@ -1,5 +1,5 @@
 module RedisFailover
-  # Represents a snapshot of a particular node as seen by all currently running
+  # Represents a snapshot of a particular redis node as seen by all currently running
   # redis node managers.
   class NodeSnapshot
     # @return [String] the redis node

@@ -52,13 +52,8 @@ module RedisFailover
           sleep(WATCHER_SLEEP_TIME)
           @node.ping
           failures = 0
-
-          if @node.syncing_with_master?
-            notify(:syncing)
-          else
-            notify(:available)
-            @node.wait
-          end
+          notify(:available)
+          @node.wait
         rescue NodeUnavailableError => ex
           logger.debug("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
