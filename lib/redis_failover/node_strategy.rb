@@ -15,7 +15,7 @@ module RedisFailover
     # Returns the state determined by this strategy.
     #
     # @param [Node] the node to handle
-    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    # @param [Hash<Node, NodeSnapshot>] snapshots the current set of snapshots
     # @return [Symbol] the status
     def determine_state(node, snapshots)
       raise NotImplementedError

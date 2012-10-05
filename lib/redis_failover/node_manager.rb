@@ -117,7 +117,7 @@ module RedisFailover
     # Handles an unavailable node.
     #
     # @param [Node] node the unavailable node
-    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    # @param [Hash<Node, NodeSnapshot>] snapshots the current set of snapshots
     def handle_unavailable(node, snapshots)
       # no-op if we already know about this node
       return if @unavailable.include?(node)
@@ -136,7 +136,7 @@ module RedisFailover
     # Handles an available node.
     #
     # @param [Node] node the available node
-    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    # @param [Hash<Node, NodeSnapshot>] snapshots the current set of snapshots
     def handle_available(node, snapshots)
       reconcile(node)
 
@@ -159,7 +159,7 @@ module RedisFailover
     # Handles a node that is currently syncing.
     #
     # @param [Node] node the syncing node
-    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    # @param [Hash<Node, NodeSnapshot>] snapshots the current set of snapshots
     def handle_syncing(node, snapshots)
       reconcile(node)
 
@@ -176,7 +176,7 @@ module RedisFailover
     # Handles a manual failover request to the given node.
     #
     # @param [Node] node the candidate node for failover
-    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    # @param [Hash<Node, NodeSnapshot>] snapshots the current set of snapshots
     def handle_manual_failover(node, snapshots)
       # no-op if node to be failed over is already master
       return if @master == node
@@ -190,7 +190,7 @@ module RedisFailover
 
     # Promotes a new master.
     #
-    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    # @param [Hash<Node, NodeSnapshot>] snapshots the current set of snapshots
     # @param [Node] node the optional node to promote
     def promote_new_master(snapshots, node = nil)
       delete_path(redis_nodes_path)
@@ -452,7 +452,7 @@ module RedisFailover
     # this node manager instance is serving as the master manager.
     #
     # @param [Node] node the node to handle
-    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    # @param [Hash<Node, NodeSnapshot>] snapshots the current set of snapshots
     def update_master_state(node, snapshots)
       state = @node_strategy.determine_state(node, snapshots)
       case state
@@ -514,7 +514,7 @@ module RedisFailover
 
     # Builds current snapshots of nodes across all running node managers.
     #
-    # @return [Hash<String, NodeSnapshot>] the snapshots for all nodes
+    # @return [Hash<Node, NodeSnapshot>] the snapshots for all nodes
     def current_node_snapshots
       nodes = {}
       snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k) }
