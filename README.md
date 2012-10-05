@@ -2,7 +2,7 @@
 
 [![Build Status](https://secure.travis-ci.org/ryanlecompte/redis_failover.png?branch=master)](http://travis-ci.org/ryanlecompte/redis_failover)
 
-redis_failover attempts to provides a full automatic master/slave failover solution for Ruby. Redis does not provide
+redis_failover attempts to provides a full automatic master/slave failover solution for Ruby. Redis does not currently provide
 an automatic failover capability when configured for master/slave replication. When the master node dies,
 a new master must be manually brought online and assigned as the slave's new master. This manual
 switch-over is not desirable in high traffic sites where Redis is a critical part of the overall
@@ -10,8 +10,8 @@ architecture. The existing standard Redis client for Ruby also only supports con
 Redis server. When using master/slave replication, it is desirable to have all writes go to the
 master, and all reads go to one of the N configured slaves.
 
-This gem (built using [ZK][]) attempts to address these failover scenarios. A redis failover Node Manager daemon runs as a background
-process and monitors all of your configured master/slave nodes. When the daemon starts up, it
+This gem (built using [ZK][]) attempts to address these failover scenarios. One or more Node Manager daemons run as background
+processes and monitor all of your configured master/slave nodes. When the daemon starts up, it
 automatically discovers the current master/slaves. Background watchers are setup for each of
 the redis nodes. As soon as a node is detected as being offline, it will be moved to an "unavailable" state.
 If the node that went offline was the master, then one of the slaves will be promoted as the new master.
@@ -22,8 +22,10 @@ nodes. Note that detection of a node going down should be nearly instantaneous, 
 used to keep tabs on a node is via a blocking Redis BLPOP call (no polling). This call fails nearly
 immediately when the node actually goes offline. To avoid false positives (i.e., intermittent flaky
 network interruption), the Node Manager will only mark a node as unavailable if it fails to communicate with
-it 3 times (this is configurable via --max-failures, see configuration options below). Note that you can
-deploy multiple Node Manager daemons for added redundancy.
+it 3 times (this is configurable via --max-failures, see configuration options below). Note that you can (and should)
+deploy multiple Node Manager daemons since they each report periodic health reports/snapshots of the redis servers. A
+"node strategy" is used to determine if a node is actually unavailable. By default a majority strategy is used, but
+you can also configure "consensus" or "single" as well.
 
 This gem provides a RedisFailover::Client wrapper that is master/slave aware. The client is configured
 with a list of ZooKeeper servers. The client will automatically contact the ZooKeeper cluster to find out
@@ -64,14 +66,18 @@ following options:
 
     Usage: redis_node_manager [OPTIONS]
 
+
     Specific options:
         -n, --nodes NODES                Comma-separated redis host:port pairs
         -z, --zkservers SERVERS          Comma-separated ZooKeeper host:port pairs
         -p, --password PASSWORD          Redis password
             --znode-path PATH            Znode path override for storing redis server list
             --max-failures COUNT         Max failures before manager marks node unavailable
-        -C, --config PATH                Path to YAML configuration file
+        -C, --config PATH                Path to YAML config file
+            --with-chroot ROOT           Path to ZooKeepers chroot
         -E, --environment ENV            Config environment to use
+            --node-strategy STRATEGY     Strategy used when determining availability of nodes (default: majority)
+            --failover-strategy STRATEGY Strategy used when failing over to a new node (default: latency)
         -h, --help                       Display all options
 
 To start the daemon for a simple master/slave configuration, use the following:
@@ -103,10 +109,12 @@ directory for configuration file samples.
 
 The Node Manager will automatically discover the master/slaves upon startup. Note that it is
 a good idea to run more than one instance of the Node Manager daemon in your environment. At
-any moment, a single Node Manager process will be designated to monitor the redis servers. If
+any moment, a single Node Manager process will be designated to manage the redis servers. If
 this Node Manager process dies or becomes partitioned from the network, another Node Manager
-will be promoted as the primary monitor of redis servers. You can run as many Node Manager
-processes as you'd like for added redundancy.
+will be promoted as the primary manager of redis servers. You can run as many Node Manager
+processes as you'd like. Every Node Manager periodically records health "snapshots" which the
+primary/master Node Manager consults when determining if it should officially mark a redis 
+server as unavailable. By default, a majority strategy is used.
 
 ## Client Usage
 
@@ -165,8 +173,6 @@ redis_failover uses YARD for its API documentation. Refer to the generated [API 
 ## Limitations
 
 - Note that it's still possible for the RedisFailover::Client instances to see a stale list of servers for a very small window. In most cases this will not be the case due to how ZooKeeper handles distributed communication, but you should be aware that in the worst case the client could write to a "stale" master for a small period of time until the next watch event is received by the client via ZooKeeper.
-
-- Note that currently multiple Node Managers are currently used for redundancy purposes only. The Node Managers do not communicate with each other to perform any type of election or voting to determine if they all agree on promoting a new master. Right now Node Managers that are not "active" just sit and wait until they can grab the lock to become the single decision-maker for which Redis servers are available or not. This means that a scenario could present itself where a Node Manager thinks the Redis master is available, however the actual RedisFailover::Client instances think they can't reach the Redis master (either due to network partitions or the Node Manager flapping due to machine failure, etc). We are exploring ways to improve this situation.
 
 ## Resources
 
