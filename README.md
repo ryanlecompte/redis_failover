@@ -157,6 +157,20 @@ server passed to #manual_failover, or it will pick a random slave to become the 
     client = RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183')
     client.manual_failover(:host => 'localhost', :port => 2222)
 
+## Node & Failover Strategies
+
+As of redis_failover version 1.0, the notion of "node" and "failover" strategies exists. All running Node Managers will periodically record
+"snapshots" of their view of the redis nodes. The primary Node Manager will process these snapshots from all of the Node Managers by running a configurable
+node strategy. By default, a majority strategy is used. This means that if a majority of Node Managers indicate that a node is unavailable, then the primary
+Node Manager will officially mark it as unavailable. Other strategies exist:
+
+- consensus (all Node Managers must agree that the node is unavailable)
+- single (at least one Node Manager saying the node is unavailable will cause the node to be marked as such)
+
+When a failover happens, the primary Node Manager will now consult a "failover strategy" to determine which candidate node should be used. Currently only a single
+strategy is provided by redis_failover: latency. This strategy simply selects a node that is both marked as available by all Node Managers and has the lowest
+average latency for its last health check.
+
 ## Documentation
 
 redis_failover uses YARD for its API documentation. Refer to the generated [API documentation](http://rubydoc.info/github/ryanlecompte/redis_failover/master/frames) for full coverage.
