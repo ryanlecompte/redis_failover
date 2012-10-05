@@ -105,9 +105,7 @@ module RedisFailover
       create_path(current_state_root)
 
       @zk.register(manual_failover_path) do |event|
-        if event.node_created? || event.node_changed?
-          perform_manual_failover
-        end
+        handle_manual_failover_update(event)
       end
 
       @zk.on_connected { @zk.stat(manual_failover_path, :watch => true) }
@@ -395,9 +393,7 @@ module RedisFailover
     # @param [ZK::Event] event the ZK event to handle
     def handle_manual_failover_update(event)
       if event.node_created? || event.node_changed?
-        @lock.synchronize do
-          perform_manual_failover
-        end
+        perform_manual_failover
       end
     rescue => ex
       logger.error("Error scheduling a manual failover: #{ex.inspect}")
