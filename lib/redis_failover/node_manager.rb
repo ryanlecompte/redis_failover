@@ -41,6 +41,7 @@ module RedisFailover
       @options = options
       @root_znode = options.fetch(:znode_path, Util::DEFAULT_ROOT_ZNODE_PATH)
       @node_strategy = NodeStrategy.for(options.fetch(:node_strategy, :majority))
+      @failover_strategy = FailoverStrategy.for(options.fetch(:failover_strategy, :latency))
       @nodes = Array(@options[:nodes]).map { |opts| Node.new(opts) }.uniq
       @master_manager = false
       @lock = Mutex.new
@@ -191,8 +192,8 @@ module RedisFailover
       delete_path(redis_nodes_path)
       @master = nil
 
-      # make a specific node or slave the new master
-      candidate = node || @slaves.pop
+      # make a specific node or selected candidate the new master
+      candidate = node || @failover_strategy.find_candidate(current_node_snapshots.values)
       unless candidate
         logger.error('Failed to promote a new master, no candidate available.')
         return
@@ -535,7 +536,10 @@ module RedisFailover
 
       with_lock do
         @master_manager = true
-        logger.info("Acquired master Node Manager lock. Using strategy #{strategy_name}")
+        logger.info('Acquired master Node Manager lock.')
+        logger.info("Configured node strategy #{@node_strategy.class}")
+        logger.info("Configured failover strategy #{@failover_strategy.class}")
+
         # Re-discover nodes, since the state of the world may have been changed
         # by the time we've become the primary node manager.
         discover_nodes
@@ -615,11 +619,6 @@ module RedisFailover
     # @return [Boolean] true if running, false otherwise
     def running?
       !@shutdown
-    end
-
-    # @return [String] the name of the node strategy
-    def strategy_name
-      @node_strategy.class.to_s.split('::').last.upcase
     end
 
     # @return [String] a stringified version of redis nodes

@@ -42,6 +42,17 @@ module RedisFailover
       @unavailable.size
     end
 
+    # @return [Integer] the average available latency
+    def avg_latency
+      return if @available.empty?
+      @available.values.inject(0) { |sum, n| sum + n } / @available.size
+    end
+
+    # @return [Array<String>] all node managers involved in this snapshot
+    def node_managers
+      (@available.keys + @unavailable).uniq
+    end
+
     # @return [Boolean] true if all node managers indicated that this
     # node was viewable
     def all_available?

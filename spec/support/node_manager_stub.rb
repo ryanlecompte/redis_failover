@@ -17,6 +17,11 @@ module RedisFailover
       @unavailable = []
       @master = master
       @slaves = [slave]
+      @failover_strategy = Object.new
+      slaves = @slaves
+      @failover_strategy.define_singleton_method(:find_candidate) do |*args|
+        slaves.pop
+      end
       @nodes_discovered = true
     end
 
@@ -40,7 +45,11 @@ module RedisFailover
     def force_unavailable(node)
       start_processing
       node.redis.make_unavailable!
-      snapshot = OpenStruct.new(:available_count => 0, :unavailable_count => 1)
+      snapshot = OpenStruct.new(
+        :node => node,
+        :available_count => 0,
+        :unavailable_count => 1,
+        :node_managers => ['nm'])
       update_master_state(node, snapshot)
       stop_processing
     end
@@ -48,7 +57,11 @@ module RedisFailover
     def force_available(node)
       start_processing
       node.redis.make_available!
-      snapshot = OpenStruct.new(:available_count => 1, :unavailable_count => 0)
+      snapshot = OpenStruct.new(
+        :node => node,
+        :available_count => 1,
+        :unavailable_count => 0,
+        :node_managers => ['nm'])
       update_master_state(node, snapshot)
       stop_processing
     end
@@ -56,7 +69,11 @@ module RedisFailover
     def force_syncing(node, serve_stale_reads)
       start_processing
       node.redis.force_sync_with_master(serve_stale_reads)
-      snapshot = OpenStruct.new(:available_count => 1, :unavailable_count => 0)
+      snapshot = OpenStruct.new(
+        :node => node,
+        :available_count => 1,
+        :unavailable_count => 0,
+        :node_managers => ['nm'])
       update_master_state(node, snapshot)
       stop_processing
     end
@@ -65,5 +82,6 @@ module RedisFailover
     def create_path(*args); end
     def write_state(*args); end
     def wait_until_master; end
+    def current_node_snapshots; {} end
   end
 end

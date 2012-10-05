@@ -49,8 +49,13 @@ module RedisFailover
         end
 
         opts.on('--node-strategy STRATEGY',
-         'Strategy used when determining availability of nodes (single, majority or consensus)') do |strategy|
+         'Strategy used when determining availability of nodes (default: majority)') do |strategy|
           options[:node_strategy] = strategy
+        end
+
+        opts.on('--failover-strategy STRATEGY',
+         'Strategy used when failing over to a new node (default: latency)') do |strategy|
+          options[:failover_strategy] = strategy
         end
 
         opts.on('-h', '--help', 'Display all options') do
@@ -76,11 +81,6 @@ module RedisFailover
     def self.invalid_options?(options)
       return true if options.empty?
       return true unless options.values_at(:nodes, :zkservers).all?
-      if (strategy = options[:node_strategy]) &&
-        !%w(single majority consensus).include?(strategy)
-        return true
-      end
-
       false
     end
 
@@ -123,8 +123,12 @@ module RedisFailover
         options[:nodes].each { |opts| opts.update(:password => password) }
       end
 
-      if strategy = options[:node_strategy]
-        options[:node_strategy] = strategy.to_sym
+      if node_strategy = options[:node_strategy]
+        options[:node_strategy] = node_strategy.to_sym
+      end
+
+      if failover_strategy = options[:failover_strategy]
+        options[:failover_strategy] = failover_strategy.to_sym
       end
 
       options
