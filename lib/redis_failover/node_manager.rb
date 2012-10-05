@@ -117,7 +117,8 @@ module RedisFailover
     # Handles an unavailable node.
     #
     # @param [Node] node the unavailable node
-    def handle_unavailable(node)
+    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    def handle_unavailable(node, snapshots)
       # no-op if we already know about this node
       return if @unavailable.include?(node)
       logger.info("Handling unavailable node: #{node}")
@@ -126,7 +127,7 @@ module RedisFailover
       # find a new master if this node was a master
       if node == @master
         logger.info("Demoting currently unavailable master #{node}.")
-        promote_new_master
+        promote_new_master(snapshots)
       else
         @slaves.delete(node)
       end
@@ -135,7 +136,8 @@ module RedisFailover
     # Handles an available node.
     #
     # @param [Node] node the available node
-    def handle_available(node)
+    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    def handle_available(node, snapshots)
       reconcile(node)
 
       # no-op if we already know about this node
@@ -148,7 +150,7 @@ module RedisFailover
         @slaves << node
       else
         # no master exists, make this the new master
-        promote_new_master(node)
+        promote_new_master(snapshots, node)
       end
 
       @unavailable.delete(node)
@@ -157,7 +159,8 @@ module RedisFailover
     # Handles a node that is currently syncing.
     #
     # @param [Node] node the syncing node
-    def handle_syncing(node)
+    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    def handle_syncing(node, snapshots)
       reconcile(node)
 
       if node.syncing_with_master? && node.prohibits_stale_reads?
@@ -167,13 +170,14 @@ module RedisFailover
       end
 
       # otherwise, we can use this node
-      handle_available(node)
+      handle_available(node, snapshots)
     end
 
     # Handles a manual failover request to the given node.
     #
     # @param [Node] node the candidate node for failover
-    def handle_manual_failover(node)
+    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    def handle_manual_failover(node, snapshots)
       # no-op if node to be failed over is already master
       return if @master == node
       logger.info("Handling manual failover")
@@ -181,19 +185,19 @@ module RedisFailover
       # make current master a slave, and promote new master
       @slaves << @master if @master
       @slaves.delete(node)
-      promote_new_master(node)
+      promote_new_master(snapshots, node)
     end
 
     # Promotes a new master.
     #
+    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
     # @param [Node] node the optional node to promote
-    # @note if no node is specified, a random slave will be used
-    def promote_new_master(node = nil)
+    def promote_new_master(snapshots, node = nil)
       delete_path(redis_nodes_path)
       @master = nil
 
       # make a specific node or selected candidate the new master
-      candidate = node || @failover_strategy.find_candidate(current_node_snapshots.values)
+      candidate = node || @failover_strategy.find_candidate(snapshots)
       unless candidate
         logger.error('Failed to promote a new master, no candidate available.')
         return
@@ -448,18 +452,17 @@ module RedisFailover
     # this node manager instance is serving as the master manager.
     #
     # @param [Node] node the node to handle
-    # @param [NodeSnapshot] snapshot the node snapshot
-    def update_master_state(node, snapshot)
-      state = @node_strategy.determine_state(snapshot)
+    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    def update_master_state(node, snapshots)
+      state = @node_strategy.determine_state(node, snapshots)
       case state
       when :unavailable
-        logger.info(snapshot)
-        handle_unavailable(node)
+        handle_unavailable(node, snapshots)
       when :available
         if node.syncing_with_master?
-          handle_syncing(node)
+          handle_syncing(node, snapshots)
         else
-          handle_available(node)
+          handle_available(node, snapshots)
         end
       else
         raise InvalidNodeStateError.new(node, state)
@@ -539,28 +542,33 @@ module RedisFailover
         logger.info('Acquired master Node Manager lock.')
         logger.info("Configured node strategy #{@node_strategy.class}")
         logger.info("Configured failover strategy #{@failover_strategy.class}")
+        manage_nodes
+      end
+    end
 
-        # Re-discover nodes, since the state of the world may have been changed
-        # by the time we've become the primary node manager.
-        discover_nodes
+    # Manages the redis nodes by periodically processing snapshots.
+    def manage_nodes
+      # Re-discover nodes, since the state of the world may have been changed
+      # by the time we've become the primary node manager.
+      discover_nodes
 
-        # ensure that slaves are correctly pointing to this master
-        redirect_slaves_to(@master)
+      # ensure that slaves are correctly pointing to this master
+      redirect_slaves_to(@master)
 
-        # Periodically update master config state.
-        while running? && master_manager?
-          @zk_lock.assert!
-          @lock.synchronize do
-            current_node_snapshots.each do |node, snapshot|
-              update_master_state(node, snapshot)
-            end
-
-            # flush current master state
-            write_current_redis_nodes
+      # Periodically update master config state.
+      while running? && master_manager?
+        @zk_lock.assert!
+        @lock.synchronize do
+          snapshots = current_node_snapshots
+          snapshots.each_key do |node|
+            update_master_state(node, snapshots)
           end
 
-          sleep(CHECK_INTERVAL)
+          # flush current master state
+          write_current_redis_nodes
         end
+
+        sleep(CHECK_INTERVAL)
       end
     end
 
@@ -601,10 +609,16 @@ module RedisFailover
         return unless new_master && new_master.size > 0
         logger.info("Received manual failover request for: #{new_master}")
         logger.info("Current nodes: #{current_nodes.inspect}")
-        node = new_master == ManualFailover::ANY_SLAVE ?
-          @slaves.shuffle.first : node_from(new_master)
+        snapshots = current_node_snapshots
+
+        node = if new_master == ManualFailover::ANY_SLAVE
+          @failover_strategy.find_candidate(snapshots)
+        else
+          node_from(new_master)
+        end
+
         if node
-          handle_manual_failover(node)
+          handle_manual_failover(node, snapshots)
         else
           logger.error('Failed to perform manual failover, no candidate found.')
         end

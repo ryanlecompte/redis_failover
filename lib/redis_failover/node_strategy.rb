@@ -1,6 +1,6 @@
 module RedisFailover
-  # Loads various strategies for determining node availability.
-  module NodeStrategy
+  # Base class for strategies that determine node availability.
+  class NodeStrategy
     # Loads a strategy based on the given name.
     #
     # @param [String, Symbol] name the strategy name
@@ -10,6 +10,15 @@ module RedisFailover
       const_get(name.capitalize).new
     rescue LoadError, NameError
       raise "Failed to find node strategy: #{name}"
+    end
+
+    # Returns the state determined by this strategy.
+    #
+    # @param [Node] the node to handle
+    # @param [Map<String, NodeSnapshot>] snapshots the current set of snapshots
+    # @return [Symbol] the status
+    def determine_state(node, snapshots)
+      raise NotImplementedError
     end
   end
 end

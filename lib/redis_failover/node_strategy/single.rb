@@ -1,13 +1,10 @@
 module RedisFailover
-  module NodeStrategy
+  class NodeStrategy
     # Marks the node as unavailable if any node manager reports the node as down.
-    class Single
-      # Returns the state determined by this strategy.
-      #
-      # @param [NodeSnapshot] snapshot the node snapshot
-      # @return [Symbol] the status
-      def determine_state(snapshot)
-        if snapshot.unavailable_count > 0
+    class Single < NodeStrategy
+      # @see RedisFailover::NodeStrategy#determine_state
+      def determine_state(node, snapshots)
+        if snapshots[node].unavailable_count > 0
           :unavailable
         else
           :available

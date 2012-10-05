@@ -50,7 +50,7 @@ module RedisFailover
         :available_count => 0,
         :unavailable_count => 1,
         :node_managers => ['nm'])
-      update_master_state(node, snapshot)
+      update_master_state(node, node => snapshot)
       stop_processing
     end
 
@@ -62,7 +62,7 @@ module RedisFailover
         :available_count => 1,
         :unavailable_count => 0,
         :node_managers => ['nm'])
-      update_master_state(node, snapshot)
+      update_master_state(node, node => snapshot)
       stop_processing
     end
 
@@ -74,7 +74,7 @@ module RedisFailover
         :available_count => 1,
         :unavailable_count => 0,
         :node_managers => ['nm'])
-      update_master_state(node, snapshot)
+      update_master_state(node, node => snapshot)
       stop_processing
     end
 
