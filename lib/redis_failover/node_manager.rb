@@ -67,9 +67,10 @@ module RedisFailover
     #
     # @param [Node] node the node
     # @param [Symbol] state the state
-    def notify_state(node, state = nil)
+    # @param [Integer] latency an optional latency
+    def notify_state(node, state, latency = nil)
       @lock.synchronize do
-        update_current_state(node, state)
+        update_current_state(node, state, latency)
       end
     rescue => ex
       logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
@@ -264,7 +265,7 @@ module RedisFailover
 
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
-      @monitored_available, @monitored_unavailable = [], []
+      @monitored_available, @monitored_unavailable = {}, []
       @watchers = @nodes.map do |node|
         NodeWatcher.new(self, node, @options.fetch(:max_failures, 3))
       end
@@ -341,7 +342,7 @@ module RedisFailover
     # seen by this node manager instance
     def node_availability_state
       {
-        :available => @monitored_available.map(&:to_s),
+        :available => Hash[@monitored_available.map { |k, v| [k.to_s, v] }],
         :unavailable => @monitored_unavailable.map(&:to_s)
       }
     end
@@ -475,13 +476,14 @@ module RedisFailover
     #
     # @param [Node] node the node to handle
     # @param [Symbol] state the node state
-    def update_current_state(node, state)
+    # @param [Integer] latency an optional latency
+    def update_current_state(node, state, latency = nil)
       case state
       when :unavailable
         @monitored_unavailable |= [node]
         @monitored_available.delete(node)
       when :available
-        @monitored_available |= [node]
+        @monitored_available[node] = latency
         @monitored_unavailable.delete(node)
       else
         raise InvalidNodeStateError.new(node, state)
@@ -514,9 +516,9 @@ module RedisFailover
       snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k) }
       fetch_node_manager_states.each do |node_manager, states|
         available, unavailable = states.values_at(:available, :unavailable)
-        available.each do |node_string|
+        available.each do |node_string, latency|
           node = nodes[node_string] ||= node_from(node_string)
-          snapshots[node].viewable_by(node_manager)
+          snapshots[node].viewable_by(node_manager, latency)
         end
         unavailable.each do |node_string|
           node = nodes[node_string] ||= node_from(node_string)

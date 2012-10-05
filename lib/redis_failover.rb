@@ -6,6 +6,7 @@ require 'thread'
 require 'logger'
 require 'timeout'
 require 'optparse'
+require 'benchmark'
 require 'multi_json'
 require 'securerandom'
 

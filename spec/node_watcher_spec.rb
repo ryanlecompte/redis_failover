@@ -6,7 +6,7 @@ module RedisFailover
       @node_states = {}
     end
 
-    def notify_state(node, state)
+    def notify_state(node, state, latency = nil)
       @node_states[node] = state
     end
 

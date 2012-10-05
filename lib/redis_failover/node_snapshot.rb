@@ -11,20 +11,21 @@ module RedisFailover
     # @see NodeManager#initialize
     def initialize(node)
       @node = node
-      @available = []
+      @available = {}
       @unavailable = []
     end
 
     # Declares this node available by the specified node manager.
     #
-    # @param [String] the znode path for the node manager
-    def viewable_by(node_manager)
-      @available << node_manager
+    # @param [String] node_manager the znode path for the node manager
+    # @param [Integer] latency the latency
+    def viewable_by(node_manager, latency)
+      @available[node_manager] = latency
     end
 
     # Declares this node unavailable by the specified node manager.
     #
-    # @param [String] the znode path for the node manager
+    # @param [String] node_manager the znode path for the node manager
     def unviewable_by(node_manager)
       @unavailable << node_manager
     end

@@ -22,7 +22,7 @@ module RedisFailover
           strategy = NodeStrategy.for(:consensus)
           snapshot.unviewable_by('nm1')
           snapshot.unviewable_by('nm2')
-          snapshot.viewable_by('nm3')
+          snapshot.viewable_by('nm3', 0)
           strategy.determine_state(snapshot).should == :available
         end
       end

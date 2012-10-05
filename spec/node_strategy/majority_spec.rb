@@ -12,7 +12,7 @@ module RedisFailover
 
         it 'returns the unavailable state if unavailable by the majority of node managers' do
           strategy = NodeStrategy.for(:majority)
-          snapshot.viewable_by('nm1')
+          snapshot.viewable_by('nm1', 0)
           snapshot.unviewable_by('nm2')
           snapshot.unviewable_by('nm3')
           strategy.determine_state(snapshot).should == :unavailable

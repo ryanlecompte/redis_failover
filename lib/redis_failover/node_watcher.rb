@@ -50,9 +50,9 @@ module RedisFailover
         begin
           return if @done
           sleep(WATCHER_SLEEP_TIME)
-          @node.ping
+          latency = Benchmark.realtime { @node.ping }
           failures = 0
-          notify(:available)
+          notify(:available, latency)
           @node.wait
         rescue NodeUnavailableError => ex
           logger.debug("Failed to communicate with node #{@node}: #{ex.inspect}")
@@ -71,8 +71,9 @@ module RedisFailover
     # Notifies the manager of a node's state.
     #
     # @param [Symbol] state the node's state
-    def notify(state)
-      @manager.notify_state(@node, state)
+    # @param [Integer] latency an optional latency
+    def notify(state, latency = nil)
+      @manager.notify_state(@node, state, latency)
     end
   end
 end

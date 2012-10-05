@@ -13,8 +13,8 @@ module RedisFailover
         it 'returns the unavailable state if any node manager reports as down' do
           strategy = NodeStrategy.for(:single)
           snapshot.unviewable_by('nm1')
-          snapshot.viewable_by('nm2')
-          snapshot.viewable_by('nm3')
+          snapshot.viewable_by('nm2', 0)
+          snapshot.viewable_by('nm3', 0)
           strategy.determine_state(snapshot).should == :unavailable
         end
       end
