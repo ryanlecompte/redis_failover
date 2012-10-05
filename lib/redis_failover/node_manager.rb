@@ -503,7 +503,11 @@ module RedisFailover
       states = {}
       @zk.children(current_state_root).each do |child|
         full_path = "#{current_state_root}/#{child}"
-        states[child] = symbolize_keys(decode(@zk.get(full_path).first))
+        begin
+          states[child] = symbolize_keys(decode(@zk.get(full_path).first))
+        rescue => ex
+          logger.error("Failed to fetch states for #{full_path}: #{ex.inspect}")
+        end
       end
       states
     end
@@ -590,10 +594,17 @@ module RedisFailover
       end
 
       if running?
+        @zk_lock.assert!
         yield
       end
     ensure
-      @zk_lock.unlock! if @zk_lock
+      if @zk_lock
+        begin
+          @zk_lock.unlock!
+        rescue => ex
+          logger.warn("Failed to release lock: #{ex.inspect}")
+        end
+      end
     end
 
     # Perform a manual failover to a redis node.
