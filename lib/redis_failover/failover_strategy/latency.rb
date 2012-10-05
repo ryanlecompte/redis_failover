@@ -3,8 +3,6 @@ module RedisFailover
     # Failover strategy that selects an availaboe node that is both seen by all
     # node managers and has the lowest reported health check latency.
     class Latency < FailoverStrategy
-      include Util
-
       # @see RedisFailover::FailoverStrategy#find_candidate
       def find_candidate(snapshots)
         logger.info('Attempting to find candidate from snapshots:')

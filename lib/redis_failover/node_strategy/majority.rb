@@ -7,6 +7,7 @@ module RedisFailover
       def determine_state(node, snapshots)
         snapshot = snapshots[node]
         if snapshot.unavailable_count > snapshot.available_count
+          log_unavailable(node, snapshot)
           :unavailable
         else
           :available

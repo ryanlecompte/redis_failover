@@ -1,6 +1,8 @@
 module RedisFailover
   # Base class for strategies that determine node availability.
   class NodeStrategy
+    include Util
+
     # Loads a strategy based on the given name.
     #
     # @param [String, Symbol] name the strategy name
@@ -19,6 +21,14 @@ module RedisFailover
     # @return [Symbol] the status
     def determine_state(node, snapshots)
       raise NotImplementedError
+    end
+
+    # Logs a node as being unavailable.
+    #
+    # @param [Node] node the node
+    # @param [NodeSnapshot] snapshot the node snapshot
+    def log_unavailable(node, snapshot)
+      logger.info("#{self.class} marking #{node} as unavailable. Snapshot: #{snapshot}")
     end
   end
 end

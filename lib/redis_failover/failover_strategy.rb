@@ -1,6 +1,8 @@
 module RedisFailover
   # Base class for strategies that determine which node is used during failover.
   class FailoverStrategy
+    include Util
+
     # Loads a strategy based on the given name.
     #
     # @param [String, Symbol] name the strategy name

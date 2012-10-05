@@ -5,7 +5,9 @@ module RedisFailover
     class Consensus < NodeStrategy
       # @see RedisFailover::NodeStrategy#determine_state
       def determine_state(node, snapshots)
-        if snapshots[node].all_unavailable?
+        snapshot = snapshots[node]
+        if snapshot.all_unavailable?
+          log_unavailable(node, snapshot)
           :unavailable
         else
           :available

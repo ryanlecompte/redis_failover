@@ -4,7 +4,9 @@ module RedisFailover
     class Single < NodeStrategy
       # @see RedisFailover::NodeStrategy#determine_state
       def determine_state(node, snapshots)
-        if snapshots[node].unavailable_count > 0
+        snapshot = snapshots[node]
+        if snapshot.unavailable_count > 0
+          log_unavailable(node, snapshot)
           :unavailable
         else
           :available
