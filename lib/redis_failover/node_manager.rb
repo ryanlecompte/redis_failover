@@ -196,11 +196,13 @@ module RedisFailover
 
       # make a specific node or selected candidate the new master
       candidate = node || @failover_strategy.find_candidate(snapshots)
+
       unless candidate
         logger.error('Failed to promote a new master, no candidate available.')
         return
       end
 
+      @slaves.delete(candidate)
       redirect_slaves_to(candidate)
       candidate.make_master!
       @master = candidate
