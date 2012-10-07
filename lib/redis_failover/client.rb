@@ -486,6 +486,7 @@ module RedisFailover
       @master_only = options.fetch(:master_only, false)
     end
 
+    # @return [String] the znode path for the master redis nodes config
     def redis_nodes_path
       "#{@root_znode}/nodes"
     end
