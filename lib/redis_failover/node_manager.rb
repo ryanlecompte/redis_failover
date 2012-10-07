@@ -82,8 +82,6 @@ module RedisFailover
     def reset
       @master_manager = false
       @watchers.each(&:shutdown) if @watchers
-      @zk.close! if @zk
-      @zk_lock = nil
     end
 
     # Initiates a graceful shutdown.
@@ -99,16 +97,16 @@ module RedisFailover
 
     # Configures the ZooKeeper client.
     def setup_zk
-      @zk.close! if @zk
-      @zk = ZK.new("#{@options[:zkservers]}#{@options[:chroot] || ''}")
-      create_path(@root_znode)
-      create_path(current_state_root)
-
-      @zk.register(manual_failover_path) do |event|
-        handle_manual_failover_update(event)
+      unless @zk
+        @zk = ZK.new("#{@options[:zkservers]}#{@options[:chroot] || ''}")
+        @zk.register(manual_failover_path) do |event|
+          handle_manual_failover_update(event)
+        end
+        @zk.on_connected { @zk.stat(manual_failover_path, :watch => true) }
       end
 
-      @zk.on_connected { @zk.stat(manual_failover_path, :watch => true) }
+      create_path(@root_znode)
+      create_path(current_state_root)
       @zk.stat(manual_failover_path, :watch => true)
     end
 
@@ -507,6 +505,9 @@ module RedisFailover
         full_path = "#{current_state_root}/#{child}"
         begin
           states[child] = symbolize_keys(decode(@zk.get(full_path).first))
+        rescue ZK::Exceptions::NoNode
+          # ignore, this is an edge case that can happen when a node manager
+          # process dies while fetching its state
         rescue => ex
           logger.error("Failed to fetch states for #{full_path}: #{ex.inspect}")
         end
@@ -586,9 +587,16 @@ module RedisFailover
 
     # Executes a block wrapped in a ZK exclusive lock.
     def with_lock
-      @zk_lock = @zk.locker('master_redis_node_manager_lock')
+      @zk_lock ||= @zk.locker('master_redis_node_manager_lock')
 
       begin
+        # we manually attempt to delete the lock path before
+        # acquiring the lock, since currently the lock doesn't
+        # get cleaned up if there is a connection error while
+        # the client was previously blocked in the #lock! call.
+        if path = @zk_lock.lock_path
+          @zk.delete(path, :ignore => :no_node)
+        end
         @zk_lock.lock!(true)
       rescue Exception
         # handle shutdown case
