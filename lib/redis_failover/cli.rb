@@ -58,6 +58,11 @@ module RedisFailover
           options[:failover_strategy] = strategy
         end
 
+        opts.on('--required-node-managers COUNT',
+         'Required Node Managers that must be reachable to determine node state (default: 1)') do |count|
+          options[:required_node_managers] = Integer(count)
+        end
+
         opts.on('-h', '--help', 'Display all options') do
           puts opts
           exit

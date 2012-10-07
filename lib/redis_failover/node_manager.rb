@@ -39,11 +39,13 @@ module RedisFailover
     def initialize(options)
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
+      @required_node_managers = options.fetch(:required_node_managers, 1)
       @root_znode = options.fetch(:znode_path, Util::DEFAULT_ROOT_ZNODE_PATH)
       @node_strategy = NodeStrategy.for(options.fetch(:node_strategy, :majority))
       @failover_strategy = FailoverStrategy.for(options.fetch(:failover_strategy, :latency))
       @nodes = Array(@options[:nodes]).map { |opts| Node.new(opts) }.uniq
       @master_manager = false
+      @sufficient_node_managers = false
       @lock = Mutex.new
       @shutdown = false
     end
@@ -214,7 +216,7 @@ module RedisFailover
     def discover_nodes
       @lock.synchronize do
         return unless running?
-        @unavailable = []
+        @slaves, @unavailable = [], []
         if @master = find_existing_master
           logger.info("Using master #{@master} from existing znode config.")
         elsif @master = guess_master(@nodes)
@@ -545,6 +547,7 @@ module RedisFailover
         logger.info('Acquired master Node Manager lock.')
         logger.info("Configured node strategy #{@node_strategy.class}")
         logger.info("Configured failover strategy #{@failover_strategy.class}")
+        logger.info("Required Node Managers to make a decision: #{@required_node_managers}")
         manage_nodes
       end
     end
@@ -561,17 +564,19 @@ module RedisFailover
       # Periodically update master config state.
       while running? && master_manager?
         @zk_lock.assert!
+        sleep(CHECK_INTERVAL)
+
         @lock.synchronize do
           snapshots = current_node_snapshots
-          snapshots.each_key do |node|
-            update_master_state(node, snapshots)
+          if ensure_sufficient_node_managers(snapshots)
+            snapshots.each_key do |node|
+              update_master_state(node, snapshots)
+            end
+
+            # flush current master state
+            write_current_redis_nodes
           end
-
-          # flush current master state
-          write_current_redis_nodes
         end
-
-        sleep(CHECK_INTERVAL)
       end
     end
 
@@ -590,13 +595,6 @@ module RedisFailover
       @zk_lock ||= @zk.locker('master_redis_node_manager_lock')
 
       begin
-        # we manually attempt to delete the lock path before
-        # acquiring the lock, since currently the lock doesn't
-        # get cleaned up if there is a connection error while
-        # the client was previously blocked in the #lock! call.
-        if path = @zk_lock.lock_path
-          @zk.delete(path, :ignore => :no_node)
-        end
         @zk_lock.lock!(true)
       rescue Exception
         # handle shutdown case
@@ -655,6 +653,30 @@ module RedisFailover
     # @return [String] a stringified version of redis nodes
     def stringify_nodes(nodes)
       "(#{nodes.map(&:to_s).join(', ')})"
+    end
+
+    # Determines if each snapshot has a sufficient number of node managers.
+    #
+    # @param [Hash<Node, Snapshot>] snapshots the current snapshots
+    # @return [Boolean] true if sufficient, false otherwise
+    def ensure_sufficient_node_managers(snapshots)
+      currently_sufficient = true
+      snapshots.each do |node, snapshot|
+        node_managers = snapshot.node_managers
+        if node_managers.size < @required_node_managers
+          logger.error("Not enough Node Managers in snapshot for node #{node}. " +
+            "Required: #{@required_node_managers}, " +
+            "Available: #{node_managers.size} #{node_managers}")
+          currently_sufficient = false
+        end
+      end
+
+      if currently_sufficient && !@sufficient_node_managers
+        logger.info("Can see all required Node Managers: #{@required_node_managers}")
+      end
+
+      @sufficient_node_managers = currently_sufficient
+      @sufficient_node_managers
     end
   end
 end

@@ -2,6 +2,9 @@
 #   redis_node_manager -C config.yml
 ---
 :max_failures: 2
+:node_strategy: majority
+:failover_strategy: latency
+:required_node_managers: 2
 :nodes:
   - localhost:6379
   - localhost:1111

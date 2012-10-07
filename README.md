@@ -68,17 +68,18 @@ following options:
 
 
     Specific options:
-        -n, --nodes NODES                Comma-separated redis host:port pairs
-        -z, --zkservers SERVERS          Comma-separated ZooKeeper host:port pairs
-        -p, --password PASSWORD          Redis password
-            --znode-path PATH            Znode path override for storing redis server list
-            --max-failures COUNT         Max failures before manager marks node unavailable
-        -C, --config PATH                Path to YAML config file
-            --with-chroot ROOT           Path to ZooKeepers chroot
-        -E, --environment ENV            Config environment to use
-            --node-strategy STRATEGY     Strategy used when determining availability of nodes (default: majority)
-            --failover-strategy STRATEGY Strategy used when failing over to a new node (default: latency)
-        -h, --help                       Display all options
+        -n, --nodes NODES                  Comma-separated redis host:port pairs
+        -z, --zkservers SERVERS            Comma-separated ZooKeeper host:port pairs
+        -p, --password PASSWORD            Redis password
+            --znode-path PATH              Znode path override for storing redis server list
+            --max-failures COUNT           Max failures before manager marks node unavailable
+        -C, --config PATH                  Path to YAML config file
+            --with-chroot ROOT             Path to ZooKeepers chroot
+        -E, --environment ENV              Config environment to use
+            --node-strategy STRATEGY       Strategy used when determining availability of nodes (default: majority)
+            --failover-strategy STRATEGY   Strategy used when failing over to a new node (default: latency)
+            --required-node-managers COUNT Required Node Managers that must be reachable to determine node state (default: 1)
+        -h, --help                         Display all options
 
 To start the daemon for a simple master/slave configuration, use the following:
 
@@ -170,6 +171,11 @@ Node Manager will officially mark it as unavailable. Other strategies exist:
 When a failover happens, the primary Node Manager will now consult a "failover strategy" to determine which candidate node should be used. Currently only a single
 strategy is provided by redis_failover: latency. This strategy simply selects a node that is both marked as available by all Node Managers and has the lowest
 average latency for its last health check.
+
+Note that you should set the "required_node_managers" configuration option appropriately. This value (defaults to 1) is used to determine if enough Node
+Managers have reported their view of a node's state. For example, if you have deployed 5 Node Managers, then you should set this value to 5 if you only
+want to accept a node's availability when all 5 Node Managers are part of the snapshot. To give yourself flexibility, you may want to set this value to 3
+instead. This would give you flexibility to take down 2 Node Managers, while still allowing the cluster to be managed appropriately.
 
 ## Documentation
 
