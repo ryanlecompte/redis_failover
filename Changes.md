@@ -1,11 +1,12 @@
 HEAD
 -----------
-- redis_failover now supports distributed monitoring among the node managers! Previously, the node managers were only used
-as a means of redundancy in case a particular node manager crashed. Starting with version 1.0 of redis_failover, the node
-managers will all periodically report their health report/snapshots. The primary node manager will utilize a configurable
+- redis_failover now supports distributed monitoring among the Node Managers! Previously, the Node Managers were only used
+as a means of redundancy in case a particular node manager crashed. Starting with version 1.0 of redis_failover, the Node
+Managers will all periodically report their health report/snapshots. The primary Node Manager will utilize a configurable
 "node strategy" to determine if a particular node is available or unavailable.
 - redis_failover now supports a configurable "failover strategy" that's consulted when performing a failover. Currently,
 a single strategy is provided that takes into account the average latency of the last health check to the redis server.
+- Improved handling of underlying ZK client connection in RedisFailover::NodeManager
 
 0.9.7.2
 -----------
