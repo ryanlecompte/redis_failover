@@ -5,9 +5,6 @@ module RedisFailover
     class Latency < FailoverStrategy
       # @see RedisFailover::FailoverStrategy#find_candidate
       def find_candidate(snapshots)
-        logger.info('Attempting to find candidate from snapshots:')
-        logger.info("\n" + snapshots.values.join("\n"))
-
         candidates = {}
         snapshots.each do |node, snapshot|
           if snapshot.all_available?

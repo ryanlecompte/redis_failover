@@ -195,7 +195,7 @@ module RedisFailover
       @master = nil
 
       # make a specific node or selected candidate the new master
-      candidate = node || @failover_strategy.find_candidate(snapshots)
+      candidate = node || failover_strategy_candidate(snapshots)
 
       unless candidate
         logger.error('Failed to promote a new master, no candidate available.')
@@ -627,7 +627,7 @@ module RedisFailover
         snapshots = current_node_snapshots
 
         node = if new_master == ManualFailover::ANY_SLAVE
-          @failover_strategy.find_candidate(snapshots)
+          failover_strategy_candidate(snapshots)
         else
           node_from(new_master)
         end
@@ -672,11 +672,26 @@ module RedisFailover
       end
 
       if currently_sufficient && !@sufficient_node_managers
-        logger.info("Can see all required Node Managers: #{@required_node_managers}")
+        logger.info("Required Node Managers are visible: #{@required_node_managers}")
       end
 
       @sufficient_node_managers = currently_sufficient
       @sufficient_node_managers
+    end
+
+    # Invokes the configured failover strategy.
+    #
+    # @param [Hash<Node, NodeSnapshot>] snapshots the node snapshots
+    # @return [Node] a failover candidate
+    def failover_strategy_candidate(snapshots)
+      # only include nodes that this master Node Manager can see
+      filtered_snapshots = snapshots.select do |node, snapshot|
+        snapshot.viewable_by?(manager_id)
+      end
+
+      logger.info('Attempting to find candidate from snapshots:')
+      logger.info("\n" + filtered_snapshots.values.join("\n"))
+      @failover_strategy.find_candidate(filtered_snapshots)
     end
   end
 end

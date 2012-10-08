@@ -17,15 +17,22 @@ module RedisFailover
 
     # Declares this node available by the specified node manager.
     #
-    # @param [String] node_manager the znode path for the node manager
+    # @param [String] node_manager the node manager id
     # @param [Integer] latency the latency
     def viewable_by(node_manager, latency)
       @available[node_manager] = latency
     end
 
+    # Determines if this node is viewable by a node manager.
+    #
+    # @param [String] node_manager the node manager id
+    def viewable_by?(node_manager)
+      @available.key?(node_manager)
+    end
+
     # Declares this node unavailable by the specified node manager.
     #
-    # @param [String] node_manager the znode path for the node manager
+    # @param [String] node_manager the node manager id
     def unviewable_by(node_manager)
       @unavailable << node_manager
     end

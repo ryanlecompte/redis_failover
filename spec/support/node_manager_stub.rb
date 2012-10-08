@@ -18,10 +18,6 @@ module RedisFailover
       @master = master
       @slaves = [slave]
       @failover_strategy = Object.new
-      slaves = @slaves
-      @failover_strategy.define_singleton_method(:find_candidate) do |*args|
-        slaves.pop
-      end
       @nodes_discovered = true
     end
 
@@ -76,6 +72,10 @@ module RedisFailover
         :node_managers => ['nm'])
       update_master_state(node, node => snapshot)
       stop_processing
+    end
+
+    def failover_strategy_candidate(snapshots)
+      @slaves.pop
     end
 
     def delete_path(*args); end
