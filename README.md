@@ -90,6 +90,9 @@ would look like the following:
 
     ---
     :max_failures: 2
+    :node_strategy: majority
+    :failover_strategy: latency
+    :required_node_managers: 2
     :nodes:
       - localhost:6379
       - localhost:1111
@@ -115,7 +118,9 @@ this Node Manager process dies or becomes partitioned from the network, another 
 will be promoted as the primary manager of redis servers. You can run as many Node Manager
 processes as you'd like. Every Node Manager periodically records health "snapshots" which the
 primary/master Node Manager consults when determining if it should officially mark a redis 
-server as unavailable. By default, a majority strategy is used.
+server as unavailable. By default, a majority strategy is used. Also, when a failover
+happens, the primary Node Manager will consult the node snapshots to determine the best
+node to use as the new master.
 
 ## Client Usage
 
