@@ -13,6 +13,8 @@ module RedisFailover
     TIMEOUT = 5
     # Number of seconds for checking node snapshots.
     CHECK_INTERVAL = 10
+    # Number of max attempts to promote a master before releasing master lock.
+    MAX_PROMOTION_ATTEMPTS = 3
 
     # ZK Errors that the Node Manager cares about.
     ZK_ERRORS = [
@@ -45,8 +47,9 @@ module RedisFailover
       @failover_strategy = FailoverStrategy.for(options.fetch(:failover_strategy, :latency))
       @nodes = Array(@options[:nodes]).map { |opts| Node.new(opts) }.uniq
       @master_manager = false
+      @master_promotion_attempts = 0
       @sufficient_node_managers = false
-      @lock = Mutex.new
+      @lock = Monitor.new
       @shutdown = false
     end
 
@@ -63,6 +66,11 @@ module RedisFailover
       reset
       sleep(TIMEOUT)
       retry
+    rescue NoMasterError
+      logger.error("Failed to promote a new master after #{MAX_PROMOTION_ATTEMPTS} attempts.")
+      reset
+      sleep(TIMEOUT)
+      retry
     end
 
     # Notifies the manager of a state change. Used primarily by
@@ -73,7 +81,9 @@ module RedisFailover
     # @param [Integer] latency an optional latency
     def notify_state(node, state, latency = nil)
       @lock.synchronize do
-        update_current_state(node, state, latency)
+        if running?
+          update_current_state(node, state, latency)
+        end
       end
     rescue => ex
       logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
@@ -83,6 +93,7 @@ module RedisFailover
     # Performs a reset of the manager.
     def reset
       @master_manager = false
+      @master_promotion_attempts = 0
       @watchers.each(&:shutdown) if @watchers
     end
 
@@ -91,8 +102,10 @@ module RedisFailover
       logger.info('Shutting down ...')
       @lock.synchronize do
         @shutdown = true
-        exit
       end
+
+      reset
+      exit
     end
 
     private
@@ -180,6 +193,9 @@ module RedisFailover
       return if @master == node
       logger.info("Handling manual failover")
 
+      # ensure we can talk to the node
+      node.ping
+
       # make current master a slave, and promote new master
       @slaves << @master if @master
       @slaves.delete(node)
@@ -206,8 +222,8 @@ module RedisFailover
       redirect_slaves_to(candidate)
       candidate.make_master!
       @master = candidate
-
       write_current_redis_nodes
+      @master_promotion_attempts = 0
       logger.info("Successfully promoted #{candidate} to master.")
     end
 
@@ -270,6 +286,7 @@ module RedisFailover
 
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
+      @zk.delete(current_state_path, :ignore => :no_node)
       @monitored_available, @monitored_unavailable = {}, []
       @watchers = @nodes.map do |node|
         NodeWatcher.new(self, node, @options.fetch(:max_failures, 3))
@@ -575,6 +592,12 @@ module RedisFailover
 
             # flush current master state
             write_current_redis_nodes
+
+            # check if we've exhausted our attempts to promote a master
+            unless @master
+              @master_promotion_attempts += 1
+              raise NoMasterError if @master_promotion_attempts > MAX_PROMOTION_ATTEMPTS
+            end
           end
         end
       end
@@ -639,7 +662,7 @@ module RedisFailover
         end
       end
     rescue => ex
-      logger.error("Error handling a manual failover: #{ex.inspect}")
+      logger.error("Error handling manual failover: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
     ensure
       @zk.stat(manual_failover_path, :watch => true)
@@ -647,7 +670,7 @@ module RedisFailover
 
     # @return [Boolean] true if running, false otherwise
     def running?
-      !@shutdown
+      @lock.synchronize { !@shutdown }
     end
 
     # @return [String] a stringified version of redis nodes

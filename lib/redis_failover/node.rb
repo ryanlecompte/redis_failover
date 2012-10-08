@@ -22,7 +22,8 @@ module RedisFailover
     # @option options [String] :host the host of the redis server
     # @option options [String] :port the port of the redis server
     def initialize(options = {})
-      @host = options.fetch(:host) { raise InvalidNodeError, 'missing host'}
+      @host = options[:host]
+      raise InvalidNodeError, 'missing host' if @host.to_s.empty?
       @port = Integer(options[:port] || 6379)
       @password = options[:password]
     end

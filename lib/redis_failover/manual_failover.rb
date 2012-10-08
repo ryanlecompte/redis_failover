@@ -25,6 +25,12 @@ module RedisFailover
       @zk = zk
       @root_znode = root_znode
       @options = options
+
+      unless @options.empty?
+        port = Integer(@options[:port]) rescue nil
+        raise ArgumentError, ':host not properly specified' if @options[:host].to_s.empty?
+        raise ArgumentError, ':port not properly specified' if port.nil?
+      end
     end
 
     # Performs a manual failover.

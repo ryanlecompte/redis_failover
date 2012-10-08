@@ -18,6 +18,8 @@ module RedisFailover
       @node = node
       @max_failures = max_failures
       @monitor_thread = nil
+      @shutdown_lock = Mutex.new
+      @shutdown_cv = ConditionVariable.new
       @done = false
     end
 
@@ -32,9 +34,15 @@ module RedisFailover
 
     # Performs a graceful shutdown of this watcher.
     def shutdown
-      @done = true
-      @node.wakeup
-      @monitor_thread.join if @monitor_thread
+      @shutdown_lock.synchronize do
+        @done = true
+        begin
+          @node.wakeup
+        rescue
+          # best effort
+        end
+        @shutdown_cv.wait(@shutdown_lock)
+      end
     rescue => ex
       logger.warn("Failed to gracefully shutdown watcher for #{@node}")
     end
@@ -48,7 +56,7 @@ module RedisFailover
 
       loop do
         begin
-          return if @done
+          break if @done
           sleep(WATCHER_SLEEP_TIME)
           latency = Benchmark.realtime { @node.ping }
           failures = 0
@@ -65,6 +73,10 @@ module RedisFailover
           logger.error("Unexpected error while monitoring node #{@node}: #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
         end
+      end
+
+      @shutdown_lock.synchronize do
+        @shutdown_cv.broadcast
       end
     end
 
