@@ -40,6 +40,7 @@ module RedisFailover
     #
     # @param [Hash] options the options used to initialize the client instance
     # @option options [String] :zkservers comma-separated ZooKeeper host:port
+    # @option options [String] :zk an existing ZK client connection instance
     # @option options [String] :znode_path znode path override for redis nodes
     # @option options [String] :password password for redis nodes
     # @option options [String] :db database to use for redis nodes
@@ -49,6 +50,7 @@ module RedisFailover
     # @option options [Integer] :max_retries max retries for a failure
     # @option options [Boolean] :safe_mode indicates if safe mode is used or not
     # @option options [Boolean] :master_only indicates if only redis master is used
+    # @note Use either :zkservers or :zk
     # @return [RedisFailover::Client]
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
@@ -177,7 +179,7 @@ module RedisFailover
 
     # Sets up the underlying ZooKeeper connection.
     def setup_zk
-      @zk = ZK.new(@zkservers)
+      @zk = ZK.new(@zkservers) if @zkservers
       @zk.watcher.register(redis_nodes_path) { |event| handle_zk_event(event) }
       if @safe_mode
         @zk.on_expired_session { purge_clients }
@@ -475,7 +477,11 @@ module RedisFailover
     #
     # @param [Hash] options the configuration options
     def parse_options(options)
-      @zkservers = options.fetch(:zkservers) { raise ArgumentError, ':zkservers required'}
+      @zk, @zkservers = options.values_at(:zk, :zkservers)
+      if [@zk, @zkservers].all? || [@zk, @zkservers].none?
+        raise ArgumentError, 'must specify :zk or :zkservers'
+      end
+
       @root_znode = options.fetch(:znode_path, Util::DEFAULT_ROOT_ZNODE_PATH)
       @namespace = options[:namespace]
       @password = options[:password]

@@ -7,6 +7,7 @@ Managers will all periodically report their health report/snapshots. The primary
 - redis_failover now supports a configurable "failover strategy" that's consulted when performing a failover. Currently,
 a single strategy is provided that takes into account the average latency of the last health check to the redis server.
 - Improved handling of underlying ZK client connection in RedisFailover::NodeManager
+- Add support for passing in an existing ZK client instance to RedisFailover::Cient.new
 
 0.9.7.2
 -----------
