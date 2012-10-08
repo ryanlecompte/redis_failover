@@ -121,16 +121,22 @@ server as unavailable. By default, a majority strategy is used.
 
 The redis failover client must be used in conjunction with a running Node Manager daemon. The
 client supports various configuration options, however the only mandatory option is the list of
-ZooKeeper servers:
+ZooKeeper servers OR an existing ZK client instance:
 
+    # Explicitly specify the ZK servers
     client = RedisFailover::Client.new(:zkservers => 'localhost:2181,localhost:2182,localhost:2183')
+
+    # Explicitly specify an existing ZK client instance (useful if using a connection pool, etc)
+    zk = ZK.new('localhost:2181,localhost:2182,localhost:2183')
+    client = RedisFailover::Client.new(:zk => zk)
 
 The client actually employs the common redis and redis-namespace gems underneath, so this should be
 a drop-in replacement for your existing pure redis client usage.
 
 The full set of options that can be passed to RedisFailover::Client are:
 
-     :zkservers     - comma-separated ZooKeeper host:port pairs (required)
+     :zk            - an existing ZK client instance
+     :zkservers     - comma-separated ZooKeeper host:port pairs
      :znode_path    - the Znode path override for redis server list (optional)
      :password      - password for redis nodes (optional)
      :db            - db to use for redis nodes (optional)
