@@ -177,11 +177,10 @@ module RedisFailover
       if node.syncing_with_master? && node.prohibits_stale_reads?
         logger.info("Node #{node} not ready yet, still syncing with master.")
         force_unavailable_slave(node)
-        return
+      else
+        # otherwise, we can use this node
+        handle_available(node, snapshots)
       end
-
-      # otherwise, we can use this node
-      handle_available(node, snapshots)
     end
 
     # Handles a manual failover request to the given node.
@@ -213,18 +212,18 @@ module RedisFailover
       # make a specific node or selected candidate the new master
       candidate = node || failover_strategy_candidate(snapshots)
 
-      unless candidate
+      if candidate.nil?
         logger.error('Failed to promote a new master, no candidate available.')
-        return
+      else
+        @slaves.delete(candidate)
+        @unavailable.delete(candidate)
+        redirect_slaves_to(candidate)
+        candidate.make_master!
+        @master = candidate
+        write_current_redis_nodes
+        @master_promotion_attempts = 0
+        logger.info("Successfully promoted #{candidate} to master.")
       end
-
-      @slaves.delete(candidate)
-      redirect_slaves_to(candidate)
-      candidate.make_master!
-      @master = candidate
-      write_current_redis_nodes
-      @master_promotion_attempts = 0
-      logger.info("Successfully promoted #{candidate} to master.")
     end
 
     # Discovers the current master and slave nodes.
