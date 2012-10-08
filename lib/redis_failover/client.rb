@@ -180,7 +180,7 @@ module RedisFailover
     # Sets up the underlying ZooKeeper connection.
     def setup_zk
       @zk = ZK.new(@zkservers) if @zkservers
-      @zk.watcher.register(redis_nodes_path) { |event| handle_zk_event(event) }
+      @zk.register(redis_nodes_path) { |event| handle_zk_event(event) }
       if @safe_mode
         @zk.on_expired_session { purge_clients }
       end
