@@ -8,6 +8,7 @@ Managers will all periodically report their health report/snapshots. The primary
 a single strategy is provided that takes into account the average latency of the last health check to the redis server.
 - Improved handling of underlying ZK client connection in RedisFailover::NodeManager
 - Add support for passing in an existing ZK client instance to RedisFailover::Cient.new
+- Reduce unnecessary writes to ZK
 
 0.9.7.2
 -----------
