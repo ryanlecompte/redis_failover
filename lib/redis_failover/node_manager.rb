@@ -438,6 +438,12 @@ module RedisFailover
       write_state(redis_nodes_path, encode(current_nodes))
     end
 
+    # Writes the current monitored list of redis nodes. This method is always
+    # invoked by all running node managers.
+    def write_current_monitored_state
+      write_state(current_state_path, encode(node_availability_state), :ephemeral => true)
+    end
+
     # @return [String] root path for current node manager state
     def current_state_root
       "#{@root_znode}/manager_node_state"
@@ -506,14 +512,14 @@ module RedisFailover
         unless @monitored_unavailable.include?(node)
           @monitored_unavailable << node
           @monitored_available.delete(node)
-          write_state(current_state_path, encode(node_availability_state), :ephemeral => true)
+          write_current_monitored_state
         end
       when :available
         last_latency = @monitored_available[node]
         if last_latency.nil? || (latency - last_latency) > LATENCY_THRESHOLD
           @monitored_available[node] = latency
           @monitored_unavailable.delete(node)
-          write_state(current_state_path, encode(node_availability_state), :ephemeral => true)
+          write_current_monitored_state
         end
       else
         raise InvalidNodeStateError.new(node, state)
