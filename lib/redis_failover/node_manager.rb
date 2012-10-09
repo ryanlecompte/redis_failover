@@ -12,7 +12,7 @@ module RedisFailover
     # Number of seconds to wait before retrying bootstrap process.
     TIMEOUT = 5
     # Number of seconds for checking node snapshots.
-    CHECK_INTERVAL = 10
+    CHECK_INTERVAL = 5
     # Number of max attempts to promote a master before releasing master lock.
     MAX_PROMOTION_ATTEMPTS = 3
     # Latency threshold for recording node state.
