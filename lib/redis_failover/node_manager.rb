@@ -18,12 +18,6 @@ module RedisFailover
     # Latency threshold for recording node state.
     LATENCY_THRESHOLD = 0.5
 
-    # ZK Errors that the Node Manager cares about.
-    ZK_ERRORS = [
-      ZK::Exceptions::LockAssertionFailedError,
-      ZK::Exceptions::InterruptedSession
-    ].freeze
-
     # Errors that can happen during the node discovery process.
     NODE_DISCOVERY_ERRORS = [
       InvalidNodeRoleError,

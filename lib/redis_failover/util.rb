@@ -61,11 +61,18 @@ module RedisFailover
     REDIS_ERRORS << Redis::BaseError if Redis.const_defined?('BaseError')
     REDIS_ERRORS.freeze
 
+    # ZK Errors that the Node Manager cares about.
+    ZK_ERRORS = [
+      ZK::Exceptions::LockAssertionFailedError,
+      ZK::Exceptions::InterruptedSession,
+      ZK::Exceptions::Retryable
+    ].freeze
+
     # Full set of errors related to connectivity.
     CONNECTIVITY_ERRORS = [
       RedisFailover::Error,
-      ZK::Exceptions::InterruptedSession,
-      REDIS_ERRORS
+      REDIS_ERRORS,
+      ZK_ERRORS
     ].flatten.freeze
 
     # Symbolizes the keys of the specified hash.
