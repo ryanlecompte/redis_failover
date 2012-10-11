@@ -1,5 +1,7 @@
 HEAD
 -----------
+** NOTE: This version of redis_failover requires that you upgrade your clients and Node Managers at the same time.
+
 - redis_failover now supports distributed monitoring among the Node Managers! Previously, the Node Managers were only used
 as a means of redundancy in case a particular node manager crashed. Starting with version 1.0 of redis_failover, the Node
 Managers will all periodically report their health report/snapshots. The primary Node Manager will utilize a configurable
