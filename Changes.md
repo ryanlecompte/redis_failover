@@ -1,4 +1,4 @@
-HEAD
+1.0.0
 -----------
 ** NOTE: This version of redis_failover requires that you upgrade your clients and Node Managers at the same time.
 
