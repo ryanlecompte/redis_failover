@@ -641,17 +641,10 @@ module RedisFailover
       end
     ensure
       if @zk_lock
-        unlock_tries = 0
         begin
           @zk_lock.unlock!
-          logger.info("Successfully released lock.")
         rescue => ex
-          unlock_tries += 1
           logger.warn("Failed to release lock: #{ex.inspect}")
-          if unlock_tries < 3
-            sleep 2
-            retry
-          end
         end
       end
     end
