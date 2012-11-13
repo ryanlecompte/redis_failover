@@ -259,9 +259,14 @@ module RedisFailover
         # Check for case where a node previously thought to be the master was
         # somehow manually reconfigured to be a slave outside of the node manager's
         # control.
-        if master && master.slave?
-          raise InvalidNodeRoleError.new(master, :master, :slave)
+        begin
+          if master && master.slave?
+            raise InvalidNodeRoleError.new(master, :master, :slave)
+          end
+        rescue => RedisFailover::NodeUnavailableError => ex
+          logger.warn("Failed to check whether existing master has invalid role", ex)
         end
+
         master
       end
     rescue ZK::Exceptions::NoNode
