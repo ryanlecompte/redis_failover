@@ -264,7 +264,7 @@ module RedisFailover
             raise InvalidNodeRoleError.new(master, :master, :slave)
           end
         rescue RedisFailover::NodeUnavailableError => ex
-          logger.warn("Failed to check whether existing master has invalid role", ex)
+          logger.warn("Failed to check whether existing master has invalid role: #{ex.inspect}")
         end
 
         master
