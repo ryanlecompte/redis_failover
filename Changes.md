@@ -1,4 +1,4 @@
-HEAD
+1.0.1
 -----------
 - Bumped required dependency on ZK gem. ZK 1.7.4 fixes a critical bug with locking (see https://github.com/slyphon/zk/issues/54)
 - Fix an issue where a failover would not occur if we couldn't check the role of a downed master
