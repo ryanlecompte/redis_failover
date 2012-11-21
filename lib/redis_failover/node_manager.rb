@@ -35,6 +35,7 @@ module RedisFailover
     # @option options [Array<String>] :nodes the nodes to manage
     # @option options [String] :max_failures the max failures for a node
     def initialize(options)
+      logger(options[:log_location]) if options[:log_location]
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
       @required_node_managers = options.fetch(:required_node_managers, 1)

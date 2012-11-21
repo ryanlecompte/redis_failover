@@ -44,6 +44,23 @@ module RedisFailover
           options[:chroot] = chroot
         end
 
+        opts.on('-l', '--log-level LEVEL', 'Log level (default: INFO)') do |log_level|
+          options[:log_level] = case log_level.to_s.downcase
+                                when 'debug'
+                                  Logger::DEBUG
+                                when 'info'
+                                  Logger::INFO
+                                when 'warn' 
+                                  Logger::WARN
+                                when 'fatal'
+                                  Logger::FATAL
+                                end
+        end
+
+        opts.on('-L', '--log-file /path/to/file', 'Log file (default: STDOUT)') do |log_file|
+          options[:log_file] = log_file
+        end
+
         opts.on('-E', '--environment ENV', 'Config environment to use') do |config_env|
           options[:config_environment] = config_env
         end
