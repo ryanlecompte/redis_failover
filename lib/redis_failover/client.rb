@@ -235,13 +235,12 @@ module RedisFailover
 
         if tries < @max_retries
           tries += 1
+          free_client
           build_clients
           sleep(RETRY_WAIT_TIME)
           retry
         end
         raise
-      ensure
-        free_client
       end
     end
 
@@ -251,7 +250,6 @@ module RedisFailover
     # @raise [NoMasterError] if no master is available
     def master
       if master = @lock.synchronize { @master }
-        verify_role!(master, :master)
         return master
       end
       raise NoMasterError
@@ -265,7 +263,6 @@ module RedisFailover
     def slave
       # pick a slave, if none available fallback to master
       if slave = @lock.synchronize { @slaves.shuffle.first }
-        verify_role!(slave, :slave)
         return slave
       end
       master
@@ -355,20 +352,6 @@ module RedisFailover
     def slave_names
       return 'none' if @slaves.empty?
       addresses_for(@slaves).join(', ')
-    end
-
-    # Verifies the actual role for a redis node.
-    #
-    # @param [Redis] node the redis node to check
-    # @param [Symbol] role the role to verify
-    # @return [Symbol] the verified role
-    # @raise [InvalidNodeRoleError] if the role is invalid
-    def verify_role!(node, role)
-      current_role = node.info['role']
-      if current_role.to_sym != role
-        raise InvalidNodeRoleError.new(address_for(node), role, current_role)
-      end
-      role
     end
 
     # Ensures that the method is supported.
