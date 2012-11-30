@@ -1,3 +1,8 @@
+1.0.2
+-----------
+- Get rid of redundant INFO query on every operation. We don't need this anymore because our state is updated via zookeepers. (@stulentsev)
+
+
 1.0.1
 -----------
 - Bumped required dependency on ZK gem. ZK 1.7.4 fixes a critical bug with locking (see https://github.com/slyphon/zk/issues/54)
