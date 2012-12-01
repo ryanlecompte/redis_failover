@@ -241,6 +241,8 @@ module RedisFailover
           retry
         end
         raise
+      ensure
+        free_client
       end
     end
 
