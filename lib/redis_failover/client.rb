@@ -321,6 +321,10 @@ module RedisFailover
       logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
       @zk.reopen
       retry
+    rescue Zookeeper::Exceptions::NotConnected => ex 
+      logger.warn { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
+      @zk.reopen
+      retry
     rescue *ZK_ERRORS => ex
       logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying" }
       sleep(RETRY_WAIT_TIME)
