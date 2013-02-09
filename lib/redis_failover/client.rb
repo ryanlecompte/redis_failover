@@ -317,7 +317,7 @@ module RedisFailover
       logger.debug("Fetched nodes: #{nodes.inspect}")
 
       nodes
-    rescue Zookeeper::Exceptions::InheritedConnectionError => ex
+    rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
       logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
       @zk.reopen
       retry
