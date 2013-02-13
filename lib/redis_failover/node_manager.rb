@@ -459,6 +459,11 @@ module RedisFailover
       "#{@root_znode}/nodes"
     end
 
+    # @return [String] root path for current node manager lock
+    def current_lock_path
+      "#{@root_znode}/master_redis_node_manager_lock"
+    end
+
     # @return [String] the znode path used for performing manual failovers
     def manual_failover_path
       ManualFailover.path(@root_znode)
@@ -631,7 +636,7 @@ module RedisFailover
 
     # Executes a block wrapped in a ZK exclusive lock.
     def with_lock
-      @zk_lock ||= @zk.locker('master_redis_node_manager_lock')
+      @zk_lock ||= @zk.locker(current_lock_path)
 
       begin
         @zk_lock.lock!(true)
