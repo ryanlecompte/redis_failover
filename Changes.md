@@ -1,3 +1,8 @@
+1.0.2
+-----------
+- Reopen client if an ZK::Exceptions::InterruptedSession occurs (#50, mauricio)
+- Insert the "root_znode" path before "master_redis_node_manager_lock" and expose via accessor (#52, jzaleski)
+
 1.0.1
 -----------
 - Bumped required dependency on ZK gem. ZK 1.7.4 fixes a critical bug with locking (see https://github.com/slyphon/zk/issues/54)
