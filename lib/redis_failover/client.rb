@@ -36,6 +36,12 @@ module RedisFailover
       end
     end
 
+    def call(command, &block)
+      method = command[0]
+      args = command[1..-1]
+      dispatch(method, *args, &block)
+    end
+
     # Creates a new failover redis client.
     #
     # @param [Hash] options the options used to initialize the client instance
