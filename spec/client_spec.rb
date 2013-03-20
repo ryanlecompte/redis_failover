@@ -66,6 +66,13 @@ module RedisFailover
       end
     end
 
+    describe '#call' do
+      it 'should dispatch :call messages to correct method' do
+        client.should_receive(:dispatch).with(:foo, *['key'])
+        client.call([:foo, 'key'])
+      end
+    end
+
       context 'with :master_only false' do
         it 'routes read operations to a slave' do
           called = false
