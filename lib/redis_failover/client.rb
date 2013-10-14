@@ -241,6 +241,7 @@ module RedisFailover
 
         if tries < @max_retries
           tries += 1
+          free_client
           build_clients
           sleep(RETRY_WAIT_TIME)
           retry
