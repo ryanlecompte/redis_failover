@@ -120,9 +120,11 @@ module RedisFailover
         client.reconnected.should be_true
       end
 
-      it 'properly detects when a node has changed roles' do
-        client.current_master.change_role_to('slave')
-        expect { client.send(:master) }.to raise_error(InvalidNodeRoleError)
+      context 'with :verify_role true' do
+        it 'properly detects when a node has changed roles' do
+          client.current_master.change_role_to('slave')
+          expect { client.send(:master) }.to raise_error(InvalidNodeRoleError)
+        end
       end
 
       it 'raises error for unsupported operations' do
