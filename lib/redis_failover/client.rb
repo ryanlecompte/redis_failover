@@ -56,6 +56,7 @@ module RedisFailover
     # @option options [Integer] :max_retries max retries for a failure
     # @option options [Boolean] :safe_mode indicates if safe mode is used or not
     # @option options [Boolean] :master_only indicates if only redis master is used
+    # @option options [Boolean] :verify_role verify the actual role of a redis node before every command
     # @note Use either :zkservers or :zk
     # @return [RedisFailover::Client]
     def initialize(options = {})
@@ -241,6 +242,7 @@ module RedisFailover
 
         if tries < @max_retries
           tries += 1
+          free_client
           build_clients
           sleep(RETRY_WAIT_TIME)
           retry
@@ -257,7 +259,7 @@ module RedisFailover
     # @raise [NoMasterError] if no master is available
     def master
       if master = @lock.synchronize { @master }
-        verify_role!(master, :master)
+        verify_role!(master, :master) if @verify_role
         return master
       end
       raise NoMasterError
@@ -271,7 +273,7 @@ module RedisFailover
     def slave
       # pick a slave, if none available fallback to master
       if slave = @lock.synchronize { @slaves.shuffle.first }
-        verify_role!(slave, :slave)
+        verify_role!(slave, :slave) if @verify_role
         return slave
       end
       master
@@ -500,6 +502,7 @@ module RedisFailover
       @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
       @safe_mode = options.fetch(:safe_mode, true)
       @master_only = options.fetch(:master_only, false)
+      @verify_role = options.fetch(:verify_role, true)
     end
 
     # @return [String] the znode path for the master redis nodes config
