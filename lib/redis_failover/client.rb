@@ -320,19 +320,36 @@ module RedisFailover
     #
     # @return [Hash] the known master/slave redis servers
     def fetch_nodes
-      data = @zk.get(redis_nodes_path, :watch => true).first
-      nodes = symbolize_keys(decode(data))
-      logger.debug("Fetched nodes: #{nodes.inspect}")
+      tries = 0
+      begin
+        data = @zk.get(redis_nodes_path, :watch => true).first
+        nodes = symbolize_keys(decode(data))
+        logger.debug("Fetched nodes: #{nodes.inspect}")
+        nodes
+      rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
+        logger.info { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
+        @zk.reopen
+        retry
+      rescue *ZK_ERRORS => ex
+        logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying ..." }
+        sleep(RETRY_WAIT_TIME)
 
-      nodes
-    rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
-      logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
-      @zk.reopen
-      retry
-    rescue *ZK_ERRORS => ex
-      logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying" }
-      sleep(RETRY_WAIT_TIME)
-      retry
+        if tries < @max_retries
+          tries += 1
+          retry
+        elsif tries < (@max_retries * 2)
+          tries += 1
+          logger.warn { "Hmmm, more than [#{@max_retries}] retries: reopening ZK client" }
+          @zk.reopen
+          retry
+        else
+          tries = 0
+          logger.warn { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ZK client" }
+          @zk.close!
+          setup_zk
+          retry
+        end
+      end
     end
 
     # Builds new Redis clients for the specified nodes.
