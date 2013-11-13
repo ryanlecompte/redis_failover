@@ -362,7 +362,7 @@ module RedisFailover
         opts = {:host => host, :port => port}
         opts.update(:db => @db) if @db
         opts.update(:password => @password) if @password
-        client = Redis.new(opts)
+        client = Redis.new(@redis_client_options.merge(opts))
         if @namespace
           client = Redis::Namespace.new(@namespace, :redis => client)
         end
@@ -520,6 +520,10 @@ module RedisFailover
       @safe_mode = options.fetch(:safe_mode, true)
       @master_only = options.fetch(:master_only, false)
       @verify_role = options.fetch(:verify_role, true)
+
+      @redis_client_options = Redis::Client::DEFAULTS.keys.each_with_object({}) do |key, hash| 
+        hash[key] = options[key]
+      end
     end
 
     # @return [String] the znode path for the master redis nodes config
