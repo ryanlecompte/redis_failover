@@ -2,6 +2,7 @@ require 'spec_helper'
 
 module RedisFailover
   Client::Redis = RedisStub
+  Client::Redis::Client = Redis::Client
   class ClientStub < Client
     def current_master
       @master
