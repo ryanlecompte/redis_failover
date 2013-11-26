@@ -130,7 +130,7 @@ module RedisFailover
 
     # @return [String] a string representation of the client
     def inspect
-      "#<RedisFailover::Client (db: #{@db.to_i}, master: #{master_name}, slaves: #{slave_names})>"
+      "#<RedisFailover::Client (db: #{@db.to_i}, ns: #{@namespace}, master: #{master_name}, slaves: #{slave_names})>"
     end
     alias_method :to_s, :inspect
 
@@ -154,6 +154,7 @@ module RedisFailover
     def shutdown
       @zk.close! if @zk
       @zk = nil
+      logger.info("shutdown()")
       purge_clients
     end
 
@@ -161,6 +162,7 @@ module RedisFailover
     # Next, it attempts to reopen the ZooKeeper client and re-create the redis
     # clients after it fetches the most up-to-date list from ZooKeeper.
     def reconnect
+      logger.info("reconnect()")
       purge_clients
       @zk ? @zk.reopen : setup_zk
       build_clients
@@ -189,7 +191,10 @@ module RedisFailover
       @zk = ZK.new(@zkservers) if @zkservers
       @zk.register(redis_nodes_path) { |event| handle_zk_event(event) }
       if @safe_mode
-        @zk.on_expired_session { purge_clients }
+        @zk.on_expired_session {
+          logger.info("on_expired_session()")
+          purge_clients 
+        }
       end
       @zk.on_connected { @zk.stat(redis_nodes_path, :watch => true) }
       @zk.stat(redis_nodes_path, :watch => true)
@@ -204,6 +209,7 @@ module RedisFailover
       if event.node_created? || event.node_changed?
         build_clients
       elsif event.node_deleted?
+        logger.info("node_deleted()")
         purge_clients
         @zk.stat(redis_nodes_path, :watch => true)
       else
@@ -287,6 +293,7 @@ module RedisFailover
           nodes = fetch_nodes
           return unless nodes_changed?(nodes)
 
+          logger.info("build_clients()")
           purge_clients
           logger.info("Building new clients for nodes #{nodes.inspect}")
           new_master = new_clients_for(nodes[:master]).first if nodes[:master]
@@ -294,6 +301,7 @@ module RedisFailover
           @master = new_master
           @slaves = new_slaves
         rescue
+          logger.info("rescue()")
           purge_clients
           raise
         ensure
