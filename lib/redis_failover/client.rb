@@ -61,6 +61,7 @@ module RedisFailover
     # @return [RedisFailover::Client]
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
+      @trace_id = options[:trace_id] if options[:trace_id]
       @master = nil
       @slaves = []
       @node_addresses = {}
@@ -130,7 +131,7 @@ module RedisFailover
 
     # @return [String] a string representation of the client
     def inspect
-      "#<RedisFailover::Client (db: #{@db.to_i}, ns: #{@namespace}, master: #{master_name}, slaves: #{slave_names})>"
+      "#<RedisFailover::Client [#{@trace_id}] (db: #{@db.to_i}, master: #{master_name}, slaves: #{slave_names})>"
     end
     alias_method :to_s, :inspect
 
@@ -295,7 +296,7 @@ module RedisFailover
 
           logger.info("build_clients()")
           purge_clients
-          logger.info("Building new clients for nodes [ns:#{@namespace}] #{nodes.inspect}")
+          logger.info("Building new clients for nodes [#{@trace_id}] #{nodes.inspect}")
           new_master = new_clients_for(nodes[:master]).first if nodes[:master]
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
@@ -335,11 +336,11 @@ module RedisFailover
         logger.debug("Fetched nodes: #{nodes.inspect}")
         nodes
       rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
-        logger.info { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
+        logger.info { "Caught #{ex.class} '#{ex.message}' - reopening ZK client [#{@trace_id}]" }
         @zk.reopen
         retry
       rescue *ZK_ERRORS => ex
-        logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying ..." }
+        logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying ... [#{@trace_id}]" }
         sleep(RETRY_WAIT_TIME)
 
         if tries < @max_retries
@@ -347,12 +348,12 @@ module RedisFailover
           retry
         elsif tries < (@max_retries * 2)
           tries += 1
-          logger.warn { "Hmmm, more than [#{@max_retries}] retries: reopening ZK client" }
+          logger.warn { "Hmmm, more than [#{@max_retries}] retries: reopening ZK client [#{@trace_id}]" }
           @zk.reopen
           retry
         else
           tries = 0
-          logger.warn { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ZK client" }
+          logger.warn { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ZK client [#{@trace_id}]" }
           @zk.close!
           setup_zk
           retry
@@ -459,7 +460,7 @@ module RedisFailover
     # Disconnects current redis clients.
     def purge_clients
       @lock.synchronize do
-        logger.info("Purging current redis clients")
+        logger.info("Purging current redis clients [#{@trace_id}]")
         disconnect(@master, *@slaves)
         @master = nil
         @slaves = []
