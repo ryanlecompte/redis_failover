@@ -295,7 +295,7 @@ module RedisFailover
 
           logger.info("build_clients()")
           purge_clients
-          logger.info("Building new clients for nodes #{nodes.inspect}")
+          logger.info("Building new clients for nodes [ns:#{@namespace}] #{nodes.inspect}")
           new_master = new_clients_for(nodes[:master]).first if nodes[:master]
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
