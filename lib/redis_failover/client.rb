@@ -51,18 +51,20 @@ module RedisFailover
     # @option options [String] :password password for redis nodes
     # @option options [String] :db database to use for redis nodes
     # @option options [String] :namespace namespace for redis nodes
+    # @option options [String] :trace_id trace string tag logged for client debugging
     # @option options [Logger] :logger logger override
     # @option options [Boolean] :retry_failure indicates if failures are retried
     # @option options [Integer] :max_retries max retries for a failure
     # @option options [Boolean] :safe_mode indicates if safe mode is used or not
     # @option options [Boolean] :master_only indicates if only redis master is used
     # @option options [Boolean] :verify_role verify the actual role of a redis node before every command
+    # @option options [Boolean] :with_fork_hook enable zk's process fork handler, recommended for Resque
     # @note Use either :zkservers or :zk
     # @return [RedisFailover::Client]
     def initialize(options = {})
-      ZK.install_fork_hook    # https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
+      ZK.install_fork_hook if options[:with_fork_hook]   # https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
       Util.logger = options[:logger] if options[:logger]
-      @trace_id = options[:trace_id] if options[:trace_id]
+      @trace_id = options[:trace_id]
       @master = nil
       @slaves = []
       @node_addresses = {}
