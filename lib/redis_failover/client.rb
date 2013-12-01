@@ -51,16 +51,20 @@ module RedisFailover
     # @option options [String] :password password for redis nodes
     # @option options [String] :db database to use for redis nodes
     # @option options [String] :namespace namespace for redis nodes
+    # @option options [String] :trace_id trace string tag logged for client debugging
     # @option options [Logger] :logger logger override
     # @option options [Boolean] :retry_failure indicates if failures are retried
     # @option options [Integer] :max_retries max retries for a failure
     # @option options [Boolean] :safe_mode indicates if safe mode is used or not
     # @option options [Boolean] :master_only indicates if only redis master is used
     # @option options [Boolean] :verify_role verify the actual role of a redis node before every command
+    # @option options [Boolean] :with_fork_hook enable zk's process fork handler, recommended for Resque
     # @note Use either :zkservers or :zk
     # @return [RedisFailover::Client]
     def initialize(options = {})
+      ZK.install_fork_hook if options[:with_fork_hook]   # https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
       Util.logger = options[:logger] if options[:logger]
+      @trace_id = options[:trace_id]
       @master = nil
       @slaves = []
       @node_addresses = {}
@@ -130,7 +134,7 @@ module RedisFailover
 
     # @return [String] a string representation of the client
     def inspect
-      "#<RedisFailover::Client (db: #{@db.to_i}, master: #{master_name}, slaves: #{slave_names})>"
+      "#<RedisFailover::Client [#{@trace_id}] (db: #{@db.to_i}, master: #{master_name}, slaves: #{slave_names})>"
     end
     alias_method :to_s, :inspect
 
@@ -161,6 +165,7 @@ module RedisFailover
     # Next, it attempts to reopen the ZooKeeper client and re-create the redis
     # clients after it fetches the most up-to-date list from ZooKeeper.
     def reconnect
+      #TODO re-open zk + reconnect() redis clients, but cache master/slave data to avoid extra zk lookups on resque fork
       purge_clients
       @zk ? @zk.reopen : setup_zk
       build_clients
@@ -288,7 +293,7 @@ module RedisFailover
           return unless nodes_changed?(nodes)
 
           purge_clients
-          logger.info("Building new clients for nodes #{nodes.inspect}")
+          logger.info("Building new clients for nodes [#{@trace_id}] #{nodes.inspect}")
           new_master = new_clients_for(nodes[:master]).first if nodes[:master]
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
@@ -327,11 +332,11 @@ module RedisFailover
         logger.debug("Fetched nodes: #{nodes.inspect}")
         nodes
       rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
-        logger.info { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
+        logger.info { "Caught #{ex.class} '#{ex.message}' - reopening ZK client [#{@trace_id}]" }
         @zk.reopen
         retry
       rescue *ZK_ERRORS => ex
-        logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying ..." }
+        logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying ... [#{@trace_id}]" }
         sleep(RETRY_WAIT_TIME)
 
         if tries < @max_retries
@@ -339,12 +344,12 @@ module RedisFailover
           retry
         elsif tries < (@max_retries * 2)
           tries += 1
-          logger.warn { "Hmmm, more than [#{@max_retries}] retries: reopening ZK client" }
+          logger.warn { "Hmmm, more than [#{@max_retries}] retries: reopening ZK client [#{@trace_id}]" }
           @zk.reopen
           retry
         else
           tries = 0
-          logger.warn { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ZK client" }
+          logger.warn { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ZK client [#{@trace_id}]" }
           @zk.close!
           setup_zk
           retry
@@ -451,7 +456,7 @@ module RedisFailover
     # Disconnects current redis clients.
     def purge_clients
       @lock.synchronize do
-        logger.info("Purging current redis clients")
+        logger.info("Purging current redis clients [#{@trace_id}]")
         disconnect(@master, *@slaves)
         @master = nil
         @slaves = []
