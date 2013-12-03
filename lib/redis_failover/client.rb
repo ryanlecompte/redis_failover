@@ -62,7 +62,10 @@ module RedisFailover
     # @note Use either :zkservers or :zk
     # @return [RedisFailover::Client]
     def initialize(options = {})
-      ZK.install_fork_hook if options[:with_fork_hook]   # https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
+      if options[:with_fork_hook]   # https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
+        ZK.install_fork_hook unless defined?( Kernel.fork_with_zk_hooks )
+      end
+      
       Util.logger = options[:logger] if options[:logger]
       @trace_id = options[:trace_id]
       @master = nil
