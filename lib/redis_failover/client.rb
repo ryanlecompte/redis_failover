@@ -245,7 +245,12 @@ module RedisFailover
       verify_supported!(method)
       tries = 0
       begin
-        client_for(method).send(method, *args, &block)
+        redis = client_for(method)
+        redis.send(method, *args, &block)
+      rescue Redis::InheritedError => ex
+        logger.info( "Caught #{ex.class} '#{ex.message}' - reconnecting Redis client (#{redis}) [#{@trace_id}]" )
+        redis.client.reconnect
+        retry
       rescue *CONNECTIVITY_ERRORS => ex
         logger.error("Error while handling `#{method}` - #{ex.inspect}")
         logger.error(ex.backtrace.join("\n"))
@@ -253,8 +258,8 @@ module RedisFailover
         if tries < @max_retries
           tries += 1
           free_client
-          build_clients
           sleep(RETRY_WAIT_TIME)
+          build_clients
           retry
         end
         raise
