@@ -248,7 +248,7 @@ module RedisFailover
         redis = client_for(method)
         redis.send(method, *args, &block)
       rescue Redis::InheritedError => ex
-        logger.info( "Caught #{ex.class} '#{ex.message}' - reconnecting Redis client (#{redis}) [#{@trace_id}]" )
+        logger.info( "Caught #{ex.class} '#{ex.message}' - reconnecting Redis client [#{@trace_id}] #{redis.inspect}" )
         redis.client.reconnect
         retry
       rescue *CONNECTIVITY_ERRORS => ex
