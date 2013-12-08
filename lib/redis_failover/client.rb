@@ -27,6 +27,9 @@ module RedisFailover
     # Amount of time to sleep before retrying a failed operation.
     RETRY_WAIT_TIME = 3
 
+    # Cache store shared across client instances
+    @@cache = Hash.new
+
     # Performance optimization: to avoid unnecessary method_missing calls,
     # we proactively define methods that dispatch to the underlying redis
     # calls.
@@ -168,10 +171,9 @@ module RedisFailover
     # Next, it attempts to reopen the ZooKeeper client and re-create the redis
     # clients after it fetches the most up-to-date list from ZooKeeper.
     def reconnect
-      #TODO re-open zk + reconnect() redis clients, but cache master/slave data to avoid extra zk lookups on resque fork
-      purge_clients
-      @zk ? @zk.reopen : setup_zk
-      build_clients
+      #purge_clients
+      #@zk ? @zk.reopen : setup_zk
+      #build_clients
     end
 
     # Retrieves the current redis master.
