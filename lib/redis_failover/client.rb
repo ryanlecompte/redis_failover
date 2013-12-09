@@ -248,7 +248,7 @@ module RedisFailover
         redis = client_for(method)
         redis.send(method, *args, &block)
       rescue Redis::InheritedError => ex
-        logger.info( "Caught #{ex.class} '#{ex.message}' - reconnecting Redis client [#{@trace_id}] #{redis.inspect}" )
+        logger.debug( "Caught #{ex.class} - reconnecting [#{@trace_id}] #{redis.inspect}" )
         redis.client.reconnect
         retry
       rescue *CONNECTIVITY_ERRORS => ex
@@ -343,6 +343,7 @@ module RedisFailover
         nodes
       rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
         logger.info { "Caught #{ex.class} '#{ex.message}' - reopening ZK client [#{@trace_id}]" }
+        sleep 1 if ex.kind_of?(ZK::Exceptions::InterruptedSession)
         @zk.reopen
         retry
       rescue *ZK_ERRORS => ex
