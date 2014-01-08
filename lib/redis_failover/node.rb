@@ -61,7 +61,7 @@ module RedisFailover
     # a graceful shutdown signaled by #wakeup or a timeout.
     def healthcheck
       perform_operation do |redis|
-        redis.echo( 'healthcheck' )
+        redis.echo(wait_key)
       end
     end
 
