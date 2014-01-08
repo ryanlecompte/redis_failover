@@ -56,13 +56,12 @@ module RedisFailover
     end
 
     # Waits until something interesting happens. If the connection
-    # with this node dies, the blpop call will raise an error. If
-    # the blpop call returns without error, then this will be due to
+    # with this node dies, the echo 'healthcheck' call will raise an error. If
+    # the echo call returns without error, then this will be due to
     # a graceful shutdown signaled by #wakeup or a timeout.
-    def wait
+    def healthcheck
       perform_operation do |redis|
-        redis.blpop(wait_key, MAX_OP_WAIT_TIME - 3)
-        redis.del(wait_key)
+        redis.echo( 'healthcheck' )
       end
     end
 

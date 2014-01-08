@@ -57,9 +57,9 @@ module RedisFailover
           latency = Benchmark.realtime { @node.ping }
           failures = 0
           notify(:available, latency)
-          @node.wait
+          @node.healthcheck
         rescue NodeUnavailableError => ex
-          logger.debug("Failed to communicate with node #{@node}: #{ex.inspect}")
+          logger.error("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
           if failures >= @max_failures
             notify(:unavailable)
