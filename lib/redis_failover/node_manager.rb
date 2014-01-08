@@ -246,6 +246,7 @@ module RedisFailover
         retry in #{TIMEOUT}s.
       MSG
       logger.warn(msg)
+      logger.warn(ex.backtrace.join("\n"))
       sleep(TIMEOUT)
       retry
     end
@@ -256,9 +257,8 @@ module RedisFailover
         nodes = symbolize_keys(decode(data))
         master = node_from(nodes[:master])
         logger.info("Master from existing znode config: #{master || 'none'}")
-        # Check for case where a node previously thought to be the master was
-        # somehow manually reconfigured to be a slave outside of the node manager's
-        # control.
+        # Check for case where a node previously thought to be the master was somehow
+        # manually reconfigured to be a slave outside of the node manager's control.
         begin
           if master && master.slave?
             #TODO zk stored value is just plain wrong, so delete the invalid cache to trigger a fresh discovery
