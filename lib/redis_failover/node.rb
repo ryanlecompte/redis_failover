@@ -58,18 +58,10 @@ module RedisFailover
     # Waits until something interesting happens. If the connection
     # with this node dies, the echo 'healthcheck' call will raise an error. If
     # the echo call returns without error, then this will be due to
-    # a graceful shutdown signaled by #wakeup or a timeout.
+    # a graceful shutdown signaled by a timeout.
     def healthcheck
       perform_operation do |redis|
         redis.echo(wait_key)
-      end
-    end
-
-    # Wakes up this node by pushing a value to its internal
-    # queue used by #wait.
-    def wakeup
-      perform_operation do |redis|
-        redis.lpush(wait_key, '1')
       end
     end
 
@@ -81,7 +73,6 @@ module RedisFailover
         unless slave_of?(node)
           redis.slaveof(node.host, node.port)
           logger.info("#{self} is now a slave of #{node}")
-          wakeup
         end
       end
     end
@@ -92,7 +83,6 @@ module RedisFailover
         unless master?
           redis.slaveof('no', 'one')
           logger.info("#{self} is now master")
-          wakeup
         end
       end
     end

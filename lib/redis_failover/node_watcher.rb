@@ -33,11 +33,6 @@ module RedisFailover
     # Performs a graceful shutdown of this watcher.
     def shutdown
       @done = true
-      begin
-        @node.wakeup
-      rescue
-        # best effort
-      end
       @monitor_thread.join
     rescue => ex
       logger.warn("Failed to gracefully shutdown watcher for #{@node}")
