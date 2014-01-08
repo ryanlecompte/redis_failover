@@ -261,6 +261,7 @@ module RedisFailover
         # control.
         begin
           if master && master.slave?
+            #TODO zk stored value is just plain wrong, so delete the invalid cache to trigger a fresh discovery
             raise InvalidNodeRoleError.new(master, :master, :slave)
           end
         rescue RedisFailover::NodeUnavailableError => ex
