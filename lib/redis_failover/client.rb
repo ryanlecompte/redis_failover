@@ -27,9 +27,6 @@ module RedisFailover
     # Amount of time to sleep before retrying a failed operation.
     RETRY_WAIT_TIME = 3
 
-    # Cache store shared across client instances
-    @@cache = Hash.new
-
     # Performance optimization: to avoid unnecessary method_missing calls,
     # we proactively define methods that dispatch to the underlying redis
     # calls.
@@ -61,14 +58,9 @@ module RedisFailover
     # @option options [Boolean] :safe_mode indicates if safe mode is used or not
     # @option options [Boolean] :master_only indicates if only redis master is used
     # @option options [Boolean] :verify_role verify the actual role of a redis node before every command
-    # @option options [Boolean] :with_fork_hook enable zk's process fork handler, recommended for Resque
     # @note Use either :zkservers or :zk
     # @return [RedisFailover::Client]
     def initialize(options = {})
-      if options[:with_fork_hook]   # https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
-        ZK.install_fork_hook unless defined?( Kernel.fork_with_zk_hooks )
-      end
-      
       Util.logger = options[:logger] if options[:logger]
       @trace_id = options[:trace_id]
       @master = nil
@@ -171,6 +163,11 @@ module RedisFailover
     # Next, it attempts to reopen the ZooKeeper client and re-create the redis
     # clients after it fetches the most up-to-date list from ZooKeeper.
     def reconnect
+      #NOTE: Explicit/manual reconnects are no longer needed or desired, and
+      #triggered kernel mutex deadlocks in forking env (unicorn & resque) [ruby 1.9]
+      #Resque automatically calls this method on job fork.
+      #We now auto-detect underlying zk & redis client InheritedError's and reconnect automatically as needed.
+
       #purge_clients
       #@zk ? @zk.reopen : setup_zk
       #build_clients
@@ -342,12 +339,12 @@ module RedisFailover
         logger.debug("Fetched nodes: #{nodes.inspect}")
         nodes
       rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
-        logger.info { "Caught #{ex.class} '#{ex.message}' - reopening ZK client [#{@trace_id}]" }
+        logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client [#{@trace_id}]" }
         sleep 1 if ex.kind_of?(ZK::Exceptions::InterruptedSession)
         @zk.reopen
         retry
       rescue *ZK_ERRORS => ex
-        logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying ... [#{@trace_id}]" }
+        logger.error { "Caught #{ex.class} '#{ex.message}' - retrying ... [#{@trace_id}]" }
         sleep(RETRY_WAIT_TIME)
 
         if tries < @max_retries
@@ -355,12 +352,12 @@ module RedisFailover
           retry
         elsif tries < (@max_retries * 2)
           tries += 1
-          logger.warn { "Hmmm, more than [#{@max_retries}] retries: reopening ZK client [#{@trace_id}]" }
+          logger.error { "Hmmm, more than [#{@max_retries}] retries: reopening ZK client [#{@trace_id}]" }
           @zk.reopen
           retry
         else
           tries = 0
-          logger.warn { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ZK client [#{@trace_id}]" }
+          logger.error { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ZK client [#{@trace_id}]" }
           @zk.close!
           setup_zk
           retry

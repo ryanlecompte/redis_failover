@@ -153,7 +153,6 @@ The full set of options that can be passed to RedisFailover::Client are:
      :safe_mode      - indicates if safe mode is used or not (default true)
      :master_only    - indicates if only redis master is used (default false)
      :verify_role    - verify the actual role of a redis node before every command (default true)
-     :with_fork_hook - enable zk's process fork handler, recommended for Resque (default false)
 
 The RedisFailover::Client also supports a custom callback that will be invoked whenever the list of redis clients changes. Example usage:
 
