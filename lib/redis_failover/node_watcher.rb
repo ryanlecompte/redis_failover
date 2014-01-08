@@ -33,11 +33,6 @@ module RedisFailover
     # Performs a graceful shutdown of this watcher.
     def shutdown
       @done = true
-      begin
-        @node.wakeup
-      rescue
-        # best effort
-      end
       @monitor_thread.join
     rescue => ex
       logger.warn("Failed to gracefully shutdown watcher for #{@node}")
@@ -54,12 +49,11 @@ module RedisFailover
         begin
           break if @done
           sleep(WATCHER_SLEEP_TIME)
-          latency = Benchmark.realtime { @node.ping }
+          latency = Benchmark.realtime { @node.healthcheck }
           failures = 0
           notify(:available, latency)
-          @node.wait
         rescue NodeUnavailableError => ex
-          logger.debug("Failed to communicate with node #{@node}: #{ex.inspect}")
+          logger.warn("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
           if failures >= @max_failures
             notify(:unavailable)
