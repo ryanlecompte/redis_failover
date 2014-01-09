@@ -265,8 +265,9 @@ module RedisFailover
             raise InvalidNodeRoleError.new(master, :master, :slave)
           end
         rescue RedisFailover::NodeUnavailableError => ex
-          logger.warn("Failed to check whether existing master has invalid role: #{ex.inspect}")
-          #TODO should we do more here than just print a warning ?
+          logger.warn("Failed to check whether existing master (in zk) has invalid role: #{ex.inspect}")
+          #
+          return nil
         end
 
         master
