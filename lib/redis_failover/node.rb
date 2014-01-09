@@ -55,10 +55,7 @@ module RedisFailover
       Node.new(:host => info[:master_host], :port => info[:master_port].to_i)
     end
 
-    # Waits until something interesting happens. If the connection
-    # with this node dies, the echo 'healthcheck' call will raise an error. If
-    # the echo call returns without error, then this will be due to
-    # a graceful shutdown signaled by a timeout.
+    # Uses ECHO command since it properly fails when slave-serve-stale-data is disabled and slave is out of sync
     def healthcheck
       perform_operation do |redis|
         redis.echo(wait_key)

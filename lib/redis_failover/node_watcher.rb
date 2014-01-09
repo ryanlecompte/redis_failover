@@ -6,7 +6,7 @@ module RedisFailover
     include Util
 
     # Time to sleep before checking on the monitored node's status.
-    WATCHER_SLEEP_TIME = 2
+    WATCHER_SLEEP_TIME = 1
 
     # Creates a new instance.
     #
@@ -54,7 +54,7 @@ module RedisFailover
           notify(:available, latency)
           @node.healthcheck
         rescue NodeUnavailableError => ex
-          logger.error("Failed to communicate with node #{@node}: #{ex.inspect}")
+          logger.warn("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
           if failures >= @max_failures
             notify(:unavailable)
