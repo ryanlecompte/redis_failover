@@ -266,6 +266,7 @@ module RedisFailover
           end
         rescue RedisFailover::NodeUnavailableError => ex
           logger.warn("Failed to check whether existing master has invalid role: #{ex.inspect}")
+          #TODO should we do more here than just print a warning ?
         end
 
         master
@@ -301,7 +302,14 @@ module RedisFailover
     # @param [Array<Node>] nodes the nodes to search
     # @return [Node] the found master node, nil if not found
     def guess_master(nodes)
-      master_nodes = nodes.select { |node| node.master? }
+      master_nodes = nodes.select { |node|
+        begin
+          node.master?
+        rescue => err
+          logger.error("Unreachable node #{node} when guessing master: #{err.inspect}")
+          false
+        end
+      }
       raise NoMasterError if master_nodes.empty?
       raise MultipleMastersError.new(master_nodes) if master_nodes.size > 1
       master_nodes.first
