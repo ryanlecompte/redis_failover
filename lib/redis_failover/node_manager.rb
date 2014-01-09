@@ -246,7 +246,7 @@ module RedisFailover
         retry in #{TIMEOUT}s.
       MSG
       logger.warn(msg)
-      logger.warn(ex.backtrace.join("\n"))
+      #logger.warn(ex.backtrace.join("\n"))
       sleep(TIMEOUT)
       retry
     end
@@ -261,13 +261,10 @@ module RedisFailover
         # manually reconfigured to be a slave outside of the node manager's control.
         begin
           if master && master.slave?
-            #TODO zk stored value is just plain wrong, so delete the invalid cache to trigger a fresh discovery
             raise InvalidNodeRoleError.new(master, :master, :slave)
           end
-        rescue RedisFailover::NodeUnavailableError => ex
-          logger.warn("Failed to check whether existing master (in zk) has invalid role: #{ex.inspect}")
-          #
-          return nil
+        rescue NodeUnavailableError => ex
+          logger.warn("Failed to check whether existing znode master [#{master}] has invalid role: #{ex.inspect}")
         end
 
         master
@@ -303,14 +300,7 @@ module RedisFailover
     # @param [Array<Node>] nodes the nodes to search
     # @return [Node] the found master node, nil if not found
     def guess_master(nodes)
-      master_nodes = nodes.select { |node|
-        begin
-          node.master?
-        rescue => err
-          logger.error("Unreachable node #{node} when guessing master: #{err.inspect}")
-          false
-        end
-      }
+      master_nodes = nodes.select { |node| node.master? }
       raise NoMasterError if master_nodes.empty?
       raise MultipleMastersError.new(master_nodes) if master_nodes.size > 1
       master_nodes.first
@@ -607,7 +597,11 @@ module RedisFailover
       discover_nodes
 
       # ensure that slaves are correctly pointing to this master
-      redirect_slaves_to(@master)
+      begin
+        redirect_slaves_to(@master) if @master.master?
+      rescue NodeUnavailableError => ex
+        logger.warn("Skipping forced slave redirect due to failed contact with existing znode master [#{@master}]: #{ex.inspect}")
+      end
 
       # Periodically update master config state.
       while running? && master_manager?
