@@ -705,8 +705,12 @@ module RedisFailover
     # @return [Boolean] true if sufficient, false otherwise
     def ensure_sufficient_node_managers(snapshots)
       currently_sufficient = true
+      available_managers = 0
+
       snapshots.each do |node, snapshot|
         node_managers = snapshot.node_managers
+        available_managers = [available_managers, node_managers.size].max
+
         if node_managers.size < @required_node_managers
           logger.error("Not enough Node Managers in snapshot for node #{node}. " +
             "Required: #{@required_node_managers}, " +
@@ -716,11 +720,9 @@ module RedisFailover
       end
 
       if currently_sufficient && !@sufficient_node_managers
-        r = @required_node_managers
-        a = snapshot.node_managers.size
-        logger.info("Required Node Managers are visible: #{r}")
-        if (a - r) >= r
-          logger.warn("WARNING: Required node managers (#{r}) less than majority available (#{a}). You are vulnerable to network partition failures!")
+        logger.info("Required Node Managers are visible: #{@required_node_managers}")
+        if (available_managers - @required_node_managers) >= @required_node_managers
+          logger.warn("WARNING: Required node managers (#{@required_node_managers}) less than majority available (#{available_managers}). You are vulnerable to network partition failures!")
         end
       end
 
