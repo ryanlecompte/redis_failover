@@ -716,7 +716,12 @@ module RedisFailover
       end
 
       if currently_sufficient && !@sufficient_node_managers
-        logger.info("Required Node Managers are visible: #{@required_node_managers}")
+        r = @required_node_managers
+        a = snapshot.node_managers.size
+        logger.info("Required Node Managers are visible: #{r}")
+        if (a - r) >= r
+          logger.warn("WARNING: Required node managers (#{r}) less than majority available (#{a}). You are vulnerable to network partition failures!")
+        end
       end
 
       @sufficient_node_managers = currently_sufficient
