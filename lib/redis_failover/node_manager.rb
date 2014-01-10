@@ -597,11 +597,7 @@ module RedisFailover
       discover_nodes
 
       # ensure that slaves are correctly pointing to this master
-      begin
-        redirect_slaves_to(@master) if @master.master?
-      rescue NodeUnavailableError => ex
-        logger.warn("Skipping forced slave redirect due to failed contact with existing znode master [#{@master}]: #{ex.inspect}")
-      end
+      redirect_slaves_to(@master)
 
       # Periodically update master config state.
       while running? && master_manager?
