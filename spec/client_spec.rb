@@ -59,11 +59,11 @@ module RedisFailover
       it 'should always include db' do
         opts = {:zkservers => 'localhost:1234'}
         client = ClientStub.new(opts)
-        client.inspect.should match('<RedisFailover::Client \(db: 0,')
+        client.inspect.should match('<RedisFailover::Client .* \(db: 0,')
         db = '5'
         opts.merge!(:db => db)
         client = ClientStub.new(opts)
-        client.inspect.should match("<RedisFailover::Client \\(db: #{db},")
+        client.inspect.should match("<RedisFailover::Client .* \\(db: #{db},")
       end
     end
 
