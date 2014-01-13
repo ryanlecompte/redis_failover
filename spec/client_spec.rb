@@ -68,8 +68,7 @@ module RedisFailover
 
       it 'should include trace id' do
         tid = 'tracer'
-        opts = {:zkservers => 'localhost:1234', :trace_id => tid}
-        client = ClientStub.new(opts)
+        client = ClientStub.new(:zkservers => 'localhost:1234', :trace_id => tid)
         client.inspect.should match("<RedisFailover::Client \\[#{tid}\\] ")
       end
     end
