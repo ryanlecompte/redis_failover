@@ -10,11 +10,16 @@ module RedisFailover
         @queue = queue
       end
 
+      #TODO remove
       def blpop(*args)
         @queue.pop.tap do |value|
           raise value if value
         end
       end
+
+      def echo(*args)
+      end
+
 
       def del(*args)
       end
