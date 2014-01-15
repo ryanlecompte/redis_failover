@@ -44,7 +44,6 @@ module RedisFailover
       context 'node is syncing with master' do
         it 'properly informs manager node is up when serve-stale-data is true' do
           node_manager.notify_state(node, :unavailable)
-          node.redis.slaveof('masterhost', 9876)
           node.redis.force_sync_with_master(true)
           watcher = NodeWatcher.new(node_manager, node, 1)
           watcher.watch
@@ -55,7 +54,6 @@ module RedisFailover
 
         it 'properly informs manager node is down when serve-stale-data is false' do
           node_manager.notify_state(node, :available)
-          node.redis.slaveof('masterhost', 9876)
           node.redis.force_sync_with_master(false)
           watcher = NodeWatcher.new(node_manager, node, 1)
           watcher.watch

@@ -4,17 +4,9 @@ module RedisFailover
   # Test stub for Redis.
   class RedisStub
     class Proxy
-      def initialize(queue, opts = {})
+      def initialize(opts = {})
         @info = {'role' => 'master'}
         @config = {'slave-serve-stale-data' => 'yes'}
-        @queue = queue
-      end
-
-      #TODO remove
-      def blpop(*args)
-        @queue.pop.tap do |value|
-          raise value if value
-        end
       end
 
       #Our redis node healthcheck uses 'echo' which, unlike 'ping' or 'info', properly
@@ -27,10 +19,6 @@ module RedisFailover
 
 
       def del(*args)
-      end
-
-      def lpush(*args)
-        @queue << nil
       end
 
       def slaveof(host, port)
@@ -67,12 +55,13 @@ module RedisFailover
       end
     end
 
+
     attr_reader :host, :port, :available
+
     def initialize(opts = {})
       @host = opts[:host]
       @port = Integer(opts[:port])
-      @queue = Queue.new
-      @proxy = Proxy.new(@queue, opts)
+      @proxy = Proxy.new(opts)
       @available = true
     end
 
@@ -93,7 +82,6 @@ module RedisFailover
     end
 
     def make_unavailable!
-      @queue << Errno::ECONNREFUSED
       @available = false
     end
 
