@@ -246,6 +246,7 @@ module RedisFailover
         retry in #{TIMEOUT}s.
       MSG
       logger.warn(msg)
+      #logger.warn(ex.backtrace.join("\n"))
       sleep(TIMEOUT)
       retry
     end
@@ -256,15 +257,14 @@ module RedisFailover
         nodes = symbolize_keys(decode(data))
         master = node_from(nodes[:master])
         logger.info("Master from existing znode config: #{master || 'none'}")
-        # Check for case where a node previously thought to be the master was
-        # somehow manually reconfigured to be a slave outside of the node manager's
-        # control.
+        # Check for case where a node previously thought to be the master was somehow
+        # manually reconfigured to be a slave outside of the node manager's control.
         begin
           if master && master.slave?
             raise InvalidNodeRoleError.new(master, :master, :slave)
           end
-        rescue RedisFailover::NodeUnavailableError => ex
-          logger.warn("Failed to check whether existing master has invalid role: #{ex.inspect}")
+        rescue NodeUnavailableError => ex
+          logger.warn("Failed to check whether existing znode master [#{master}] has invalid role: #{ex.inspect}")
         end
 
         master
@@ -705,8 +705,12 @@ module RedisFailover
     # @return [Boolean] true if sufficient, false otherwise
     def ensure_sufficient_node_managers(snapshots)
       currently_sufficient = true
+      available_managers = 0
+
       snapshots.each do |node, snapshot|
         node_managers = snapshot.node_managers
+        available_managers = [available_managers, node_managers.size].max
+
         if node_managers.size < @required_node_managers
           logger.error("Not enough Node Managers in snapshot for node #{node}. " +
             "Required: #{@required_node_managers}, " +
@@ -717,6 +721,9 @@ module RedisFailover
 
       if currently_sufficient && !@sufficient_node_managers
         logger.info("Required Node Managers are visible: #{@required_node_managers}")
+        if (available_managers - @required_node_managers) >= @required_node_managers
+          logger.warn("WARNING: Required node managers (#{@required_node_managers}) less than majority available (#{available_managers}). You are vulnerable to network partition failures!")
+        end
       end
 
       @sufficient_node_managers = currently_sufficient
