@@ -4,7 +4,6 @@ module RedisFailover
   Client::Redis = RedisStub
   Client::Redis::Client = Redis::Client
   class ClientStub < Client
-    attr_reader
     def current_master
       @master
     end
@@ -130,8 +129,7 @@ module RedisFailover
       end
 
 
-#########
-    describe 'redis connectivity failure handling', :focus => true do
+    describe 'redis connectivity failure handling' do
       before(:each)  do
         class << client
           attr_reader :tries
@@ -175,8 +173,6 @@ module RedisFailover
       end
 
     end
-
-#########
 
 
       context 'with :verify_role true' do
