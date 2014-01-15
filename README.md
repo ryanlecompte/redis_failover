@@ -140,18 +140,19 @@ a drop-in replacement for your existing pure redis client usage.
 
 The full set of options that can be passed to RedisFailover::Client are:
 
-     :zk            - an existing ZK client instance
-     :zkservers     - comma-separated ZooKeeper host:port pairs
-     :znode_path    - the Znode path override for redis server list (optional)
-     :password      - password for redis nodes (optional)
-     :db            - db to use for redis nodes (optional)
-     :namespace     - namespace for redis nodes (optional)
-     :logger        - logger override (optional)
-     :retry_failure - indicate if failures should be retried (default true)
-     :max_retries   - max retries for a failure (default 3)
-     :safe_mode     - indicates if safe mode is used or not (default true)
-     :master_only   - indicates if only redis master is used (default false)
-     :verify_role   - verify the actual role of a redis node before every command (default true)
+     :zk             - an existing ZK client instance
+     :zkservers      - comma-separated ZooKeeper host:port pairs
+     :znode_path     - the Znode path override for redis server list (optional)
+     :password       - password for redis nodes (optional)
+     :db             - db to use for redis nodes (optional)
+     :namespace      - namespace for redis nodes (optional)
+     :trace_id       - trace string tag logged for client debugging (optional)
+     :logger         - logger override (optional)
+     :retry_failure  - indicate if failures should be retried (default true)
+     :max_retries    - max retries for a failure (default 3)
+     :safe_mode      - indicates if safe mode is used or not (default true)
+     :master_only    - indicates if only redis master is used (default false)
+     :verify_role    - verify the actual role of a redis node before every command (default true)
 
 The RedisFailover::Client also supports a custom callback that will be invoked whenever the list of redis clients changes. Example usage:
 
