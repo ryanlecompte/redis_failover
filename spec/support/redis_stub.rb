@@ -17,7 +17,12 @@ module RedisFailover
         end
       end
 
+      #Our redis node healthcheck uses 'echo' which, unlike 'ping' or 'info', properly
+      #throws an error when a node is out of sync and is not allowed to serve stale data
       def echo(*args)
+        if @info['master_sync_in_progress'] == '1' && @config['slave-serve-stale-data'] == 'no'
+          raise Errno::ECONNREFUSED 
+        end
       end
 
 
