@@ -58,7 +58,7 @@ module RedisFailover
     # Uses ECHO command since it properly fails when slave-serve-stale-data is disabled and slave is out of sync
     def healthcheck
       perform_operation do |redis|
-        redis.echo(wait_key)
+        redis.echo(check_key)
       end
     end
 
@@ -141,9 +141,9 @@ module RedisFailover
       fetch_info[:role]
     end
 
-    # @return [String] the name of the wait queue for this node
-    def wait_key
-      @wait_key ||= "_redis_failover_#{SecureRandom.hex(32)}"
+    # @return [String] the name of the healthcheck key for this node
+    def check_key
+      @check_key ||= "_redis_failover_#{SecureRandom.hex(32)}"
     end
 
     # @return [Redis] a new redis client instance for this node
