@@ -49,10 +49,9 @@ module RedisFailover
         begin
           break if @done
           sleep(WATCHER_SLEEP_TIME)
-          latency = Benchmark.realtime { @node.ping }
+          latency = Benchmark.realtime { @node.healthcheck }
           failures = 0
           notify(:available, latency)
-          @node.healthcheck
         rescue NodeUnavailableError => ex
           logger.warn("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
