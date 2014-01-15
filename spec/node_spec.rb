@@ -53,6 +53,11 @@ module RedisFailover
       end
     end
 
+
+    #TODO test healtcheck method ?
+
+
+    #TODO this should not be working.....
     describe '#wait' do
       it 'should wait until node dies' do
         thread = Thread.new { node.wait }
