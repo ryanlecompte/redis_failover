@@ -159,18 +159,12 @@ module RedisFailover
       purge_clients
     end
 
-    # Reconnect will first perform a shutdown of the underlying redis clients.
-    # Next, it attempts to reopen the ZooKeeper client and re-create the redis
-    # clients after it fetches the most up-to-date list from ZooKeeper.
+    # Reconnect method needed for compatibility with 3rd party libs that expect this for redis client objects.
     def reconnect
       #NOTE: Explicit/manual reconnects are no longer needed or desired, and
       #triggered kernel mutex deadlocks in forking env (unicorn & resque) [ruby 1.9]
       #Resque automatically calls this method on job fork.
       #We now auto-detect underlying zk & redis client InheritedError's and reconnect automatically as needed.
-
-      #purge_clients
-      #@zk ? @zk.reopen : setup_zk
-      #build_clients
     end
 
     # Retrieves the current redis master.
@@ -244,7 +238,7 @@ module RedisFailover
       begin
         redis = client_for(method)
         redis.send(method, *args, &block)
-      rescue Redis::InheritedError => ex
+      rescue ::Redis::InheritedError => ex
         logger.debug( "Caught #{ex.class} - reconnecting [#{@trace_id}] #{redis.inspect}" )
         redis.client.reconnect
         retry
