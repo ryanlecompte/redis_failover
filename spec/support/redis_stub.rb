@@ -3,9 +3,6 @@ require 'ostruct'
 module RedisFailover
   # Test stub for Redis.
   class RedisStub
-    class InheritedError < StandardError
-    end
-
     class Proxy
       def initialize(queue, opts = {})
         @info = {'role' => 'master'}

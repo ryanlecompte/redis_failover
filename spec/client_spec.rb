@@ -4,6 +4,7 @@ module RedisFailover
   Client::Redis = RedisStub
   Client::Redis::Client = Redis::Client
   class ClientStub < Client
+    attr_reader
     def current_master
       @master
     end
@@ -54,6 +55,7 @@ module RedisFailover
         client.del('foo')
         called.should be_true
       end
+    end
 
     describe '#inspect' do
       it 'should always include db' do
@@ -127,6 +129,56 @@ module RedisFailover
         client.reconnected.should be_true
       end
 
+
+#########
+    describe 'redis connectivity failure handling', :focus => true do
+      before(:each)  do
+        class << client
+          attr_reader :tries
+
+          def client_for(method)
+            @tries ||= 0
+            @tries += 1
+            super
+          end
+        end
+      end
+
+      it 'retries without client rebuild when redis throws inherited error' do
+        loops = 0
+        client.current_master.stub(:send) {
+          loops += 1
+          loops < 2 ? (raise ::Redis::InheritedError) : nil
+        }
+
+        client.should_not_receive(:build_clients)
+        client.persist('foo')
+        client.tries.should be == 2
+      end
+
+      it 'retries with client rebuild when redis throws connectivity error' do
+        loops = 0
+        client.current_master.stub(:send) {
+          loops += 1
+          loops < 2 ? (raise InvalidNodeError) : nil
+        }
+        
+        client.should_receive(:build_clients)
+        client.persist('foo')
+        client.tries.should be == 2
+      end
+
+      it 'throws exception when too many redis connectivity errors' do
+        client.current_master.stub(:send) { raise InvalidNodeError }
+        client.instance_variable_set(:@max_retries, 2)
+        expect { client.persist('foo') }.to raise_error(InvalidNodeError)
+      end
+
+    end
+
+#########
+
+
       context 'with :verify_role true' do
         it 'properly detects when a node has changed roles' do
           client.current_master.change_role_to('slave')
@@ -154,6 +206,6 @@ module RedisFailover
           client.del('foo')
         end
       end
-    end
   end
 end
+
