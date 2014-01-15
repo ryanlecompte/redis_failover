@@ -41,7 +41,6 @@ module RedisFailover
       end
     end
 
-
     describe '#slave?' do
       it 'responds properly if node is slave' do
         node.should_not be_slave
@@ -50,20 +49,6 @@ module RedisFailover
       it 'responds properly if node is not slave' do
         node.make_master!
         node.should be_master
-      end
-    end
-
-
-    #TODO test healtcheck method ?
-
-
-    #TODO this should not be working.....
-    describe '#wait' do
-      it 'should wait until node dies' do
-        thread = Thread.new { node.wait }
-        thread.should be_alive
-        node.redis.make_unavailable!
-        expect { thread.value }.to raise_error
       end
     end
 
