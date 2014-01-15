@@ -62,17 +62,6 @@ module RedisFailover
       end
     end
 
-    describe '#wakeup' do
-      it 'should gracefully stop waiting' do
-        thread = Thread.new { node.wait }
-        thread.should be_alive
-        node.wakeup
-        sleep 2
-        thread.should_not be_alive
-        thread.value.should be_nil
-      end
-    end
-
     describe '#perform_operation' do
       it 'raises error for any operation that hangs for too long' do
         expect do
