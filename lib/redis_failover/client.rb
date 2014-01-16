@@ -51,7 +51,6 @@ module RedisFailover
     # @option options [String] :password password for redis nodes
     # @option options [String] :db database to use for redis nodes
     # @option options [String] :namespace namespace for redis nodes
-    # @option options [String] :trace_id trace string tag logged for client debugging
     # @option options [Logger] :logger logger override
     # @option options [Boolean] :retry_failure indicates if failures are retried
     # @option options [Integer] :max_retries max retries for a failure
@@ -62,7 +61,6 @@ module RedisFailover
     # @return [RedisFailover::Client]
     def initialize(options = {})
       Util.logger = options[:logger] if options[:logger]
-      @trace_id = options[:trace_id]
       @master = nil
       @slaves = []
       @node_addresses = {}
@@ -132,7 +130,7 @@ module RedisFailover
 
     # @return [String] a string representation of the client
     def inspect
-      "#<RedisFailover::Client [#{@trace_id}] (db: #{@db.to_i}, master: #{master_name}, slaves: #{slave_names})>"
+      "#<RedisFailover::Client (db: #{@db.to_i}, master: #{master_name}, slaves: #{slave_names})>"
     end
     alias_method :to_s, :inspect
 
@@ -159,12 +157,13 @@ module RedisFailover
       purge_clients
     end
 
-    # Reconnect method needed for compatibility with 3rd party libs that expect this for redis client objects.
+    # Reconnect will first perform a shutdown of the underlying redis clients.
+    # Next, it attempts to reopen the ZooKeeper client and re-create the redis
+    # clients after it fetches the most up-to-date list from ZooKeeper.
     def reconnect
-      #NOTE: Explicit/manual reconnects are no longer needed or desired, and
-      #triggered kernel mutex deadlocks in forking env (unicorn & resque) [ruby 1.9]
-      #Resque automatically calls this method on job fork.
-      #We now auto-detect underlying zk & redis client InheritedError's and reconnect automatically as needed.
+      purge_clients
+      @zk ? @zk.reopen : setup_zk
+      build_clients
     end
 
     # Retrieves the current redis master.
@@ -236,12 +235,7 @@ module RedisFailover
       verify_supported!(method)
       tries = 0
       begin
-        redis = client_for(method)
-        redis.send(method, *args, &block)
-      rescue ::Redis::InheritedError => ex
-        logger.debug( "Caught #{ex.class} - reconnecting [#{@trace_id}] #{redis.inspect}" )
-        redis.client.reconnect
-        retry
+        client_for(method).send(method, *args, &block)
       rescue *CONNECTIVITY_ERRORS => ex
         logger.error("Error while handling `#{method}` - #{ex.inspect}")
         logger.error(ex.backtrace.join("\n"))
@@ -249,8 +243,8 @@ module RedisFailover
         if tries < @max_retries
           tries += 1
           free_client
-          sleep(RETRY_WAIT_TIME)
           build_clients
+          sleep(RETRY_WAIT_TIME)
           retry
         end
         raise
@@ -294,7 +288,7 @@ module RedisFailover
           return unless nodes_changed?(nodes)
 
           purge_clients
-          logger.info("Building new clients for nodes [#{@trace_id}] #{nodes.inspect}")
+          logger.info("Building new clients for nodes #{nodes.inspect}")
           new_master = new_clients_for(nodes[:master]).first if nodes[:master]
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
@@ -326,37 +320,19 @@ module RedisFailover
     #
     # @return [Hash] the known master/slave redis servers
     def fetch_nodes
-      tries = 0
-      begin
-        data = @zk.get(redis_nodes_path, :watch => true).first
-        nodes = symbolize_keys(decode(data))
-        logger.debug("Fetched nodes: #{nodes.inspect}")
-        nodes
-      rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
-        logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client [#{@trace_id}]" }
-        sleep 1 if ex.kind_of?(ZK::Exceptions::InterruptedSession)
-        @zk.reopen
-        retry
-      rescue *ZK_ERRORS => ex
-        logger.error { "Caught #{ex.class} '#{ex.message}' - retrying ... [#{@trace_id}]" }
-        sleep(RETRY_WAIT_TIME)
+      data = @zk.get(redis_nodes_path, :watch => true).first
+      nodes = symbolize_keys(decode(data))
+      logger.debug("Fetched nodes: #{nodes.inspect}")
 
-        if tries < @max_retries
-          tries += 1
-          retry
-        elsif tries < (@max_retries * 2)
-          tries += 1
-          logger.error { "Hmmm, more than [#{@max_retries}] retries: reopening ZK client [#{@trace_id}]" }
-          @zk.reopen
-          retry
-        else
-          tries = 0
-          logger.error { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ZK client [#{@trace_id}]" }
-          @zk.close!
-          setup_zk
-          retry
-        end
-      end
+      nodes
+    rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
+      logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
+      @zk.reopen
+      retry
+    rescue *ZK_ERRORS => ex
+      logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying" }
+      sleep(RETRY_WAIT_TIME)
+      retry
     end
 
     # Builds new Redis clients for the specified nodes.
@@ -458,7 +434,7 @@ module RedisFailover
     # Disconnects current redis clients.
     def purge_clients
       @lock.synchronize do
-        logger.info("Purging current redis clients [#{@trace_id}]")
+        logger.info("Purging current redis clients")
         disconnect(@master, *@slaves)
         @master = nil
         @slaves = []
