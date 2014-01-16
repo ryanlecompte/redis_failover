@@ -17,4 +17,3 @@ test/version_tmp
 tmp
 tags
 .DS_Store
-vendor/
