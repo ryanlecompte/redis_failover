@@ -159,12 +159,9 @@ module RedisFailover
       purge_clients
     end
 
-    # Reconnect method needed for compatibility with 3rd party libs that expect this for redis client objects.
     def reconnect
-      #NOTE: Explicit/manual reconnects are no longer needed or desired, and
-      #triggered kernel mutex deadlocks in forking env (unicorn & resque) [ruby 1.9]
-      #Resque automatically calls this method on job fork.
-      #We now auto-detect underlying zk & redis client InheritedError's and reconnect automatically as needed.
+      #Reconnect method needed for compatibility with 3rd party libs (i.e. Resque) that expect this for redis client objects.
+      #We now auto-detect underlying zk & redis client InheritedError's due to process forking and reconnect automatically as needed.
     end
 
     # Retrieves the current redis master.
