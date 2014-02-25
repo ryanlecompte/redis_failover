@@ -61,6 +61,12 @@ module RedisFailover
     # @note Use either :zkservers or :zk
     # @return [RedisFailover::Client]
     def initialize(options = {})
+      init(options)
+      build_clients
+    end
+
+    protected
+    def init(options)
       Util.logger = options[:logger] if options[:logger]
       @trace_id = options[:trace_id]
       @master = nil
@@ -72,8 +78,8 @@ module RedisFailover
 
       parse_options(options)
       setup_zk
-      build_clients
     end
+    public
 
     # Stubs this method to return this RedisFailover::Client object.
     #
@@ -159,12 +165,9 @@ module RedisFailover
       purge_clients
     end
 
-    # Reconnect method needed for compatibility with 3rd party libs that expect this for redis client objects.
+    # Reconnect method needed for compatibility with 3rd party libs (i.e. Resque) that expect this for redis client objects.
     def reconnect
-      #NOTE: Explicit/manual reconnects are no longer needed or desired, and
-      #triggered kernel mutex deadlocks in forking env (unicorn & resque) [ruby 1.9]
-      #Resque automatically calls this method on job fork.
-      #We now auto-detect underlying zk & redis client InheritedError's and reconnect automatically as needed.
+      #We auto-detect underlying zk & redis client Inherited Error's and reconnect automatically as needed.
     end
 
     # Retrieves the current redis master.

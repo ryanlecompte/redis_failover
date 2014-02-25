@@ -18,4 +18,7 @@ end
 def ZK.new(*args); NullObject.new; end
 
 RSpec.configure do |config|
+  config.filter_run :focus => true
 end
+
+

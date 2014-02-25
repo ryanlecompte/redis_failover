@@ -3,8 +3,8 @@ require 'spec_helper'
 module RedisFailover
   Client::Redis = RedisStub
   Client::Redis::Client = Redis::Client
+
   class ClientStub < Client
-    attr_reader
     def current_master
       @master
     end
@@ -26,6 +26,14 @@ module RedisFailover
       update_znode_timestamp
     end
   end
+
+  class ZkClientStub < Client
+    attr_accessor :zk
+    def setup_zk
+      @zk = NullObject.new
+    end
+  end
+
 
   describe Client do
     let(:client) { ClientStub.new(:zkservers => 'localhost:9281', :safe_mode => true) }
@@ -130,8 +138,8 @@ module RedisFailover
       end
 
 
-#########
-    describe 'redis connectivity failure handling', :focus => true do
+###############
+    describe 'redis connectivity failure handling' do
       before(:each)  do
         class << client
           attr_reader :tries
@@ -178,6 +186,33 @@ module RedisFailover
 
 #########
 
+    describe 'zookeeper connectivity failure handling', :focus => true do
+      let(:zkclient) { ZkClientStub.new(:zkservers => 'localhost:9281') }
+      
+   #IDEAS  pass in an existing zk object to client init?
+
+      it '____________retries with client rebuild when redis throws connectivity error' do
+        loops = 0
+        client.current_master.stub(:send) {
+          loops += 1
+          loops < 2 ? (raise InvalidNodeError) : nil
+        }
+
+        zkclient.zk.define_singleton_method(:get) do |*args|
+          raise ZK::Exceptions::Retryable
+        end
+        
+        client.should_receive(:build_clients)
+        client.persist('foo')
+        client.tries.should be == 2
+      end
+
+
+    end
+
+
+
+###############
 
       context 'with :verify_role true' do
         it 'properly detects when a node has changed roles' do
