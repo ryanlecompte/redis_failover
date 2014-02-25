@@ -211,7 +211,6 @@ module RedisFailover
     end
 
 
-
 ###############
 
       context 'with :verify_role true' do
