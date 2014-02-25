@@ -1,9 +1,6 @@
 require 'zk'
-
-#NOTE: We've found that using the 'recommended' zk fork-hook would trigger
-#kernel mutex deadlocks in forking env (unicorn & resque) [ruby 1.9]
-#https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
-#ZK.install_fork_hook
+# https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
+ZK.install_fork_hook
 
 require 'set'
 require 'yaml'
