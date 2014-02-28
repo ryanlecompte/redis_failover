@@ -1,7 +1,4 @@
 require 'zk'
-# https://github.com/zk-ruby/zk/wiki/Forking & https://github.com/zk-ruby/zk/blob/master/RELEASES.markdown#v150
-ZK.install_fork_hook
-
 require 'set'
 require 'yaml'
 require 'redis'
