@@ -404,16 +404,12 @@ module RedisFailover
     # @note the path will be created if it doesn't exist
     def write_state(path, value, options = {})
       create_path(path, options.merge(:initial_value => value))
-       logger.info("[Debug] Now writing at path #{path}\n")
 	if ( path =~ /nodes/  )
-         logger.info("[Debug] Now I am trying to write node info must be careful\n")      
 	 if ( $previous_value != value ) then
-         logger.info("[Debug] Now I am publishing the node info #{value}\n")
          @zk.set(path, value)
          $previous_value = value
          end
         else
-         logger.info("[Debug] Now I write my own status\n")
 	 @zk.set(path, value)
         end
     end
