@@ -520,7 +520,7 @@ module RedisFailover
         end
       when :available
         last_latency = @monitored_available[node]
-        if last_latency.nil? || (latency - last_latency) > LATENCY_THRESHOLD
+        if last_latency.nil? || (latency - last_latency).abs > LATENCY_THRESHOLD
           @monitored_available[node] = latency
           @monitored_unavailable.delete(node)
           write_current_monitored_state
