@@ -629,6 +629,10 @@ module RedisFailover
         @lock.synchronize do
           snapshots = current_node_snapshots
           if ensure_sufficient_node_managers(snapshots)
+
+
+            #TODO start with master, if new election, skip rest of (slave) state updates
+            
             snapshots.each_key do |node|
               update_master_state(node, snapshots)
             end
