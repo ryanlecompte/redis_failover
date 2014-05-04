@@ -136,7 +136,7 @@ module RedisFailover
     def electability
       info = fetch_info
       lag = info[:master_link_down_since_seconds] || info[:master_last_io_seconds_ago]
-      return lag || -1
+      lag.nil? ? -1 : lag.to_i
     end
 
 
