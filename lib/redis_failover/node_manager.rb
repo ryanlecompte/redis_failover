@@ -209,6 +209,12 @@ module RedisFailover
       candidate = node || failover_strategy_candidate(snapshots)
 
       if candidate.nil?
+        logger.info( "Unable to locate promotable slave based on available snapshots: #{snapshots.inspect}" )
+        logger.info( "Attempting to locate healthy slave via fallback discovery ..." )
+        candidate = discover_electable_slave( @nodes )
+      end
+
+      if candidate.nil?
         logger.error('Failed to promote a new master, no candidate available.')
       else
         @slaves.delete(candidate)
@@ -221,6 +227,22 @@ module RedisFailover
         logger.info("Successfully promoted #{candidate} to master.")
       end
     end
+
+
+    # Find the most master-electable (least-lagged) slave by querying all cluster nodes
+    def discover_electable_slave( nodes )
+      candidates = {}
+      nodes.each do |node|
+        score = node.electability rescue -1
+        candidates[node] = score if score >= 0
+      end
+      logger.info("  electable slaves: #{candidates.inspect}")
+
+      if candidate = candidates.min_by(&:last)
+        candidate.first
+      end
+    end
+
 
     # Discovers the current master and slave nodes.
     # @return [Boolean] true if nodes successfully discovered, false otherwise
@@ -520,7 +542,7 @@ module RedisFailover
         end
       when :available
         last_latency = @monitored_available[node]
-        if last_latency.nil? || (latency - last_latency) > LATENCY_THRESHOLD
+        if last_latency.nil? || (latency - last_latency).abs > LATENCY_THRESHOLD
           @monitored_available[node] = latency
           @monitored_unavailable.delete(node)
           write_current_monitored_state
