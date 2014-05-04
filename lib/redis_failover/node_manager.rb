@@ -209,7 +209,7 @@ module RedisFailover
       candidate = node || failover_strategy_candidate(snapshots)
 
       if candidate.nil?
-        logger.info( "Unable to locate promotable slave based on available snapshots: #{snapshots.inspect}" )
+        logger.info( "Unable to locate promotable slave from available snapshots: #{snapshots.inspect}" )
         logger.info( "Attempting to locate healthy slave via fallback discovery ..." )
         candidate = discover_electable_slave( @nodes )
       end
@@ -236,7 +236,7 @@ module RedisFailover
         score = node.electability rescue -1
         candidates[node] = score if score >= 0
       end
-      logger.info("  electable slaves: #{candidates.inspect}")
+      logger.info("  Discovered electable slaves: #{candidates.inspect}")
 
       if candidate = candidates.min_by(&:last)
         candidate.first
