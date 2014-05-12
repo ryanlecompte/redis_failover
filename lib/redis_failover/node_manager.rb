@@ -209,6 +209,13 @@ module RedisFailover
       candidate = node || failover_strategy_candidate(snapshots)
 
       if candidate.nil?
+        # During master failure, 'unavailable' (for reads) slave nodes can actually still be perfectly electable (i.e. when slave-serve-stale-data is disabled)
+        logger.info( "Unable to locate promotable slave from available snapshots: #{snapshots.inspect}" )
+        logger.info( "Attempting to locate healthy slave via fallback discovery ..." )
+        candidate = discover_electable_slave( @nodes )
+      end
+
+      if candidate.nil?
         logger.error('Failed to promote a new master, no candidate available.')
       else
         @slaves.delete(candidate)
@@ -221,6 +228,22 @@ module RedisFailover
         logger.info("Successfully promoted #{candidate} to master.")
       end
     end
+
+
+    # Find the most master-electable (least-lagged) slave by querying all cluster nodes
+    def discover_electable_slave( nodes )
+      candidates = {}
+      nodes.each do |node|
+        score = node.electability rescue -1
+        candidates[node] = score if score >= 0
+      end
+      logger.info("  Discovered electable slaves: #{candidates.inspect}")
+
+      if candidate = candidates.min_by(&:last)
+        candidate.first
+      end
+    end
+
 
     # Discovers the current master and slave nodes.
     # @return [Boolean] true if nodes successfully discovered, false otherwise
@@ -520,7 +543,7 @@ module RedisFailover
         end
       when :available
         last_latency = @monitored_available[node]
-        if last_latency.nil? || (latency - last_latency) > LATENCY_THRESHOLD
+        if last_latency.nil? || (latency - last_latency).abs > LATENCY_THRESHOLD
           @monitored_available[node] = latency
           @monitored_unavailable.delete(node)
           write_current_monitored_state
@@ -607,7 +630,12 @@ module RedisFailover
         @lock.synchronize do
           snapshots = current_node_snapshots
           if ensure_sufficient_node_managers(snapshots)
-            snapshots.each_key do |node|
+
+            sorted_snaps = snapshots.keys.sort_by {|node| node == @master ? 0 : 1 }  # process master node state first
+            orig_master = @master
+
+            sorted_snaps.each do |node|
+              next if @master != orig_master && node == @master   # skip processing of the just-promoted slave in this cycle
               update_master_state(node, snapshots)
             end
 

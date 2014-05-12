@@ -129,10 +129,17 @@ module RedisFailover
 
     # @return [Boolean] determines if this node is syncing with its master
     def syncing_with_master?
-      perform_operation do |redis|
-        fetch_info[:master_sync_in_progress] == '1'
-      end
+      fetch_info[:master_sync_in_progress] == '1'
     end
+
+    # @return [Integer] ranking of master-electability based on communication lag
+    def electability
+      info = fetch_info
+      lag = info[:master_link_down_since_seconds] || info[:master_last_io_seconds_ago]
+      lag = -1 if info[:master_sync_in_progress] == '1'   #protect from partial dataset when slave is mid-sync
+      lag.nil? ? -1 : lag.to_i
+    end
+
 
     private
 
