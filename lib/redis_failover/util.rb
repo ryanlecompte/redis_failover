@@ -94,15 +94,18 @@ module RedisFailover
     end
 
     # @return [Logger] the logger instance to use
-    def self.logger
-      @logger ||= begin
-        logger = Logger.new(STDOUT)
-        logger.level = Logger::INFO
-        logger.formatter = proc do |severity, datetime, progname, msg|
-          "#{datetime.utc} RedisFailover #{Process.pid} #{severity}: #{msg}\n"
+    def self.logger(location=nil, level=nil)
+      if(@logger.nil? || !location.nil? || !level.nil?)
+        @logger ||= begin
+          logger = Logger.new(location || STDOUT)
+          logger.level = level || Logger::INFO
+          logger.formatter = proc do |severity, datetime, progname, msg|
+            "#{datetime.utc} RedisFailover #{Process.pid} #{severity}: #{msg}\n"
+          end
+          logger
         end
-        logger
       end
+      @logger
     end
 
     # Sets a new logger to use.
