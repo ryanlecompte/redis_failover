@@ -17,7 +17,7 @@ module RedisFailover
     MAX_PROMOTION_ATTEMPTS = 3
     # Latency threshold for recording node state.
     LATENCY_THRESHOLD = 0.5
-
+    $previous_value=""
     # Errors that can happen during the node discovery process.
     NODE_DISCOVERY_ERRORS = [
       InvalidNodeRoleError,
@@ -404,7 +404,14 @@ module RedisFailover
     # @note the path will be created if it doesn't exist
     def write_state(path, value, options = {})
       create_path(path, options.merge(:initial_value => value))
-      @zk.set(path, value)
+	if ( path =~ /nodes/  )
+	 if ( $previous_value != value ) then
+         @zk.set(path, value)
+         $previous_value = value
+         end
+        else
+	 @zk.set(path, value)
+        end
     end
 
     # Handles a manual failover znode update.
