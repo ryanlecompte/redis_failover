@@ -65,6 +65,7 @@ module RedisFailover
       @slaves = []
       @node_addresses = {}
       @lock = Monitor.new
+      @shutdown = false
       @current_client_key = "current-client-#{self.object_id}"
       yield self if block_given?
 
@@ -152,8 +153,9 @@ module RedisFailover
     # and then create a new instance of the client. The underlying
     # ZooKeeper client and redis clients will be closed.
     def shutdown
-      @zk.close! if @zk
+      @zk.close! if @zk and @zk.connected?
       @zk = nil
+      @shutdown = true
       purge_clients
     end
 
@@ -161,6 +163,7 @@ module RedisFailover
     # Next, it attempts to reopen the ZooKeeper client and re-create the redis
     # clients after it fetches the most up-to-date list from ZooKeeper.
     def reconnect
+      @shutdown = false
       purge_clients
       @zk ? @zk.reopen : setup_zk
       build_clients
@@ -327,12 +330,22 @@ module RedisFailover
       nodes
     rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
       logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
-      @zk.reopen
-      retry
+      unless @shutdown
+        @zk.reopen
+        retry
+      end
+    rescue Zookeeper::Exceptions::NotConnected => ex 
+      logger.warn { "Caught #{ex.class} '#{ex.message}' - reopening ZK client" }
+      unless @shutdown
+        @zk.reopen
+        retry
+      end
     rescue *ZK_ERRORS => ex
       logger.warn { "Caught #{ex.class} '#{ex.message}' - retrying" }
-      sleep(RETRY_WAIT_TIME)
-      retry
+      unless @shutdown
+        sleep(RETRY_WAIT_TIME)
+        retry
+      end
     end
 
     # Builds new Redis clients for the specified nodes.
