@@ -52,7 +52,7 @@ module RedisFailover
           called = true
         end
         client.del('foo')
-        called.should be_true
+        called.should ==  true
       end
     end
 
@@ -89,7 +89,7 @@ module RedisFailover
             called = true
           end
           client.get('foo')
-          called.should be_true
+          called.should ==  true
         end
       end
 
@@ -101,7 +101,7 @@ module RedisFailover
             called = true
           end
           client.get('foo')
-          called.should be_true
+          called.should ==  true
         end
       end
 
@@ -125,7 +125,7 @@ module RedisFailover
 
         client.current_master.make_unavailable!
         client.del('foo')
-        client.reconnected.should be_true
+        client.reconnected.should ==  true
       end
 
 
@@ -160,7 +160,7 @@ module RedisFailover
           loops += 1
           loops < 2 ? (raise InvalidNodeError) : nil
         }
-        
+
         client.should_receive(:build_clients)
         client.persist('foo')
         client.tries.should be == 2
