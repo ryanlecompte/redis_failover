@@ -1,5 +1,6 @@
 require 'zk'
 require 'set'
+require 'etcd'
 require 'yaml'
 require 'redis'
 require 'thread'

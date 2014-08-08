@@ -1,9 +1,9 @@
 require 'spec_helper'
 
 module RedisFailover
-  Client::Redis = RedisStub
-  Client::Redis::Client = Redis::Client
-  class ClientStub < Client
+  ClientImpl::Redis = RedisStub
+  ClientImpl::Redis::Client = Redis::Client
+  class ClientStub < ZookeeperClient
     def current_master
       @master
     end

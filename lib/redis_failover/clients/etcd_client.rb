@@ -1,6 +1,5 @@
+require_relative 'client_impl'
 module RedisFailover
-   Dir[File.dirname(__FILE__) + '/clients/*.rb'].sort.each {|file| require file}
-
   # Redis failover-aware client. RedisFailover::Client is a wrapper over a set
   # of underlying redis clients, which means all normal redis operations can be
   # performed on an instance of this class. The class only requires a set of
@@ -18,11 +17,6 @@ module RedisFailover
   #   client.set('foo', 1) # will be directed to master
   #   client.get('foo') # will be directed to a slave
   #
-  class Client
-    def self.new(args)
-      raise ArgumentError, "agrs: #{args.inspect} must be a hash." unless args.is_a?(::Hash)
-
-      hash[:config_store] == :etcd ? EtcdClient.new(args) : ZookeeperClient.new(args)
-    end
+  class EtcdClient < ClientImpl
   end
 end

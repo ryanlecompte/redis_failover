@@ -51,8 +51,8 @@ module RedisFailover
     # that abstracts the master/slave servers.
     UNSUPPORTED_OPS = Set[:select, :dbsize].freeze
 
-    # Default root node in ZK used for redis_failover.
-    DEFAULT_ROOT_ZNODE_PATH = '/redis_failover'.freeze
+    # Default root node in ZK/Etcd used for redis_failover.
+    DEFAULT_ROOT_NODE_PATH = '/redis_failover'.freeze
 
     # Connectivity errors that the redis (<3.x) client raises.
     REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }
@@ -67,6 +67,24 @@ module RedisFailover
       ZK::Exceptions::InterruptedSession,
       ZK::Exceptions::Retryable,
       Zookeeper::Exceptions::ContinuationTimeoutError
+    ].freeze
+
+    ETCD_KEY_ERRORS = [
+      Etcd::KeyNotFound,
+      Etcd::TestFailed,
+      Etcd::NotFile,
+      Etcd::NoMorePeer,
+      Etcd::NotDir,
+      Etcd::NodeExist,
+      Etcd::KeyIsPreserved,
+      Etcd::DirNotEmpty
+    ].freeze
+
+    ETCD_ERRORS = [
+      Etcd::RaftInternal,
+      Etcd::LeaderElect,
+      Etcd::WatcherCleared,
+      Etcd::EventIndexCleared
     ].freeze
 
     # Full set of errors related to connectivity.
