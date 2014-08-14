@@ -18,7 +18,7 @@ Gem::Specification.new do |gem|
   gem.add_dependency('redis', ['>= 2.2', '< 4'])
   gem.add_dependency('redis-namespace')
   gem.add_dependency('multi_json', '~> 1')
-  gem.add_dependency('etcd', '~> 0.2.3')
+  gem.add_dependency('etcd', '~> 0.2.4')
   gem.add_dependency('zookeeper', '>= 1.4.8')
   gem.add_dependency('zk', ['>= 1.9.4', '< 2.0'])
 

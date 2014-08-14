@@ -38,7 +38,7 @@ module RedisFailover
       logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
       @options = options
       @required_node_managers = options.fetch(:required_node_managers, 1)
-      @root_znode = options[:node_path] || options[:znode_path] || Util::DEFAULT_ROOT_NODE_PATH
+      @root_node = options[:node_path] || options[:znode_path] || Util::DEFAULT_ROOT_NODE_PATH
       @node_strategy = NodeStrategy.for(options.fetch(:node_strategy, :majority))
       @failover_strategy = FailoverStrategy.for(options.fetch(:failover_strategy, :latency))
       @nodes = Array(@options[:nodes]).map { |opts| Node.new(opts) }.uniq
@@ -354,7 +354,7 @@ module RedisFailover
 
     # @return [String] root path for current node manager state
     def current_state_root
-      "#{@root_znode}/manager_node_state"
+      "#{@root_node}/manager_node_state"
     end
 
     # @return [String] the znode path for this node manager's view
@@ -365,17 +365,17 @@ module RedisFailover
 
     # @return [String] the znode path for the master redis nodes config
     def redis_nodes_path
-      "#{@root_znode}/nodes"
+      "#{@root_node}/nodes"
     end
 
     # @return [String] root path for current node manager lock
     def current_lock_path
-      "#{@root_znode}/master_redis_node_manager_lock"
+      "#{@root_node}/master_redis_node_manager_lock"
     end
 
     # @return [String] the znode path used for performing manual failovers
     def manual_failover_path
-      ManualFailover.path(@root_znode)
+      ManualFailover.path(@root_node)
     end
 
     # @return [Boolean] true if this node manager is the master, false otherwise

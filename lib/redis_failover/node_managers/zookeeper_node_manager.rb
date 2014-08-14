@@ -9,29 +9,6 @@ module RedisFailover
   # if it sees fit to do so.
   class ZookeeperNodeManager < NodeManagerImpl
 
-    # Creates a new instance.
-    #
-    # @param [Hash] options the options used to initialize the manager
-    # @option options [String] :zkservers comma-separated ZK host:port pairs
-    # @option options [String] :znode_path znode path override for redis nodes
-    # @option options [String] :password password for redis nodes
-    # @option options [Array<String>] :nodes the nodes to manage
-    # @option options [String] :max_failures the max failures for a node
-    def initialize(options)
-      logger.info("Redis Node Manager v#{VERSION} starting (#{RUBY_DESCRIPTION})")
-      @options = options
-      @required_node_managers = options.fetch(:required_node_managers, 1)
-      @root_znode = options.fetch(:node_path, Util::DEFAULT_ROOT_NODE_PATH)
-      @node_strategy = NodeStrategy.for(options.fetch(:node_strategy, :majority))
-      @failover_strategy = FailoverStrategy.for(options.fetch(:failover_strategy, :latency))
-      @nodes = Array(@options[:nodes]).map { |opts| Node.new(opts) }.uniq
-      @master_manager = false
-      @master_promotion_attempts = 0
-      @sufficient_node_managers = false
-      @lock = Monitor.new
-      @shutdown = false
-    end
-
     # Starts the node manager.
     #
     # @note This method does not return until the manager terminates.
@@ -99,7 +76,7 @@ module RedisFailover
         @zk.on_connected { @zk.stat(manual_failover_path, :watch => true) }
       end
 
-      create_path(@root_znode)
+      create_path(@root_node)
       create_path(current_state_root)
       @zk.stat(manual_failover_path, :watch => true)
     end
