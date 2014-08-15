@@ -149,7 +149,7 @@ module RedisFailover
           loops < 2 ? (raise ::Redis::InheritedError) : nil
         }
 
-        client.should_not_receive(:build_clients)
+        client.should_not_receive(:build_clients).with(no_args)
         client.persist('foo')
         client.tries.should be == 2
       end
@@ -161,7 +161,7 @@ module RedisFailover
           loops < 2 ? (raise InvalidNodeError) : nil
         }
 
-        client.should_receive(:build_clients)
+        client.should_receive(:build_clients).with(no_args)
         client.persist('foo')
         client.tries.should be == 2
       end
@@ -189,7 +189,7 @@ module RedisFailover
       context 'with :safe_mode enabled' do
         it 'rebuilds clients when no communication from Node Manager within certain time window' do
           client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
-          client.should_receive(:build_clients)
+          client.should_receive(:build_clients).with(no_args)
           client.del('foo')
         end
       end

@@ -19,6 +19,11 @@ module RedisFailover
   class ClientImpl
     include Util
 
+    # Maximum allowed elapsed time between notifications from the Node Manager.
+    # When this timeout is reached, the client will raise a NoNodeManagerError
+    # and purge its internal redis clients.
+    NODE_UPDATE_TIMEOUT = 9
+
     # Amount of time to sleep before retrying a failed operation.
     RETRY_WAIT_TIME = 3
 
@@ -218,6 +223,33 @@ module RedisFailover
       end
     end
 
+      # Builds the Redis clients for the currently known master/slaves.
+    # The current master/slaves are fetched via ZooKeeper or Etcd.
+    def build_clients(nodes = nil)
+      @lock.synchronize do
+        begin
+          nodes ||= fetch_nodes
+          return unless nodes_changed?(nodes)
+
+          purge_clients
+          logger.info("Building new clients for nodes [#{@trace_id}] #{nodes.inspect}")
+          new_master = new_clients_for(nodes[:master]).first if nodes[:master]
+          new_slaves = new_clients_for(*nodes[:slaves])
+          @master = new_master
+          @slaves = new_slaves
+        rescue
+          purge_clients
+          raise
+        ensure
+          if should_notify?
+           @on_node_change.call(current_master, current_slaves)
+           @last_notified_master = current_master
+           @last_notified_slaves = current_slaves
+          end
+        end
+      end
+    end
+
     # Returns the currently known master.
     #
     # @return [Redis] the Redis client for the current master
@@ -383,6 +415,23 @@ module RedisFailover
 
       stack << client
       client
+    end
+
+    # Determines if the currently known redis servers is different
+    # from the nodes returned by ZooKeeper or Etcd.
+    #
+    # @param [Array<String>] new_nodes the new redis nodes
+    # @return [Boolean] true if nodes are different, false otherwise
+    def nodes_changed?(new_nodes)
+      return true if address_for(@master) != new_nodes[:master]
+      return true if different?(addresses_for(@slaves), new_nodes[:slaves])
+      false
+    end
+
+    # @return [Boolean] indicates if we recently heard from the Node Manager
+    def recently_heard_from_node_manager?
+      return false unless @last_node_timestamp
+      Time.now - @last_node_timestamp <= NODE_UPDATE_TIMEOUT
     end
 
     # Pops a client from the thread-local client stack.

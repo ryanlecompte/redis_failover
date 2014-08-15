@@ -1,5 +1,5 @@
 require_relative 'node_manager_impl'
-require_relative '../etcd_utils/simple_locker'
+Dir["#{File.dirname(__FILE__)}/../etcd_utils/*.rb"].each {|file| require file }
 module RedisFailover
   # NodeManager manages a list of redis nodes. Upon startup, the NodeManager
   # will discover the current redis master and slaves. Each redis node is
@@ -9,10 +9,9 @@ module RedisFailover
   # appropriately by handling stale/dead nodes, and promoting a new redis master
   # if it sees fit to do so.
   class EtcdNodeManager < NodeManagerImpl
+    include RedisFailover::EtcdClientHelper
 
     def initialize(options)
-      @threads = []
-      @etcd_timeout = options[:etcd_timeout] || 60
       super(options)
     end
 
@@ -35,7 +34,7 @@ module RedisFailover
       sleep(TIMEOUT)
       retry
     ensure
-      @threads.each(&:join)
+      wait_threads_completion
     end
 
     # Notifies the manager of a state change. Used primarily by
@@ -75,10 +74,10 @@ module RedisFailover
 
     private
 
-    # Configures the ZooKeeper client.
+    # Configures the Etcd client.
     def setup_etcd
       unless @etcd
-        @etcd = Etcd.client(@options[:etcd_options])
+        @etcd = Etcd.client(@options[:etcd])
         etcd_listen_manual_failover
       end
 
@@ -89,27 +88,11 @@ module RedisFailover
     # Listens for changes in the manual failover folder
     # Execute an action if there's any change
     def etcd_listen_manual_failover
-      loop do
-        begin
-          watch_etcd_folder(manual_failover_path) {|response| handle_manual_failover_update(response)}
-        rescue => ex
-          logger.error("Failed to listen to manual_failover_path: #{manual_failover_path}")
-          logger.error(ex.backtrace.join("\n"))
-        end
-      end
-    end
-
-    def watch_etcd_folder(path, tries = 0)
-      @threads << Thread.new do
-        begin
-          response = Timeout::timeout(@etcd_timeout) {@etcd.watch(path, recursive: true)}
-
-          yield(response) if block_given?
-        rescue Timeout::Error
-          retry
-        rescue
-          (tries += 1) <= 3 ? retry : raise
-        end
+      begin
+        watch_etcd_folder(manual_failover_path) {|response| handle_manual_failover_update(response)}
+      rescue => ex
+        logger.error("Failed to listen to manual_failover_path: #{manual_failover_path}")
+        logger.error(ex.backtrace.join("\n"))
       end
     end
 
