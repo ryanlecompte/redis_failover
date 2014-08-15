@@ -243,7 +243,13 @@ module RedisFailover
               return true
             end
 
-            etcd.watch(root_lock_path, recursive: true)
+            begin
+              watch_options = {recursive: true, waitIndex: @index}
+              response = Timeout::timeout(etcd.read_timeout) {etcd.watch(root_lock_path, watch_options)}
+              @index = response.etcd_index
+            rescue Timeout::Error
+              retry
+            end
           end
         end
     end
