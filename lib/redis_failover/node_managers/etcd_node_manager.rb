@@ -1,5 +1,5 @@
 require_relative 'node_manager_impl'
-require_relative '/etcd_utils/simple_locker'
+require_relative '../etcd_utils/simple_locker'
 module RedisFailover
   # NodeManager manages a list of redis nodes. Upon startup, the NodeManager
   # will discover the current redis master and slaves. Each redis node is
@@ -115,8 +115,9 @@ module RedisFailover
 
     # Seeds the initial node master from an existing node config.
     def find_existing_master
-      if etcd_nodes = @etcd.get(redis_nodes_path, recursive: true, sorted: true).children
-        master = node_from(nodes.detect{|node| node.key == redis_nodes_path + '/master'})
+      if data = @etcd.get(redis_nodes_path).value
+        nodes = symbolize_keys(decode(data))
+        master = node_from(nodes[:master])
         logger.info("Master from existing node config: #{master || 'none'}")
         # Check for case where a node previously thought to be the master was somehow
         # manually reconfigured to be a slave outside of the node manager's control.
@@ -298,10 +299,10 @@ module RedisFailover
           else
             logger.error('Failed to perform manual failover, no candidate found.')
           end
+        rescue => ex
+          logger.error("Error handling manual failover: #{ex.inspect}")
+          logger.error(ex.backtrace.join("\n"))
         end
-      rescue => ex
-        logger.error("Error handling manual failover: #{ex.inspect}")
-        logger.error(ex.backtrace.join("\n"))
       end
     end
   end

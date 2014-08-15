@@ -1,4 +1,9 @@
 module RedisFailover
+
+  module EtcdClientLock
+    class LockHoldError < StandardError; end
+  end
+
   # Base class for all RedisFailover errors.
   class Error < StandardError
   end

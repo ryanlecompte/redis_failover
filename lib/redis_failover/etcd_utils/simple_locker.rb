@@ -1,7 +1,6 @@
 module RedisFailover
   module EtcdClientLock
     ROOT_LOCK_SUFFIX = "_etcd_locking"
-    class LockHoldError < StandardError; end
 
     class SimpleLocker
       attr_reader :etcd, :root_lock_path
