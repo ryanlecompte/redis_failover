@@ -25,7 +25,7 @@ module RedisFailover
       spawn_watchers
       wait_until_master
     rescue *ETCD_ERRORS => ex
-      logger.error("ZK error while attempting to manage nodes: #{ex.inspect}")
+      logger.error("ETCD error while attempting to manage nodes: #{ex.inspect}")
       reset
       sleep(TIMEOUT)
       retry
@@ -151,7 +151,7 @@ module RedisFailover
     def delete_path(path)
       if etcd.exists?(path)
         etcd.delete(path, recursive: true)
-        logger.info("Deleted ZK node #{path}")
+        logger.info("Deleted ETCD node #{path}")
       end
     end
 
@@ -181,7 +181,7 @@ module RedisFailover
 
     # Handles a manual failover node update.
     #
-    # @param [ZK::Event] event the ZK event to handle
+    # @param Etcd::Response
     def handle_manual_failover_update(response)
       begin
         perform_manual_failover if response.action == "set" || response.action == "create"

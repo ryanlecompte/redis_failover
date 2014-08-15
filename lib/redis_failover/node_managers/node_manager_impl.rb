@@ -29,8 +29,7 @@ module RedisFailover
     # Creates a new instance.
     #
     # @param [Hash] options the options used to initialize the manager
-    # @option options [String] :zkservers comma-separated ZK host:port pairs
-    # @option options [String] :znode_path znode path override for redis nodes
+    # @option options [String] :node_path node path override for redis nodes
     # @option options [String] :password password for redis nodes
     # @option options [Array<String>] :nodes the nodes to manage
     # @option options [String] :max_failures the max failures for a node

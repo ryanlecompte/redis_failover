@@ -1,6 +1,7 @@
 module RedisFailover
   module EtcdClientLock
     ROOT_LOCK_SUFFIX = "_etcd_locking"
+    class LockHoldError < StandardError; end
 
     class SimpleLocker
       attr_reader :etcd, :root_lock_path
@@ -100,13 +101,6 @@ module RedisFailover
       # that they actually still hold the lock. (check for session interruption,
       # perhaps a lock is obtained in one method and handed to another)
       #
-      # This, unlike {#locked?} will actually go and check the conditions
-      # that constitute "holding the lock" with the server.
-      #
-      # @raise [InterruptedSession] raised when the zk session has either
-      #   closed or is in an invalid state.
-      #
-      # @raise [LockAssertionFailedError] raised if the lock is not held
       #
       # @example
       #
@@ -126,17 +120,17 @@ module RedisFailover
       #
       def assert!
         @mutex.synchronize do
-          raise LockAssertionFailedError, "have not obtained the lock yet"            unless locked?
-          raise LockAssertionFailedError, "lock_path was #{lock_path.inspect}"        unless lock_path
-          raise LockAssertionFailedError, "the lock path #{lock_path} did not exist!" unless etcd.exists?(lock_path)
-          raise LockAssertionFailedError, "we do not actually hold the lock"          unless got_lock?
+          raise LockHoldError, "have not obtained the lock yet"            unless locked?
+          raise LockHoldError, "lock_path was #{lock_path.inspect}"        unless lock_path
+          raise LockHoldError, "the lock path #{lock_path} did not exist!" unless etcd.exists?(lock_path)
+          raise LockHoldError, "we do not actually hold the lock"          unless got_lock?
         end
       end
 
       def assert
         assert!
         true
-      rescue LockAssertionFailedError
+      rescue LockHoldError
         false
       end
 
