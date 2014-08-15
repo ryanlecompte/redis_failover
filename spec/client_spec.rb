@@ -188,7 +188,7 @@ module RedisFailover
 
       context 'with :safe_mode enabled' do
         it 'rebuilds clients when no communication from Node Manager within certain time window' do
-          client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
+          client.instance_variable_set(:@last_node_timestamp, Time.at(0))
           client.should_receive(:build_clients).with(no_args)
           client.del('foo')
         end
@@ -197,7 +197,7 @@ module RedisFailover
       context 'with :safe_mode disabled' do
         it 'does not rebuild clients when no communication from Node Manager within certain time window' do
           client = ClientStub.new(:zkservers => 'localhost:9281', :safe_mode => false)
-          client.instance_variable_set(:@last_znode_timestamp, Time.at(0))
+          client.instance_variable_set(:@last_node_timestamp, Time.at(0))
           client.should_not_receive(:build_clients)
           client.del('foo')
         end

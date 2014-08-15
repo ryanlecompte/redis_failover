@@ -34,7 +34,7 @@ module RedisFailover
     # @option options [String] :host the host of the failover candidate
     # @option options [String] :port the port of the failover candidate
     def manual_failover(options = {})
-      super(@zk, @root_znode, options)
+      super(@zk, @root_node, options)
     end
 
     # Gracefully performs a shutdown of this client. This method is
@@ -132,11 +132,6 @@ module RedisFailover
           retry
         end
       end
-    end
-
-  # Updates timestamp when an event is received by the Node Manager.
-    def update_znode_timestamp
-      @last_znode_timestamp = Time.now
     end
   end
 end

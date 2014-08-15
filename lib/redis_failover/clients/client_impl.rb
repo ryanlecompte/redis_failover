@@ -442,6 +442,11 @@ module RedisFailover
       nil
     end
 
+    # Updates timestamp when an event is received by the Node Manager.
+    def update_znode_timestamp
+      @last_node_timestamp = Time.now
+    end
+
     def parse_redis_options(options)
       @namespace = options[:namespace]
       @password = options[:password]
