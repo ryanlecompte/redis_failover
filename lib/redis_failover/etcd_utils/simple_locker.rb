@@ -97,27 +97,7 @@ module RedisFailover
       end
 
 
-      # This is for users who wish to check that the assumption is correct
-      # that they actually still hold the lock. (check for session interruption,
-      # perhaps a lock is obtained in one method and handed to another)
-      #
-      #
-      # @example
-      #
-      #   def process_jobs
-      #     @lock.with_lock do
-      #       @jobs.each do |j|
-      #         @lock.assert!
-      #         perform_job(j)
-      #       end
-      #     end
-      #   end
-      #
-      #   def perform_job(j)
-      #     puts "hah! he thinks we're workin!"
-      #     sleep(60)
-      #   end
-      #
+      # Make sure the lock is still hold
       def assert!
         @mutex.synchronize do
           raise LockHoldError, "have not obtained the lock yet"            unless locked?
