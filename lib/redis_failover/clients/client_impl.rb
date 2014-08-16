@@ -443,7 +443,7 @@ module RedisFailover
     end
 
     # Updates timestamp when an event is received by the Node Manager.
-    def update_znode_timestamp
+    def update_node_timestamp
       @last_node_timestamp = Time.now
     end
 

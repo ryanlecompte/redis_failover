@@ -61,7 +61,7 @@ module RedisFailover
     #
     # @param [Hash] options the configuration options
     def parse_options(options)
-      if @options[:etcd] && @options[:etcd].empty?
+      if options[:etcd] && options[:etcd].empty?
         raise ArgumentError, 'must specify etcd option using `:etcd`'
       end
 

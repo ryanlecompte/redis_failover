@@ -77,14 +77,14 @@ module RedisFailover
       end
       @zk.on_connected { @zk.stat(redis_nodes_path, :watch => true) }
       @zk.stat(redis_nodes_path, :watch => true)
-      update_znode_timestamp
+      update_node_timestamp
     end
 
     # Handles a ZK event.
     #
     # @param [ZK::Event] event the ZK event to handle
     def handle_zk_event(event)
-      update_znode_timestamp
+      update_node_timestamp
       if event.node_created? || event.node_changed?
         build_clients
       elsif event.node_deleted?
