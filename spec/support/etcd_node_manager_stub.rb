@@ -1,5 +1,5 @@
 module RedisFailover
-  class NodeManagerStub < ZookeeperNodeManager
+  class EtcdNodeManagerStub < EtcdNodeManager
     attr_accessor :master
     # HACK - this will go away once we refactor the tests to use a real ZK/Redis server.
     public :current_nodes, :guess_master
@@ -21,8 +21,8 @@ module RedisFailover
       @nodes_discovered = true
     end
 
-    def setup_zk
-      @zk = NullObject.new
+    def setup_etcd
+      @etcd = NullObject.new
     end
 
     def slaves
