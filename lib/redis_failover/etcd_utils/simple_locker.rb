@@ -3,7 +3,7 @@ module RedisFailover
     ROOT_LOCK_SUFFIX = "_etcd_locking"
 
     class SimpleLocker
-      attr_reader :etcd, :root_lock_path
+      attr_reader :etcd, :root_lock_path, :lock_path
 
       def initialize(client, root_lock_node=nil, options = {})
         @etcd = client
@@ -17,8 +17,30 @@ module RedisFailover
         @lock_key_heartbeat = options[:lock_key_heartbeat] || 3
       end
 
+      # @return [Logger] the logger instance to use
+      def self.logger
+        @logger ||= begin
+          logger = Logger.new(STDOUT)
+          logger.level = Logger::INFO
+          logger.formatter = proc do |severity, datetime, progname, msg|
+            "#{datetime.utc} RedisFailover(ETCD locker) #{Process.pid} #{severity}: #{msg}\n"
+          end
+          logger
+        end
+      end
 
-      # block caller until lock is aquired, then yield
+      def logger
+        self.class.logger
+      end
+
+      # Sets a new logger to use.
+      #
+      # @param [Logger] logger a new logger to use
+      def self.logger=(logger)
+        @logger = logger
+      end
+
+      # block caller until lock is acquire, then yield
       # @yield [lock] calls the block with the lock instance when acquired
       #
       #
@@ -37,7 +59,6 @@ module RedisFailover
         synchronize { lock_path && File.basename(lock_path) }
       end
 
-      # @private
       def lock_number
         synchronize { lock_path && index_from_path(lock_path) }
       end
@@ -57,11 +78,6 @@ module RedisFailover
         synchronize { !!@waiting }
       end
 
-
-      def acquirable?
-        raise NotImplementedError
-      end
-
       # @return [true] if the lock was held and this method has
       #   unlocked it successfully
       #
@@ -70,7 +86,7 @@ module RedisFailover
         result = false
         @mutex.synchronize do
           if @locked
-            logger.debug { "unlocking" }
+            logger.debug("unlocking")
             result = cleanup_lock_path!
             @locked = false
           end
@@ -83,7 +99,7 @@ module RedisFailover
       def lock
         return true if @mutex.synchronize { @locked }
 
-        create_lock_path!()
+        create_lock_path!
         begin
           if block_until_lock!
             @mutex.synchronize { @locked = true }
@@ -129,44 +145,51 @@ module RedisFailover
         end
 
         def create_root_path!
-          tries = @nb_retries
+          tries = 0
           begin
             etcd.set(@root_lock_path, dir: true)
           rescue Etcd::NotFile
             # already exists
           rescue => ex
-            (tries +=1) <= 3 ? retry : logger.warn { "Can't create directory `#{@root_lock_path}`: #{ex.message}" }
+            (tries +=1) <= @nb_retries ? retry : logger.warn("Can't create directory `#{@root_lock_path}`: #{ex.message}")
           end
         end
 
-        def create_lock_path!
-          begin
-            tries = @nb_retries
-            @mutex.synchronize do
-              unless lock_path_exists?
-                @lock_path = etcd.create_in_order(root_lock_path, ttl: @lock_key_timeout).key
+        def create_lock_path!(tries = 0)
+          unless lock_path_exists?
+            begin
+              @mutex.synchronize do
+                response = etcd.create_in_order(root_lock_path, ttl: @lock_key_timeout)
+                @lock_path = response.node.key
+                @index = response.etcd_index
                 start_breathing!
+                logger.debug("got lock path at #{@lock_path}")
               end
+            rescue
+              (tries += 1) <= @nb_retries ? retry : raise
             end
-
-            logger.debug { "got lock path #{@lock_path}" }
-            @lock_path
-          rescue
-            (tries +=1) <= 3 ? retry : raise
           end
+
+          return @lock_path
         end
 
         def start_breathing!
           @breathing_thread.terminate if @breathing_thread
           @breathing_thread = Thread.new do
             loop do
+              tries = 0
+
               begin
-                etcd.set(@lock_path, ttl: @lock_key_heartbeat)
+                etcd.set(@lock_path, ttl: @lock_key_timeout)
                 sleep @lock_key_heartbeat
               rescue Timeout::Error
                 retry
-              rescue
-                (tries += 1) <= 3 ? retry : raise
+              rescue => ex
+                if (tries += 1) <= @nb_retries
+                  retry
+                else
+                  logger.error("Can't send heartbeat: #{ex.message}, #{ex.backtrace.join('\n')}")
+                end
               end
             end
           end
@@ -192,10 +215,11 @@ module RedisFailover
           @mutex.synchronize do
             if @lock_path && etcd.exists?(@lock_path)
               etcd.delete(@lock_path)
-              logger.debug { "removing lock path #{@lock_path}" }
+              logger.debug("removing lock path #{@lock_path}")
               result = true
             end
 
+            @breathing_thread.terminate if @breathing_thread
             @lock_path = nil
           end
 
@@ -204,13 +228,13 @@ module RedisFailover
 
         # Download all locking keys and returns the ones that have
         def blocking_locks
-          lock_keys = get_lock_children
-          lock_path ? lock_keys.select {|lock| index_from_path(lock) < lock_number} : lock_keys
+          lock_nodes = get_lock_children
+          lock_path ? lock_nodes.select {|lock_node| index_from_path(lock_node.key) < lock_number} : lock_nodes
         end
 
         # Performs the checks that (according to the recipe) mean that we hold the lock.
         def got_lock?
-          lock_path and blocking_locks.empty?
+          lock_path && blocking_locks.empty?
         end
 
         def block_until_lock!
@@ -223,10 +247,13 @@ module RedisFailover
             end
 
             begin
-              watch_options = {recursive: true, waitIndex: @index}
-              response = Timeout::timeout(etcd.read_timeout) {etcd.watch(root_lock_path, watch_options)}
-              @index = response.etcd_index
+              @mutex.synchronize do
+                watch_options = {recursive: true, waitIndex: @index}
+                response = Timeout::timeout(etcd.read_timeout) {etcd.watch(root_lock_path, watch_options)}
+                @index = response.node.modified_index + 1
+              end
             rescue Timeout::Error
+              @mutex.synchronize {@index = nil}
               retry
             end
           end
