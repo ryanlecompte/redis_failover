@@ -106,11 +106,13 @@ module RedisFailover
           else
             false
           end
+        rescue => ex
+          logger.error("Error, can't lock: #{ex.message}, #{ex.backtrace.join('\n')}")
+          raise
         ensure
           cleanup_lock_path! unless @locked
         end
       end
-
 
       # Make sure the lock is still hold
       def assert!
@@ -141,6 +143,16 @@ module RedisFailover
         def get_lock_children
           etcd.get(root_lock_path, recursive: true, sorted: true).children.select do |ary|
             ary.dir != true
+          end
+        end
+
+        def smallest_lock_path?
+          etcd.get(root_lock_path, recursive: true, sorted: true).children.any? do |node|
+            next if node.dir == true
+            current_number = index_from_path(node.key)
+
+            break false if current_number < lock_number
+            current_number == lock_number
           end
         end
 
@@ -214,8 +226,13 @@ module RedisFailover
 
           @mutex.synchronize do
             if @lock_path && etcd.exists?(@lock_path)
-              etcd.delete(@lock_path)
-              logger.debug("removing lock path #{@lock_path}")
+              begin
+                etcd.delete(@lock_path)
+                logger.debug("removing lock path `#{@lock_path}`")
+              rescue Etcd::KeyNotFound
+                logger.debug("lock path `#{@lock_path}` not found")
+              end
+
               result = true
             end
 
@@ -234,7 +251,7 @@ module RedisFailover
 
         # Performs the checks that (according to the recipe) mean that we hold the lock.
         def got_lock?
-          lock_path && blocking_locks.empty?
+          lock_path && smallest_lock_path?
         end
 
         def block_until_lock!
@@ -254,6 +271,9 @@ module RedisFailover
               end
             rescue Timeout::Error
               @mutex.synchronize {@index = nil}
+              retry
+            rescue Etcd::EventIndexCleared
+              @index = nil
               retry
             end
           end
