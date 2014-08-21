@@ -148,7 +148,7 @@ module RedisFailover
 
         def smallest_lock_path?
           etcd.get(root_lock_path, recursive: true, sorted: true).children.any? do |node|
-            next if node.dir == true
+            next if node.dir == true || node.ttl.to_i < 1
             current_number = index_from_path(node.key)
 
             break false if current_number < lock_number
@@ -225,18 +225,17 @@ module RedisFailover
           result = false
 
           @mutex.synchronize do
-            if @lock_path && etcd.exists?(@lock_path)
+            @breathing_thread.terminate if @breathing_thread
+            if @lock_path
               begin
                 etcd.delete(@lock_path)
-                logger.debug("removing lock path `#{@lock_path}`")
+                logger.debug("removed lock path `#{@lock_path}`")
+                result = true
               rescue Etcd::KeyNotFound
                 logger.debug("lock path `#{@lock_path}` not found")
               end
-
-              result = true
             end
 
-            @breathing_thread.terminate if @breathing_thread
             @lock_path = nil
           end
 
