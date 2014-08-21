@@ -12,7 +12,7 @@ module RedisFailover
     def self.new(args)
       raise ArgumentError, "agrs: #{args.inspect} must be a hash." unless args.is_a?(::Hash)
 
-      hash[:config_store] == :etcd ? EtcdNodeManager.new(args) : ZookeeperNodeManager.new(args)
+      args[:config_store] == :etcd ? EtcdNodeManager.new(args) : ZookeeperNodeManager.new(args)
     end
   end
 end

@@ -24,7 +24,7 @@ module RedisFailover
     # @return [RedisFailover::Client]
     def initialize(options = {})
       super
-      setup_zk
+      setup_etcd
       build_clients
     end
 
@@ -63,6 +63,8 @@ module RedisFailover
     def parse_options(options)
       if options[:etcd] && options[:etcd].empty?
         raise ArgumentError, 'must specify etcd option using `:etcd`'
+      else
+        @etcd_options = options[:etcd]
       end
 
       @root_node = options[:node_path] || options[:znode_path] || Util::DEFAULT_ROOT_NODE_PATH
@@ -71,10 +73,10 @@ module RedisFailover
 
     # Configures the Etcd client.
     def setup_etcd
-      return unless @etcd
+      return if @etcd
 
-      @etcd = Etcd.client(@options[:etcd])
-      @etcd.watch_etcd_folder(redis_nodes_path) {|response| handle_etcd_event(response) }
+      @etcd = Etcd.client(@etcd_options)
+      watch_etcd_folder(redis_nodes_path) {|response| handle_etcd_event(response) }
     end
 
     # Handles a Etcd event.
