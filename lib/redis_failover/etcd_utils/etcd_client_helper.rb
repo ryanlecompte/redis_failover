@@ -1,3 +1,5 @@
+require 'digest'
+
 module RedisFailover
   module EtcdClientHelper
     def self.included(base)
@@ -22,12 +24,16 @@ module RedisFailover
       @threads << Thread.new do
         loop do
           begin
-            watch_options = {recursive: recursive, waitIndex: instance_variable_get("@#{path}_index")}
+            name = Digest::MD5.hexdigest(path)
+            watch_options = {recursive: recursive, waitIndex: instance_variable_get("@index_#{name}")}
             response = Timeout::timeout(@etcd.read_timeout) {@etcd.watch(path,watch_options)}
-            instance_variable_get("@#{path}_index", response.etcd_index)
+            instance_variable_set("@index_#{name}", response.etcd_index)
 
             yield(response) if block_given?
           rescue Timeout::Error
+            retry
+          rescue Etcd::EventIndexCleared
+            instance_variable_set("@index_#{name}", nil)
             retry
           rescue
             (tries += 1) <= 3 ? retry : raise

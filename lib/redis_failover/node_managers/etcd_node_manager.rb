@@ -147,7 +147,7 @@ module RedisFailover
     # @option options [Boolean] :ephemeral true if node is ephemeral, false otherwise
     def create_path(path, options = {})
       begin
-        @etcd.set(path, options) unless client.exists?(path)
+        @etcd.set(path, options) unless @etcd.exists?(path)
       rescue => ex
         logger.warn("Something went wrong when trying to create directory: #{ex.message}.")
       end
