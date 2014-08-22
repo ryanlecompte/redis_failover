@@ -20,21 +20,25 @@ module RedisFailover
     # @note This method does not return until the manager terminates.
     def start
       return unless running?
-      setup_etcd
-      spawn_watchers
-      wait_until_master
-    rescue *ETCD_ERRORS => ex
-      logger.error("ETCD error while attempting to manage nodes: #{ex.inspect}")
-      reset
-      sleep(TIMEOUT)
-      retry
-    rescue NoMasterError
-      logger.error("Failed to promote a new master after #{MAX_PROMOTION_ATTEMPTS} attempts.")
-      reset
-      sleep(TIMEOUT)
-      retry
-    ensure
-      wait_threads_completion
+      begin
+        setup_etcd
+        spawn_watchers
+        wait_until_master
+      rescue *ETCD_ERRORS => ex
+        logger.error("ETCD error while attempting to manage nodes: #{ex.inspect}")
+        reset
+        sleep(TIMEOUT)
+        retry
+      rescue NoMasterError
+        logger.error("Failed to promote a new master after #{MAX_PROMOTION_ATTEMPTS} attempts.")
+        reset
+        sleep(TIMEOUT)
+        retry
+      rescue => ex
+        logger.error("Error Something went wrong: #{ex.message} \n #{ex.backtrace.join("\n")}")
+      ensure
+        wait_threads_completion
+      end
     end
 
     # Notifies the manager of a state change. Used primarily by
@@ -133,8 +137,8 @@ module RedisFailover
     #
     # @param [String] path the node path to delete
     def delete_path(path)
-      if etcd.exists?(path)
-        etcd.delete(path, recursive: true)
+      if @etcd.exists?(path)
+        @etcd.delete(path, recursive: true)
         logger.info("Deleted ETCD node #{path}")
       end
     end
@@ -160,7 +164,7 @@ module RedisFailover
     # @param [Hash] options the default options to be used when creating the node
     # @note the path will be created if it doesn't exist
     def write_state(path, value, options = {})
-      etcd.set(path, options.merge(:value => value))
+      @etcd.set(path, options.merge(:value => value))
     end
 
     # Handles a manual failover node update.
@@ -181,11 +185,11 @@ module RedisFailover
     # @return [Hash<String, Array>] a hash of node manager to host states
     def fetch_node_manager_states
       begin
-        etcd_nodes = etcd.get(current_state_root, recursive: true).children
+        etcd_nodes = @etcd.get(current_state_root, recursive: true).children
         states = etcd_nodes.each_with_object({}) do |etcd_node, states|
           child = etcd_node.key.gsub('current_state_root', '')
 
-          states[child] = etcd_node.key
+          states[child] = symbolize_keys(decode(etcd_node.value))
         end
       rescue => ex
         logger.error("Failed to fetch states for #{full_path}: #{ex.inspect}")
@@ -234,11 +238,11 @@ module RedisFailover
 
     # Executes a block wrapped in a etcd exclusive lock.
     def with_lock
-      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd)
+      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, '/redis_failover/etcd_lock')
 
       begin
-        @etcd_lock
-      rescue Exception
+        @etcd_lock.lock
+      rescue
         # handle shutdown case
         running? ? raise : return
       end
@@ -246,9 +250,7 @@ module RedisFailover
       if running?
         @etcd_lock.assert!
         yield
-      end
-    ensure
-      if @etcd_lock
+      end ensure if @etcd_lock
         begin
           @etcd_lock.unlock
         rescue => ex
