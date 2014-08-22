@@ -12,6 +12,8 @@ module RedisFailover
     include RedisFailover::EtcdClientHelper
 
     def initialize(options)
+      @lock_key_timeout = options[:lock_key_timeout] || 10
+      @lock_key_heartbeat = options[:lock_key_heartbeat] || 3
       super(options)
     end
 
@@ -37,6 +39,7 @@ module RedisFailover
       rescue => ex
         logger.error("Error Something went wrong: #{ex.message} \n #{ex.backtrace.join("\n")}")
       ensure
+        @monitor_state_thread.terminate if @monitor_state_thread
         wait_threads_completion
       end
     end
@@ -192,7 +195,7 @@ module RedisFailover
           states[child] = symbolize_keys(decode(etcd_node.value))
         end
       rescue => ex
-        logger.error("Failed to fetch states for #{full_path}: #{ex.inspect}")
+        logger.error("Failed to fetch states for #{current_state_root}: #{ex.inspect}")
         states ||= {}
       end
     end
@@ -238,7 +241,7 @@ module RedisFailover
 
     # Executes a block wrapped in a etcd exclusive lock.
     def with_lock
-      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, '/redis_failover/etcd_lock')
+      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, @root_node)
 
       begin
         @etcd_lock.lock
@@ -287,6 +290,37 @@ module RedisFailover
         rescue => ex
           logger.error("Error handling manual failover: #{ex.inspect}")
           logger.error(ex.backtrace.join("\n"))
+        end
+      end
+    end
+
+    # Writes the current monitored list of redis nodes. This method is always
+    # invoked by all running node managers.
+    def write_current_monitored_state
+      monitored_state = encode(node_availability_state)
+      write_state(current_state_path, monitored_state, :ttl => @lock_key_timeout)
+      heartbeat_monitored_state(monitored_state)
+    end
+
+    def heartbeat_monitored_state(monitored_state)
+      @monitor_state_thread.terminate if @monitor_state_thread
+      @monitor_state_thread = Thread.new do
+        loop do
+          tries = 0
+
+          begin
+            tries
+            @etcd.set(current_state_path, value: monitored_state, ttl: @lock_key_timeout)
+            sleep @lock_key_heartbeat
+          rescue Timeout::Error
+            retry
+          rescue => ex
+            if (tries += 1) <= @nb_retries
+              retry
+            else
+              logger.error("Can't send heartbeat to #{current_state_path}: #{ex.message}, #{ex.backtrace.join('\n')}")
+            end
+          end
         end
       end
     end

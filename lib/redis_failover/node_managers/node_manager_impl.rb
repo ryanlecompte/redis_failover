@@ -345,12 +345,6 @@ module RedisFailover
       write_state(redis_nodes_path, encode(current_nodes))
     end
 
-    # Writes the current monitored list of redis nodes. This method is always
-    # invoked by all running node managers.
-    def write_current_monitored_state
-      write_state(current_state_path, encode(node_availability_state), :ephemeral => true)
-    end
-
     # @return [String] root path for current node manager state
     def current_state_root
       "#{@root_node}/manager_node_state"

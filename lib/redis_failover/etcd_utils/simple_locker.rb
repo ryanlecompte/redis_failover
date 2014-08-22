@@ -1,12 +1,13 @@
 module RedisFailover
   module EtcdClientLock
+    ROOT_LOCK_SUFFIX = "/etcd_locking"
 
     class SimpleLocker
       attr_reader :etcd, :root_lock_path, :lock_path
 
       def initialize(client, root_lock_node, options = {})
         @etcd = client
-        @root_lock_path = root_lock_node
+        @root_lock_path = root_lock_node + ROOT_LOCK_SUFFIX
         @locked = false
         @waiting = false
         @lock_path = nil
