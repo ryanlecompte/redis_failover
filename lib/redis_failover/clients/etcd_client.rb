@@ -118,7 +118,7 @@ module RedisFailover
         nodes = redis_nodes_from_response(response)
         logger.debug("Fetched nodes: #{nodes.inspect}")
         nodes
-      rescue *ETCD_ERRORS => ex
+      rescue *ETCD_ERRORS, Errno::ECONNREFUSED => ex
         logger.error { "Caught #{ex.class} '#{ex.message}' - retrying ... [#{@trace_id}]" }
         sleep(RETRY_WAIT_TIME)
 
