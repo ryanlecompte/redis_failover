@@ -14,7 +14,7 @@ module RedisFailover
   #
   # @example Usage
   #   etcd_servers = 'localhost:4001,localhost:4002,localhost:4003'
-  #   client = RedisFailover::Client.new(:etcd_servers => etcd_servers)
+  #   client = RedisFailover::Client.new(:etcd_nodes => etcd_servers)
   #   client.set('foo', 1) # will be directed to master
   #   client.get('foo') # will be directed to a slave
   #
@@ -61,22 +61,26 @@ module RedisFailover
     #
     # @param [Hash] options the configuration options
     def parse_options(options)
-      if options[:etcd] && options[:etcd].empty?
-        raise ArgumentError, 'must specify etcd option using `:etcd`'
+      if options[:etcd_nodes] && options[:etcd_nodes].empty?
+        raise ArgumentError, 'must specify etcd option using `:etcd_nodes`'
       else
-        @etcd_options = options[:etcd]
+        @etcd_nodes_options = options[:etcd_nodes] || []
       end
 
       @root_node = options[:node_path] || options[:znode_path] || Util::DEFAULT_ROOT_NODE_PATH
       parse_redis_options(options)
     end
 
-    # Configures the Etcd client.
+    # Configures the Etcd clients.
     def setup_etcd
-      return if @etcd
+      setup_etcd_nodes(@etcd_nodes_options) unless @etcd_nodes
+      configure_etcd
+      watch_etcd_folder(redis_nodes_path) {|response| handle_etcd_event(response)}
+    end
 
-      @etcd = Etcd.client(@etcd_options)
-      watch_etcd_folder(redis_nodes_path) {|response| handle_etcd_event(response) }
+    # Configures the Etcd clients.
+    def setup_etcd_nodes(etcd_nodes)
+      @etcd_nodes = etcd_nodes.map{|etcd_options| Etcd.client(etcd_options)}
     end
 
     # Handles a Etcd event.

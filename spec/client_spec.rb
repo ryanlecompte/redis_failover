@@ -43,9 +43,13 @@ module RedisFailover
       }
     end
 
-    def setup_zk
+    def setup_etcd
       @etcd = NullObject.new
       update_node_timestamp
+    end
+
+    def configure_etcd
+      @etcd = setup_etcd
     end
   end
 
@@ -55,7 +59,7 @@ module RedisFailover
                   if client_type == ZkClientStub
                     {:zkservers => 'localhost:9281', :safe_mode => true}
                   else
-                    {:etcd => {:host => 'localhost', :port => '4001', :verify_mode => true}}
+                    {:etcd_nodes => [{:host => 'localhost', :port => '4001', :verify_mode => true}]}
                   end
                 }
       let(:client) { client_type.new(opts) }
@@ -92,7 +96,7 @@ module RedisFailover
                       if client_type == client_type
                         {:zkservers => 'localhost:1234'}
                       else
-                        {:etcd => {:host => 'localhost', :port => '1234'}}
+                        {:etcd_nodes => [{:host => 'localhost', :port => '1234'}]}
                       end
                     }
 
@@ -136,7 +140,7 @@ module RedisFailover
             opts = if client_type == client_type
               {:zkservers => 'localhost:9281', :master_only => true}
             else
-              {:etcd => {:host => 'localhost', :port => '4001', :allow_redirect => false}}
+              {:etcd_nodes => [{:host => 'localhost', :port => '4001', :allow_redirect => false}]}
             end
 
             client = client_type.new(opts)
@@ -241,7 +245,7 @@ module RedisFailover
           opts = if client_type == client_type
             {:zkservers => 'localhost:9281', :safe_mode => false}
           else
-            {:etcd => {:host => 'localhost', :port => '4001', :verify_mode => false}}
+            {:etcd_nodes => [{:host => 'localhost', :port => '4001', :verify_mode => false}]}
           end
 
           client = client_type.new(opts)

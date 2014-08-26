@@ -14,6 +14,7 @@ module RedisFailover
     def initialize(options)
       @lock_key_timeout = options[:lock_key_timeout] || 10
       @lock_key_heartbeat = options[:lock_key_heartbeat] || 3
+      setup_etcd_nodes(options[:etcd_nodes] || [])
       super(options)
     end
 
@@ -65,6 +66,7 @@ module RedisFailover
     def reset
       @master_manager = false
       @master_promotion_attempts = 0
+      @etcd = nil
       @watchers.each(&:shutdown) if @watchers
     end
 
@@ -84,12 +86,17 @@ module RedisFailover
     # Configures the Etcd client.
     def setup_etcd
       unless @etcd
-        @etcd = Etcd.client(@options[:etcd])
+        configure_etcd
         etcd_listen_manual_failover
       end
 
       create_path(@root_node, dir: true)
       create_path(current_state_root, dir: true)
+    end
+
+    # Configures the Etcd clients.
+    def setup_etcd_nodes(etcd_nodes)
+      @etcd_nodes = etcd_nodes.map{|etcd_options| Etcd.client(etcd_options)}
     end
 
     # Listens for changes in the manual failover folder

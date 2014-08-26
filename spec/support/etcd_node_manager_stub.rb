@@ -25,6 +25,10 @@ module RedisFailover
       @etcd = NullObject.new
     end
 
+    def configure_etcd
+      @etcd = setup_etcd
+    end
+
     def slaves
       @slaves
     end

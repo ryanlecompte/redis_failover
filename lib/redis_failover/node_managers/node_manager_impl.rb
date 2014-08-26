@@ -464,7 +464,7 @@ module RedisFailover
 
       with_lock do
         @master_manager = true
-        logger.info('Acquired master Node Manager lock.')
+        logger.info("Acquired master Node Manager lock.")
         logger.info("Configured node strategy #{@node_strategy.class}")
         logger.info("Configured failover strategy #{@failover_strategy.class}")
         logger.info("Required Node Managers to make a decision: #{@required_node_managers}")
