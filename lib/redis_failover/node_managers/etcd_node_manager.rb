@@ -185,6 +185,10 @@ module RedisFailover
       handle_etcd_failures {@etcd.set(path, options.merge(:value => value))}
     end
 
+    # Handles failures due to any issues related to the http etcd connections
+    # Sleeps and retries in case of failure, should be enough to fix network glitch
+    # If not then assumes something is wrong with the current Etcd leader
+    # Drops the connection and finds who's the new leader, then restarts
     def handle_etcd_failures
       tries = 0
 
@@ -192,7 +196,7 @@ module RedisFailover
         return yield if block_given?
       rescue Timeout::Error
         retry
-      rescue *ETCD_ERRORS, Errno::ECONNREFUSED => ex
+      rescue *ETCD_ERRORS, Errno::ECONNREFUSED, EOFError => ex
         logger.error { "Caught #{ex.class} '#{ex.message}' - retrying ..." }
         sleep(1)
 
@@ -256,6 +260,9 @@ module RedisFailover
       end
     end
 
+    # Master election algorithm:
+    # If enough snapshots are available, finds who's the current master or elects one.
+    # Updates the state of the world to Etcd
     def master_election
       @etcd_lock.assert!
       @lock.synchronize do
@@ -284,14 +291,7 @@ module RedisFailover
 
     # Executes a block wrapped in a etcd exclusive lock.
     def with_lock
-      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, @root_node, @options)
-
-      begin
-        @etcd_lock.lock
-      rescue
-        # handle shutdown case
-        running? ? raise : return
-      end
+      acquire_lock
 
       if running?
         @etcd_lock.assert!
@@ -301,6 +301,18 @@ module RedisFailover
           @etcd_lock.unlock
         rescue => ex
           logger.warn("Failed to release lock: #{ex.inspect}")
+        end
+      end
+    end
+
+    def acquire_lock
+      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, @root_node, @options)
+
+      handle_etcd_failures do
+        begin
+          @etcd_lock.lock
+        rescue
+          running? ? raise : return # handle shutdown case
         end
       end
     end

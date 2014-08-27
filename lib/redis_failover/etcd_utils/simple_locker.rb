@@ -147,6 +147,17 @@ module RedisFailover
         end
 
         def smallest_lock_path?
+          smallest_lock_path = etcd.get(root_lock_path, recursive: true).children.min_by do |node|
+            next Float::INFINITY if node.dir == true || node.ttl.to_i < 1
+            index_from_path(node.key)
+          end
+
+          smallest_lock_path.key == lock_path
+        end
+
+        # Etcd 0.4.6 sort is not working as expected(lexical sort vs numerical)
+        # This algorithm won't work with that version
+        def fast_smallest_lock_path?
           etcd.get(root_lock_path, recursive: true, sorted: true).children.any? do |node|
             next if node.dir == true || node.ttl.to_i < 1
             current_number = index_from_path(node.key)
