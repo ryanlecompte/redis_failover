@@ -14,6 +14,7 @@ module RedisFailover
     def initialize(options)
       @lock_key_timeout = options[:lock_key_timeout] || 10
       @lock_key_heartbeat = options[:lock_key_heartbeat] || 3
+      @nb_retries = options[:retries] || 3
       setup_etcd_nodes(options[:etcd_nodes] || [])
       super(options)
     end
@@ -38,7 +39,7 @@ module RedisFailover
         sleep(TIMEOUT)
         retry
       rescue => ex
-        logger.error("Error Something went wrong: #{ex.message} \n #{ex.backtrace.join("\n")}")
+        logger.error("Error Something went wrong: #{ex.class} \n #{ex.message} \n #{ex.backtrace.join("\n")}")
       ensure
         @monitor_state_thread.terminate if @monitor_state_thread
         wait_threads_completion
@@ -54,31 +55,36 @@ module RedisFailover
     def notify_state(node, state, latency = nil)
       @lock.synchronize do
         if running?
-          update_current_state(node, state, latency)
+          begin
+            update_current_state(node, state, latency)
+          rescue => ex
+            logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
+            logger.error(ex.backtrace.join("\n"))
+          end
         end
       end
-    rescue => ex
-      logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
-      logger.error(ex.backtrace.join("\n"))
     end
 
     # Performs a reset of the manager.
     def reset
       @master_manager = false
       @master_promotion_attempts = 0
-      @etcd = nil
+
+      terminate_threads
+      @monitor_state_thread.terminate if @monitor_state_thread
       @watchers.each(&:shutdown) if @watchers
+
+      @etcd_lock && @etcd_lock.unlock
+      @etcd = @etcd_lock = @monitor_state_thread = nil
     end
 
-    # Initiates a graceful shutdown.
-    def shutdown
-      logger.info('Shutting down ...')
-      @lock.synchronize do
-        @shutdown = true
-      end
-
+    # Initiates a `hot` restart.
+    def restart
+      logger.info('Process restarting ...')
+      @lock.synchronize { @shutdown = true}
       reset
-      exit
+      @lock.synchronize { @shutdown = false}
+      start
     end
 
     private
@@ -112,7 +118,7 @@ module RedisFailover
 
     # Seeds the initial node master from an existing node config.
     def find_existing_master
-      if data = @etcd.get(redis_nodes_path).value
+      if data = handle_etcd_failures {@etcd.get(redis_nodes_path).value}
         nodes = symbolize_keys(decode(data))
         master = node_from(nodes[:master])
         logger.info("Master from existing node config: #{master || 'none'}")
@@ -147,9 +153,11 @@ module RedisFailover
     #
     # @param [String] path the node path to delete
     def delete_path(path)
-      if @etcd.exists?(path)
-        @etcd.delete(path, recursive: true)
-        logger.info("Deleted ETCD node #{path}")
+      handle_etcd_failures do
+        if @etcd.exists?(path)
+          @etcd.delete(path, recursive: true)
+          logger.info("Deleted ETCD node #{path}")
+        end
       end
     end
 
@@ -161,9 +169,9 @@ module RedisFailover
     # @option options [Boolean] :ephemeral true if node is ephemeral, false otherwise
     def create_path(path, options = {})
       begin
-        @etcd.set(path, options) unless @etcd.exists?(path)
+        handle_etcd_failures {@etcd.set(path, options)} unless @etcd.exists?(path)
       rescue => ex
-        logger.warn("Something went wrong when trying to create directory: #{ex.message}.")
+        logger.warn("Something went wrong when trying to create directory: #{ex.message}.") # Best try
       end
     end
 
@@ -174,7 +182,28 @@ module RedisFailover
     # @param [Hash] options the default options to be used when creating the node
     # @note the path will be created if it doesn't exist
     def write_state(path, value, options = {})
-      @etcd.set(path, options.merge(:value => value))
+      handle_etcd_failures {@etcd.set(path, options.merge(:value => value))}
+    end
+
+    def handle_etcd_failures
+      tries = 0
+
+      begin
+        return yield if block_given?
+      rescue Timeout::Error
+        retry
+      rescue *ETCD_ERRORS, Errno::ECONNREFUSED => ex
+        logger.error { "Caught #{ex.class} '#{ex.message}' - retrying ..." }
+        sleep(1)
+
+        if (tries += 1) <= @nb_retries
+          retry
+        else
+          raise if tries > @nb_retries + @etcd_nodes.size
+          logger.error { "Oops, more than [#{@nb_retries}] retries: establishing fresh ETCD client" }
+          restart
+        end
+      end
     end
 
     # Handles a manual failover node update.
@@ -217,30 +246,37 @@ module RedisFailover
       redirect_slaves_to(@master)
 
       # Periodically update master config state.
-      while running? && master_manager?
-        @etcd_lock.assert!
-        sleep(CHECK_INTERVAL)
+      while running? && master_manager? && @etcd_lock
+        begin
+          master_election
+          sleep(CHECK_INTERVAL)
+        rescue *ETCD_ERRORS, Errno::ECONNREFUSED
+          restart
+        end
+      end
+    end
 
-        @lock.synchronize do
-          snapshots = current_node_snapshots
-          if ensure_sufficient_node_managers(snapshots)
+    def master_election
+      @etcd_lock.assert!
+      @lock.synchronize do
+        snapshots = current_node_snapshots
+        if ensure_sufficient_node_managers(snapshots)
 
-            sorted_snaps = snapshots.keys.sort_by {|node| node == @master ? 0 : 1 }  # process master node state first
-            orig_master = @master
+          sorted_snaps = snapshots.keys.sort_by {|node| node == @master ? 0 : 1 }  # process master node state first
+          orig_master = @master
 
-            sorted_snaps.each do |node|
-              next if @master != orig_master && node == @master   # skip processing of the just-promoted slave in this cycle
-              update_master_state(node, snapshots)
-            end
+          sorted_snaps.each do |node|
+            next if @master != orig_master && node == @master   # skip processing of the just-promoted slave in this cycle
+            update_master_state(node, snapshots)
+          end
 
-            # flush current master state
-            write_current_redis_nodes
+          # flush current master state
+          write_current_redis_nodes
 
-            # check if we've exhausted our attempts to promote a master
-            unless @master
-              @master_promotion_attempts += 1
-              raise NoMasterError if @master_promotion_attempts > MAX_PROMOTION_ATTEMPTS
-            end
+          # check if we've exhausted our attempts to promote a master
+          unless @master
+            @master_promotion_attempts += 1
+            raise NoMasterError if @master_promotion_attempts > MAX_PROMOTION_ATTEMPTS
           end
         end
       end
@@ -248,7 +284,7 @@ module RedisFailover
 
     # Executes a block wrapped in a etcd exclusive lock.
     def with_lock
-      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, @root_node)
+      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, @root_node, @options)
 
       begin
         @etcd_lock.lock
@@ -306,28 +342,15 @@ module RedisFailover
     def write_current_monitored_state
       monitored_state = encode(node_availability_state)
       write_state(current_state_path, monitored_state, :ttl => @lock_key_timeout)
-      heartbeat_monitored_state(monitored_state)
+      heartbeat_monitored_state(monitored_state) if @monitor_state_thread.nil? && running?
     end
 
     def heartbeat_monitored_state(monitored_state)
       @monitor_state_thread.terminate if @monitor_state_thread
       @monitor_state_thread = Thread.new do
         loop do
-          tries = 0
-
-          begin
-            tries
-            @etcd.set(current_state_path, value: monitored_state, ttl: @lock_key_timeout)
-            sleep @lock_key_heartbeat
-          rescue Timeout::Error
-            retry
-          rescue => ex
-            if (tries += 1) <= @nb_retries
-              retry
-            else
-              logger.error("Can't send heartbeat to #{current_state_path}: #{ex.message}, #{ex.backtrace.join('\n')}")
-            end
-          end
+          @etcd.set(current_state_path, value: monitored_state, ttl: @lock_key_timeout)
+          sleep @lock_key_heartbeat
         end
       end
     end

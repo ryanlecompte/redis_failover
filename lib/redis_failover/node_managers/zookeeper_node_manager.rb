@@ -56,9 +56,7 @@ module RedisFailover
     # Initiates a graceful shutdown.
     def shutdown
       logger.info('Shutting down ...')
-      @lock.synchronize do
-        @shutdown = true
-      end
+      @lock.synchronize { @shutdown = true}
 
       reset
       exit

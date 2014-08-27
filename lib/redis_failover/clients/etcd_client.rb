@@ -45,7 +45,7 @@ module RedisFailover
     # and then create a new instance of the client. The underlying
     # ZooKeeper client and redis clients will be closed.
     def shutdown
-      terminte_threads
+      terminate_threads
       @etcd = nil
       purge_clients
     end
@@ -127,7 +127,7 @@ module RedisFailover
         else
           tries = 0
           logger.error { "Oops, more than [#{@max_retries * 2}] retries: establishing fresh ETCD client [#{@trace_id}]" }
-          terminte_threads
+          terminate_threads
           @etcd = nil
           setup_etcd
           retry

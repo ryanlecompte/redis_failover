@@ -85,7 +85,8 @@ module RedisFailover
       Etcd::LeaderElect,
       Etcd::WatcherCleared,
       Etcd::EventIndexCleared,
-      EtcdClientLock::LockHoldError
+      EtcdClientLock::LockHoldError,
+      EtcdNoMasterError
     ].freeze
 
     # Full set of errors related to connectivity.

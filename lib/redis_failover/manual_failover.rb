@@ -42,7 +42,7 @@ module RedisFailover
 
     private
 
-    # Creates the znode path used for coordinating manual failovers.
+    # Creates the node path used for coordinating manual failovers.
     def create_path
       @config_client.create(self.class.path(@root_node))
     rescue ZK::Exceptions::NodeExists, *Util::ETCD_KEY_ERRORS

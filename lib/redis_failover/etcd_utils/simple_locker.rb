@@ -85,9 +85,9 @@ module RedisFailover
       def unlock
         result = false
         @mutex.synchronize do
+          result = cleanup_lock_path!
           if @locked
             logger.debug("unlocking")
-            result = cleanup_lock_path!
             @locked = false
           end
         end
@@ -198,6 +198,7 @@ module RedisFailover
                 retry
               rescue => ex
                 if (tries += 1) <= @nb_retries
+                  sleep 1
                   retry
                 else
                   logger.error("Can't send heartbeat: #{ex.message}, #{ex.backtrace.join('\n')}")
@@ -229,10 +230,12 @@ module RedisFailover
             if @lock_path
               begin
                 etcd.delete(@lock_path)
-                logger.debug("removed lock path `#{@lock_path}`")
+                logger.debug("Removed lock path `#{@lock_path}`")
                 result = true
               rescue Etcd::KeyNotFound
-                logger.debug("lock path `#{@lock_path}` not found")
+                logger.debug("Lock path `#{@lock_path}` not found")
+              rescue => ex
+                logger.error("Error When cleaning the lock path: #{ex.class}: #{ex.message}.")
               end
             end
 

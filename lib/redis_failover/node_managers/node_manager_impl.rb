@@ -74,9 +74,7 @@ module RedisFailover
 
     # Performs a reset of the manager.
     def reset
-      @master_manager = false
-      @master_promotion_attempts = 0
-      @watchers.each(&:shutdown) if @watchers
+      raise StandardError, 'Error: `start` needs to be implemented in child class.'
     end
 
     # Initiates a graceful shutdown.
@@ -223,7 +221,7 @@ module RedisFailover
         return unless running?
         @slaves, @unavailable = [], []
         if @master = find_existing_master
-          logger.info("Using master #{@master} from existing znode config.")
+          logger.info("Using master #{@master} from existing node config.")
         elsif @master = guess_master(@nodes)
           logger.info("Guessed master #{@master} from known redis nodes.")
         end
@@ -350,13 +348,13 @@ module RedisFailover
       "#{@root_node}/manager_node_state"
     end
 
-    # @return [String] the znode path for this node manager's view
+    # @return [String] the node path for this node manager's view
     # of available nodes
     def current_state_path
       "#{current_state_root}/#{manager_id}"
     end
 
-    # @return [String] the znode path for the master redis nodes config
+    # @return [String] the node path for the master redis nodes config
     def redis_nodes_path
       "#{@root_node}/nodes"
     end
@@ -366,7 +364,7 @@ module RedisFailover
       "#{@root_node}/master_redis_node_manager_lock"
     end
 
-    # @return [String] the znode path used for performing manual failovers
+    # @return [String] the node path used for performing manual failovers
     def manual_failover_path
       ManualFailover.path(@root_node)
     end

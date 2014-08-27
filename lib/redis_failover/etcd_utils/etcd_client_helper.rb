@@ -20,25 +20,35 @@ module RedisFailover
       end
     end
 
-    def watch_etcd_folder(path, recursive = true, tries = 0)
+    def watch_etcd_folder(path, recursive = true, &block)
       @threads << Thread.new do
         loop do
           begin
-            name = Digest::MD5.hexdigest(path)
-            watch_options = {recursive: recursive, waitIndex: instance_variable_get("@index_#{name}")}
-            response = Timeout::timeout(@etcd.read_timeout) {@etcd.watch(path,watch_options)}
-            instance_variable_set("@index_#{name}", response.etcd_index)
-
-            yield(response) if block_given?
-          rescue Timeout::Error
-            retry
-          rescue Etcd::EventIndexCleared
-            instance_variable_set("@index_#{name}", nil)
-            retry
-          rescue
-            (tries += 1) <= 3 ? retry : raise
+            wait_for_change(path, recursive, 0, &block)
+          rescue Errno::ECONNREFUSED
+            logger.error("Failed to watch the current folder: #{path}")
+            break
           end
         end
+      end
+    end
+
+    def wait_for_change(path, recursive, tries, &block)
+      begin
+        name = Digest::MD5.hexdigest(path)
+        watch_options = {recursive: recursive, waitIndex: instance_variable_get("@index_#{name}")}
+        response = Timeout::timeout(@etcd.read_timeout) {@etcd.watch(path,watch_options)}
+        instance_variable_set("@index_#{name}", response.etcd_index)
+
+        yield(response) if block_given?
+      rescue Timeout::Error
+        retry
+      rescue Etcd::EventIndexCleared
+        instance_variable_set("@index_#{name}", nil)
+        retry
+      rescue
+        sleep 1
+        (tries += 1) <= 3 ? retry : raise
       end
     end
 
@@ -63,7 +73,7 @@ module RedisFailover
       @threads.each(&:join)
     end
 
-    def terminte_threads
+    def terminate_threads
       @threads.each(&:terminate)
     end
   end
