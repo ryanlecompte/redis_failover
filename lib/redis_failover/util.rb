@@ -86,7 +86,8 @@ module RedisFailover
       Etcd::WatcherCleared,
       Etcd::EventIndexCleared,
       EtcdClientLock::LockHoldError,
-      EtcdNoMasterError
+      EtcdNoMasterError,
+      Net::HTTPFatalError   # Etcd clients returns Net::HTTPFatalError 500 "Internal Server Error"  when Etcd is unhappy
     ].freeze
 
     # Full set of errors related to connectivity.

@@ -15,7 +15,7 @@ module RedisFailover
       @lock_key_timeout = options[:lock_key_timeout] || 10
       @lock_key_heartbeat = options[:lock_key_heartbeat] || 3
       @nb_retries = options[:retries] || 3
-      setup_etcd_nodes(options[:etcd_nodes] || [])
+      @etcd_nodes_options = options[:etcd_nodes] || []
       super(options)
     end
 
@@ -29,19 +29,16 @@ module RedisFailover
         spawn_watchers
         wait_until_master
       rescue *ETCD_ERRORS => ex
-        logger.error("ETCD error while attempting to manage nodes: #{ex.inspect}")
-        reset
-        sleep(TIMEOUT)
+        manage_start_error("ETCD error while attempting to manage nodes: #{ex.inspect}")
         retry
       rescue NoMasterError
-        logger.error("Failed to promote a new master after #{MAX_PROMOTION_ATTEMPTS} attempts.")
-        reset
-        sleep(TIMEOUT)
+        manage_start_error("Failed to promote a new master after #{MAX_PROMOTION_ATTEMPTS} attempts.")
         retry
       rescue => ex
         logger.error("Error Something went wrong: #{ex.class} \n #{ex.message} \n #{ex.backtrace.join("\n")}")
       ensure
         @monitor_state_thread.terminate if @monitor_state_thread
+        @monitor_state_thread = nil
         wait_threads_completion
       end
     end
@@ -57,6 +54,11 @@ module RedisFailover
         if running?
           begin
             update_current_state(node, state, latency)
+          rescue NodeUnavailableError => ex
+             logger.warn("Failed to check whether the following node is available: #{node} => #{ex.inspect}")
+             old_state = state
+             state = :unavailable
+             retry if old_state != unavailable
           rescue => ex
             logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
             logger.error(ex.backtrace.join("\n"))
@@ -67,6 +69,7 @@ module RedisFailover
 
     # Performs a reset of the manager.
     def reset
+      @lock.synchronize { @shutdown = true}
       @master_manager = false
       @master_promotion_attempts = 0
 
@@ -81,7 +84,6 @@ module RedisFailover
     # Initiates a `hot` restart.
     def restart
       logger.info('Process restarting ...')
-      @lock.synchronize { @shutdown = true}
       reset
       @lock.synchronize { @shutdown = false}
       start
@@ -100,9 +102,12 @@ module RedisFailover
       create_path(current_state_root, dir: true)
     end
 
-    # Configures the Etcd clients.
-    def setup_etcd_nodes(etcd_nodes)
-      @etcd_nodes = etcd_nodes.map{|etcd_options| Etcd.client(etcd_options)}
+    # Logs the error message and resets
+    def manage_start_error(error_message)
+      logger.error(error_message)
+      reset
+      @lock.synchronize { @shutdown = false}
+      sleep(TIMEOUT)
     end
 
     # Listens for changes in the manual failover folder
@@ -203,7 +208,7 @@ module RedisFailover
         if (tries += 1) <= @nb_retries
           retry
         else
-          raise if tries > @nb_retries + @etcd_nodes.size
+          raise if tries > @nb_retries + @etcd_nodes_options.size
           logger.error { "Oops, more than [#{@nb_retries}] retries: establishing fresh ETCD client" }
           restart
         end
@@ -324,17 +329,17 @@ module RedisFailover
 
         begin
           @etcd_lock.assert!
-          new_master = @etcd.get(manual_failover_path, recursive: true, sorted: true).children.first
-          return unless new_master && new_master.key.size > 0
+          new_master = @etcd.get(manual_failover_path).value
+          return unless new_master && new_master.size > 0
 
           logger.info("Received manual failover request for: #{new_master}")
           logger.info("Current nodes: #{current_nodes.inspect}")
           snapshots = current_node_snapshots
 
-          node = if new_master.key == ManualFailover::ANY_SLAVE
+          node = if new_master == ManualFailover::ANY_SLAVE
             failover_strategy_candidate(snapshots)
           else
-            node_from(new_master.key)
+            node_from(new_master)
           end
 
           if node
@@ -352,17 +357,26 @@ module RedisFailover
     # Writes the current monitored list of redis nodes. This method is always
     # invoked by all running node managers.
     def write_current_monitored_state
-      monitored_state = encode(node_availability_state)
-      write_state(current_state_path, monitored_state, :ttl => @lock_key_timeout)
-      heartbeat_monitored_state(monitored_state) if @monitor_state_thread.nil? && running?
+      heartbeat_monitored_state if @monitor_state_thread.nil? && running?
     end
 
-    def heartbeat_monitored_state(monitored_state)
+    def heartbeat_monitored_state
       @monitor_state_thread.terminate if @monitor_state_thread
       @monitor_state_thread = Thread.new do
         loop do
-          @etcd.set(current_state_path, value: monitored_state, ttl: @lock_key_timeout)
-          sleep @lock_key_heartbeat
+          monitored_state = encode(node_availability_state)
+          retries = 0
+          begin
+            @etcd.set(current_state_path, value: monitored_state, ttl: @lock_key_timeout)
+            sleep @lock_key_heartbeat
+          rescue => ex
+            if (retries += 1) <= 3
+              sleep 0.5
+              retry
+            else
+              logger.error("Failed to update current redis state to Etcd: #{ex.inspect}")
+            end
+          end
         end
       end
     end

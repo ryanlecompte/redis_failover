@@ -73,14 +73,8 @@ module RedisFailover
 
     # Configures the Etcd clients.
     def setup_etcd
-      setup_etcd_nodes(@etcd_nodes_options) unless @etcd_nodes
       configure_etcd
       watch_etcd_folder(redis_nodes_path) {|response| handle_etcd_event(response)}
-    end
-
-    # Configures the Etcd clients.
-    def setup_etcd_nodes(etcd_nodes)
-      @etcd_nodes = etcd_nodes.map{|etcd_options| Etcd.client(etcd_options)}
     end
 
     # Handles a Etcd event.

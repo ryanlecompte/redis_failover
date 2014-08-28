@@ -38,7 +38,7 @@ module RedisFailover
         name = Digest::MD5.hexdigest(path)
         watch_options = {recursive: recursive, waitIndex: instance_variable_get("@index_#{name}")}
         response = Timeout::timeout(@etcd.read_timeout) {@etcd.watch(path,watch_options)}
-        instance_variable_set("@index_#{name}", response.etcd_index)
+        instance_variable_set("@index_#{name}", response.node.modified_index + 1)
 
         yield(response) if block_given?
       rescue Timeout::Error
@@ -57,11 +57,13 @@ module RedisFailover
       retries = 0
 
       begin
-        @etcd = @etcd_nodes.detect do |etcd_client|
-          etcd_client.machines.first["#{etcd_client.host}:#{etcd_client.port}"] rescue nil
+        @etcd_nodes_options.each do |etcd_options|
+          etcd_client = Etcd.client(etcd_options)
+          leader = etcd_client.machines.first["#{etcd_client.host}:#{etcd_client.port}"] rescue nil
+          break @etcd = etcd_client if leader
         end
 
-        raise EtcdNoMasterError, "Can't detect master in #{@etcd_nodes}" unless @etcd
+        raise EtcdNoMasterError, "Can't detect master in #{@etcd_nodes_options}" unless @etcd
       rescue
         sleep 1
         retry if (retries += 1) <= 3
