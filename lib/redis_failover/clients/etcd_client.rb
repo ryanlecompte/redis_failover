@@ -84,11 +84,25 @@ module RedisFailover
       @last_node_timestamp = Time.now
 
       if response.action == "set" || response.action == "create"
-        build_clients(redis_nodes_from_response(response))
-      elsif esponse.action == "delete"
+        rebuild_clients_from_response(response)
+      elsif response.action == "delete"
         purge_clients
+        @old_nodes = []
       else
         logger.error("Unknown ETCD node event: #{response.inspect}")
+      end
+    end
+
+    # Rebuilds the clients connection if needed
+    #
+    # @param [Etcd::Response] response the Etcd event to handle
+    def rebuild_clients_from_response(response)
+      current_nodes = redis_nodes_from_response(response)
+
+      if @old_nodes.nil? || @old_nodes != current_nodes
+        logger.info("New event detected, rebuilding clients...")
+        build_clients(current_nodes)
+        @old_nodes = current_nodes
       end
     end
 

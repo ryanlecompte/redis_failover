@@ -223,7 +223,7 @@ module RedisFailover
       end
     end
 
-      # Builds the Redis clients for the currently known master/slaves.
+    # Builds the Redis clients for the currently known master/slaves.
     # The current master/slaves are fetched via ZooKeeper or Etcd.
     def build_clients(nodes = nil)
       @lock.synchronize do
