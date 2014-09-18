@@ -294,6 +294,11 @@ module RedisFailover
       end
     end
 
+    def write_current_redis_nodes
+      super if @previous_redis_state.nil? || @previous_redis_state != current_nodes
+      @previous_redis_state = current_nodes
+    end
+
     # Executes a block wrapped in a etcd exclusive lock.
     def with_lock
       acquire_lock
