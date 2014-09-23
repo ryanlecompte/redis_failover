@@ -26,6 +26,8 @@ module RedisFailover
       MultipleMastersError
     ].freeze
 
+    attr_reader :signals_handler
+
     # Creates a new instance.
     #
     # @param [Hash] options the options used to initialize the manager
@@ -45,6 +47,8 @@ module RedisFailover
       @master_promotion_attempts = 0
       @sufficient_node_managers = false
       @lock = Monitor.new
+      @signals_handler = RedisFailover::SignalsHandler.new
+      @signals_handler.listen_signal {|signal| shutdown if [:INT,:TERM].include?(signal)}
       @shutdown = false
     end
 

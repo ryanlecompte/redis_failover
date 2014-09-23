@@ -53,15 +53,6 @@ module RedisFailover
       @watchers.each(&:shutdown) if @watchers
     end
 
-    # Initiates a graceful shutdown.
-    def shutdown
-      logger.info('Shutting down ...')
-      @lock.synchronize { @shutdown = true}
-
-      reset
-      exit
-    end
-
     private
 
     # Configures the ZooKeeper client.
