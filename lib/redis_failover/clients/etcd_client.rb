@@ -64,7 +64,8 @@ module RedisFailover
       if options[:etcd_nodes] && options[:etcd_nodes].empty?
         raise ArgumentError, 'must specify etcd option using `:etcd_nodes`'
       else
-        @etcd_nodes_options = options[:etcd_nodes] || []
+        nodes_options = options[:etcd_nodes] || []
+        @etcd_nodes_options = nodes_options.map{|n| Util.symbolize_keys(n)}
       end
 
       @root_node = options[:node_path] || options[:znode_path] || Util::DEFAULT_ROOT_NODE_PATH
