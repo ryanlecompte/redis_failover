@@ -328,6 +328,8 @@ module RedisFailover
         data = @zk.get(redis_nodes_path, :watch => true).first
         nodes = symbolize_keys(decode(data))
         logger.debug("Fetched nodes: #{nodes.inspect}")
+        update_znode_timestamp
+
         nodes
       rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
         logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client [#{@trace_id}]" }
@@ -525,7 +527,7 @@ module RedisFailover
       @master_only = options.fetch(:master_only, false)
       @verify_role = options.fetch(:verify_role, true)
 
-      @redis_client_options = Redis::Client::DEFAULTS.keys.each_with_object({}) do |key, hash| 
+      @redis_client_options = Redis::Client::DEFAULTS.keys.each_with_object({}) do |key, hash|
         hash[key] = options[key]
       end
     end
