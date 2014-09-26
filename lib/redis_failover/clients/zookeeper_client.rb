@@ -106,6 +106,7 @@ module RedisFailover
         data = @zk.get(redis_nodes_path, :watch => true).first
         nodes = symbolize_keys(decode(data))
         logger.debug("Fetched nodes: #{nodes.inspect}")
+        update_node_timestamp
         nodes
       rescue Zookeeper::Exceptions::InheritedConnectionError, ZK::Exceptions::InterruptedSession => ex
         logger.debug { "Caught #{ex.class} '#{ex.message}' - reopening ZK client [#{@trace_id}]" }

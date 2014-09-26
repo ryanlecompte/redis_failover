@@ -199,7 +199,7 @@ module RedisFailover
 
       begin
         return yield if block_given?
-      rescue Timeout::Error
+      rescue Timeout::Error, Errno::ETIMEDOUT
         retry
       rescue *ETCD_ERRORS, Errno::ECONNREFUSED, EOFError => ex
         logger.error { "Caught #{ex.class} '#{ex.message}' - retrying ..." }
@@ -292,11 +292,6 @@ module RedisFailover
           end
         end
       end
-    end
-
-    def write_current_redis_nodes
-      super if @previous_redis_state.nil? || @previous_redis_state != current_nodes
-      @previous_redis_state = current_nodes
     end
 
     # Executes a block wrapped in a etcd exclusive lock.

@@ -126,10 +126,11 @@ module RedisFailover
         response = @etcd.get(redis_nodes_path)
         nodes = redis_nodes_from_response(response)
         logger.debug("Fetched nodes: #{nodes.inspect}")
+        update_node_timestamp
         nodes
       rescue Etcd::KeyNotFound
         raise StandardError, "The redis node path does not exists: `#{redis_nodes_path}`"
-      rescue *ETCD_ERRORS, Errno::ECONNREFUSED => ex
+      rescue *ETCD_ERRORS, Errno::ECONNREFUSED, Errno::ETIMEDOUT => ex
         logger.error { "Caught #{ex.class} '#{ex.message}' - retrying ... [#{@trace_id}]" }
         sleep(RETRY_WAIT_TIME)
 

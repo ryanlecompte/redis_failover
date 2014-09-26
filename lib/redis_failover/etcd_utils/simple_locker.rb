@@ -50,6 +50,14 @@ module RedisFailover
         yield self ensure unlock
       end
 
+      def with_timeout_retries(tries = 0)
+        begin
+          yield
+        rescue Timeout::Error, Errno::ETIMEDOUT
+          retry if (tries += 1) > 5
+        end
+      end
+
       # the basename of our lock path
       #
       #
@@ -141,18 +149,22 @@ module RedisFailover
         end
 
         def get_lock_children
-          etcd.get(root_lock_path, recursive: true, sorted: true).children.select do |ary|
-            ary.dir != true
+          with_timeout_retries do
+            etcd.get(root_lock_path, recursive: true, sorted: true).children.select do |ary|
+              ary.dir != true
+            end
           end
         end
 
         def smallest_lock_path?
-          smallest_lock_path = etcd.get(root_lock_path, recursive: true).children.min_by do |node|
-            next Float::INFINITY if node.dir == true || node.ttl.to_i < 1
-            index_from_path(node.key)
-          end
+          with_timeout_retries do
+            smallest_lock_path = etcd.get(root_lock_path, recursive: true).children.min_by do |node|
+              next Float::INFINITY if node.dir == true || node.ttl.to_i < 1
+              index_from_path(node.key)
+            end
 
-          smallest_lock_path.key == lock_path
+            smallest_lock_path.key == lock_path
+          end
         end
 
         # Etcd 0.4.6 sort is not working as expected(lexical sort vs numerical)
@@ -205,7 +217,7 @@ module RedisFailover
               begin
                 etcd.set(@lock_path, ttl: @lock_key_timeout)
                 sleep @lock_key_heartbeat
-              rescue Timeout::Error
+              rescue Timeout::Error, Errno::ETIMEDOUT
                 retry
               rescue => ex
                 if (tries += 1) <= @nb_retries
