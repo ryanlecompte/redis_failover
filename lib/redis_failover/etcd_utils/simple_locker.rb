@@ -3,7 +3,7 @@ module RedisFailover
     ROOT_LOCK_SUFFIX = "/etcd_locking"
 
     class SimpleLocker
-      attr_reader :etcd, :root_lock_path, :lock_path
+      attr_reader :etcd, :root_lock_path, :lock_path, :lock_value
 
       def initialize(client, root_lock_node, options = {})
         @etcd = client
@@ -15,6 +15,7 @@ module RedisFailover
         @nb_retries = options[:retries] || 3
         @lock_key_timeout = options[:lock_key_timeout] || 10
         @lock_key_heartbeat = options[:lock_key_heartbeat] || 3
+        @lock_value = options[:lock_value]
       end
 
       # @return [Logger] the logger instance to use
@@ -194,7 +195,7 @@ module RedisFailover
           unless lock_path_exists?
             begin
               @mutex.synchronize do
-                response = etcd.create_in_order(root_lock_path, ttl: @lock_key_timeout)
+                response = etcd.create_in_order(root_lock_path, ttl: @lock_key_timeout, value: lock_value)
                 @lock_path = response.node.key
                 @index = response.etcd_index
                 start_breathing!
@@ -215,7 +216,7 @@ module RedisFailover
               tries = 0
 
               begin
-                etcd.set(@lock_path, ttl: @lock_key_timeout)
+                etcd.set(@lock_path, ttl: @lock_key_timeout, value: lock_value)
                 sleep @lock_key_heartbeat
               rescue Timeout::Error, Errno::ETIMEDOUT
                 retry

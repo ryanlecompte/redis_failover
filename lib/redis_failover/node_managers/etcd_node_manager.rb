@@ -311,7 +311,7 @@ module RedisFailover
     end
 
     def acquire_lock
-      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, @root_node, @options)
+      @etcd_lock ||= EtcdClientLock::SimpleLocker.new(@etcd, @root_node, @options.merge(lock_value: manager_id))
 
       handle_etcd_failures do
         begin
