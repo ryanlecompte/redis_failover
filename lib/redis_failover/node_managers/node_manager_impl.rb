@@ -64,11 +64,12 @@ module RedisFailover
     #
     # @param [Node] node the node
     # @param [Symbol] state the state
-    # @param [Integer] latency an optional latency
-    def notify_state(node, state, latency = nil)
+    # @param [Integer] lag data sync  latency
+    # @param [Integer] ping network latency
+    def notify_state(node, state, lag, ping)
       @lock.synchronize do
         if running?
-          update_current_state(node, state, latency)
+          update_current_state(node, state, lag, ping)
         end
       end
     rescue => ex
@@ -180,13 +181,6 @@ module RedisFailover
 
       # make a specific node or selected candidate the new master
       candidate = node || failover_strategy_candidate(snapshots)
-
-      if candidate.nil?
-        # During master failure, 'unavailable' (for reads) slave nodes can actually still be perfectly electable (i.e. when slave-serve-stale-data is disabled)
-        logger.info( "Unable to locate promotable slave from available snapshots: #{snapshots.inspect}" )
-        logger.info( "Attempting to locate healthy slave via fallback discovery ..." )
-        candidate = discover_electable_slave( @nodes )
-      end
 
       if candidate.nil?
         logger.error('Failed to promote a new master, no candidate available.')
@@ -325,10 +319,7 @@ module RedisFailover
     # @return [Hash] the set of currently available/unavailable nodes as
     # seen by this node manager instance
     def node_availability_state
-      {
-        :available => Hash[@monitored_available.map { |k, v| [k.to_s, v] }],
-        :unavailable => @monitored_unavailable.map(&:to_s)
-      }
+      @monitored_state
     end
 
     # Produces a FQDN id for this Node Manager.
@@ -410,51 +401,29 @@ module RedisFailover
     #
     # @param [Node] node the node to handle
     # @param [Symbol] state the node state
-    # @param [Integer] latency an optional latency
-    def update_current_state(node, state, latency = nil)
-      old_unavailable = @monitored_unavailable.dup
-      old_available = @monitored_available.dup
-
-      case state
-      when :unavailable
-        unless @monitored_unavailable.include?(node)
-          @monitored_unavailable << node
-          @monitored_available.delete(node)
-          write_current_monitored_state
-        end
-      when :available
-        last_latency = @monitored_available[node]
-        if last_latency.nil? || (latency - last_latency).abs > LATENCY_THRESHOLD
-          @monitored_available[node] = latency
-          @monitored_unavailable.delete(node)
-          write_current_monitored_state
-        end
-      else
-        raise InvalidNodeStateError.new(node, state)
+    # @param [Integer] lag an optional lag
+    # @param [Integer] ping an optional latency
+    def update_current_state(node, state, lag, ping)
+      raise InvalidNodeStateError.new(node, state) unless [:available, :electable, :unavailable].include?(state)
+      begin
+        old_state = Marshal.load(Marshal.dump(@monitored_state))
+        @monitored_state[node] = {state: state, lag: lag, ping: ping}
+        write_current_monitored_state
+      rescue => ex
+        # if an error occurs, make sure that we rollback to the old state
+        @monitored_state = old_state
+        raise
       end
-    rescue => ex
-      # if an error occurs, make sure that we rollback to the old state
-      @monitored_unavailable = old_unavailable
-      @monitored_available = old_available
-      raise
     end
 
     # Builds current snapshots of nodes across all running node managers.
     #
     # @return [Hash<Node, NodeSnapshot>] the snapshots for all nodes
     def current_node_snapshots
-      nodes = {}
       snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k) }
-      fetch_node_manager_states.each do |node_manager, states|
-        available, unavailable = states.values_at(:available, :unavailable)
-        available.each do |node_string, latency|
-          node = nodes[node_string] ||= node_from(node_string)
-          snapshots[node].viewable_by(node_manager, latency)
-        end
-        unavailable.each do |node_string|
-          node = nodes[node_string] ||= node_from(node_string)
-          snapshots[node].unviewable_by(node_manager)
-        end
+      fetch_node_manager_states.each do |node_manager, report|
+        node = node_from(node_manager)
+        snapshots[node] = update_state_from_report(node_manager, report)
       end
 
       snapshots
@@ -531,11 +500,16 @@ module RedisFailover
     # @return [Node] a failover candidate
     def failover_strategy_candidate(snapshots)
       # only include nodes that this master Node Manager can see
-      filtered_snapshots = snapshots.select do |node, snapshot|
-        snapshot.viewable_by?(manager_id)
+      result = {available: [], electable: []}
+      snapshots.each do |snapshot|
+        result[:available] << snapshot if snapshot.viewable_by?(manager_id)
+        result[:electable] << snapshot if snapshot.electable?(manager_id)
       end
 
+      filtered_snapshots = result[:available].empty? ? result[:electable] : result[:available]
+
       logger.info('Attempting to find candidate from snapshots:')
+      logger.info("\n found: #{result}. After filtering got:")
       logger.info("\n" + filtered_snapshots.values.join("\n"))
       @failover_strategy.find_candidate(filtered_snapshots)
     end

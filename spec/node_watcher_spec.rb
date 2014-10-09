@@ -6,12 +6,12 @@ module RedisFailover
       @node_states = {}
     end
 
-    def notify_state(node, state, latency = nil)
-      @node_states[node] = state
+    def notify_state(node, state, lag, latency)
+      @node_states[node] = {state: state, lag: lag, latency: latency}
     end
 
     def state_for(node)
-      @node_states[node]
+      @node_states[node][:state]
     end
   end
 
@@ -32,18 +32,28 @@ module RedisFailover
         end
 
         it 'properly informs manager of available node' do
-          node_manager.notify_state(node, :unavailable)
+          node_manager.notify_state(node, :unavailable, -1, -1)
           watcher = NodeWatcher.new(node_manager, node, 1)
           watcher.watch
           sleep(3)
           watcher.shutdown
           node_manager.state_for(node).should == :available
         end
+
+        it 'properly informs manager node is electable when node is out of sync' do
+          node_manager.notify_state(node, :available, 0, 0)
+          node.redis.slave_out_of_sync(false)
+          watcher = NodeWatcher.new(node_manager, node, 1)
+          watcher.watch
+          sleep(3)
+          watcher.shutdown
+          node_manager.state_for(node).should == :electable
+        end
       end
 
       context 'node is syncing with master' do
         it 'properly informs manager node is up when serve-stale-data is true' do
-          node_manager.notify_state(node, :unavailable)
+          node_manager.notify_state(node, :unavailable, -1, -1)
           node.redis.force_sync_with_master(true)
           watcher = NodeWatcher.new(node_manager, node, 1)
           watcher.watch
@@ -53,7 +63,7 @@ module RedisFailover
         end
 
         it 'properly informs manager node is down when serve-stale-data is false' do
-          node_manager.notify_state(node, :available)
+          node_manager.notify_state(node, :available, 0, 0)
           node.redis.force_sync_with_master(false)
           watcher = NodeWatcher.new(node_manager, node, 1)
           watcher.watch

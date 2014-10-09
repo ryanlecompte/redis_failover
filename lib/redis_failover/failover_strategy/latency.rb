@@ -8,6 +8,8 @@ module RedisFailover
         candidates = {}
         snapshots.each do |node, snapshot|
           if snapshot.all_available?
+            candidates[node] = snapshot.avg_lag
+          elsif snapshot.all_electable?
             candidates[node] = snapshot.avg_latency
           end
         end

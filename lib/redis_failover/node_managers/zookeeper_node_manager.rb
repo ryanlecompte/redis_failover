@@ -29,23 +29,6 @@ module RedisFailover
       retry
     end
 
-    # Notifies the manager of a state change. Used primarily by
-    # {RedisFailover::NodeWatcher} to inform the manager of watched node states.
-    #
-    # @param [Node] node the node
-    # @param [Symbol] state the state
-    # @param [Integer] latency an optional latency
-    def notify_state(node, state, latency = nil)
-      @lock.synchronize do
-        if running?
-          update_current_state(node, state, latency)
-        end
-      end
-    rescue => ex
-      logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
-      logger.error(ex.backtrace.join("\n"))
-    end
-
     # Performs a reset of the manager.
     def reset
       @master_manager = false
@@ -96,7 +79,7 @@ module RedisFailover
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
       @zk.delete(current_state_path, :ignore => :no_node)
-      @monitored_available, @monitored_unavailable = {}, []
+      @monitored_state = {}
       @watchers = @nodes.map do |node|
         NodeWatcher.new(self, node, @options.fetch(:max_failures, 3))
       end
