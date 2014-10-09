@@ -148,7 +148,7 @@ module RedisFailover
       @zk.children(current_state_root).each do |child|
         full_path = "#{current_state_root}/#{child}"
         begin
-          states[child] = symbolize_keys(decode(@zk.get(full_path).first))
+          states[child] = deep_symbolize_keys(decode(@zk.get(full_path).first))
         rescue ZK::Exceptions::NoNode
           # ignore, this is an edge case that can happen when a node manager
           # process dies while fetching its state

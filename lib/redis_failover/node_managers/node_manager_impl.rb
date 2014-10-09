@@ -256,7 +256,7 @@ module RedisFailover
     # @param [Array<Node>] nodes the nodes to search
     # @return [Node] the found master node, nil if not found
     def guess_master(nodes)
-      master_nodes = nodes.select { |node| node.master? }
+     master_nodes = nodes.select { |node| node.master?}
       raise NoMasterError if master_nodes.empty?
       raise MultipleMastersError.new(master_nodes) if master_nodes.size > 1
       master_nodes.first
@@ -402,12 +402,12 @@ module RedisFailover
     # @param [Node] node the node to handle
     # @param [Symbol] state the node state
     # @param [Integer] lag an optional lag
-    # @param [Integer] ping an optional latency
-    def update_current_state(node, state, lag, ping)
+    # @param [Integer] latency an optional latency
+    def update_current_state(node, state, lag, latency)
       raise InvalidNodeStateError.new(node, state) unless [:available, :electable, :unavailable].include?(state)
       begin
         old_state = Marshal.load(Marshal.dump(@monitored_state))
-        @monitored_state[node] = {state: state, lag: lag, ping: ping}
+        @monitored_state[node] = {state: state, lag: lag, latency: latency}
         write_current_monitored_state
       rescue => ex
         # if an error occurs, make sure that we rollback to the old state
@@ -421,12 +421,15 @@ module RedisFailover
     # @return [Hash<Node, NodeSnapshot>] the snapshots for all nodes
     def current_node_snapshots
       snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k) }
-      fetch_node_manager_states.each do |node_manager, report|
-        node = node_from(node_manager)
-        snapshots[node] = update_state_from_report(node_manager, report)
+
+      fetch_node_manager_states.each do |node_manager_id, snapshot|
+        snapshot.each do |node_string, report|
+          node = node_from(node_string)
+          snapshots[node].update_state_from_report(node_string, report)
+        end
       end
 
-      snapshots
+      return snapshots
     end
 
     # Waits until this node manager becomes the master.
@@ -441,16 +444,6 @@ module RedisFailover
         logger.info("Required Node Managers to make a decision: #{@required_node_managers}")
         manage_nodes
       end
-    end
-
-    # Creates a Node instance from a string.
-    #
-    # @param [String] node_string a string representation of a node (e.g., host:port)
-    # @return [Node] the Node representation
-    def node_from(node_string)
-      return if node_string.nil?
-      host, port = node_string.split(':', 2)
-      Node.new(:host => host, :port => port, :password => @options[:password])
     end
 
     # @return [Boolean] true if running, false otherwise

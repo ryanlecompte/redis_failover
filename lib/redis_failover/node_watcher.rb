@@ -49,14 +49,14 @@ module RedisFailover
         begin
           break if @done
           sleep(WATCHER_SLEEP_TIME)
-          lag = Benchmark.realtime { @node.healthcheck }
+          latency = Benchmark.realtime { @node.healthcheck }
           failures = 0
-          notify(:available, lag)
+          notify(:available, latency)
         rescue NodeUnavailableError => ex
           logger.warn("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
           if failures >= @max_failures
-            notify(:unavailable, lag)
+            notify(:unavailable, latency || -1)
             failures = 0
           end
         rescue Exception => ex
@@ -70,10 +70,10 @@ module RedisFailover
     #
     # @param [Symbol] state the node's state
     # @param [Integer] lag data sync latency
-    def notify(state, lag)
-      ping = @node.electability rescue -1
-      state = :electable if ping > 0
-      @manager.notify_state(@node, state, lag, ping)
+    def notify(state, latency)
+      lag = @node.electability rescue -1
+      state = :electable if state == :unavailable && lag >= 0
+      @manager.notify_state(@node, state, lag, latency)
     end
   end
 end

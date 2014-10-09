@@ -14,20 +14,20 @@ module RedisFailover
       @state = {}
     end
 
-    # Creates a report based on lag and ping collected before
+    # Creates a report based on lag and latency collected before
     #
     # @param [String] node_manager: the node manager id
     # @param [Integer] lag: sync latency between master and slave
-    # @param [Integer] ping: network latency between master and slave
-    def update_state(node_manager, lag, ping, state = nil)
+    # @param [Integer] latency: network latency between master and slave
+    def update_state(node_manager, lag, latency, state = nil)
       @state[node_manager] = {}
       @state[node_manager][:lag] = lag
-      @state[node_manager][:ping] = ping
+      @state[node_manager][:latency] = latency
       @state[node_manager][:state] = state || state_from_report(@state[node_manager])
     end
 
     def update_state_from_report(node_manager, report)
-      update_state(node_manager, report[:lag], report[:ping], report[:state])
+      update_state(node_manager, report[:lag], report[:latency], report[:state])
     end
 
     # Declares this node available by the specified node manager.
@@ -35,9 +35,9 @@ module RedisFailover
     # @param [String] node_manager the node manager id
     # @param [Integer] latency the latency
     def state_from_report(node_manager_report)
-      if node_manager_report[:lag] >= 0
+      if node_manager_report[:latency] >= 0
         :available
-      elsif node_manager_report[:ping] >= 0
+      elsif node_manager_report[:lag] >= 0
         :electable
       else
         :unavailable
@@ -49,7 +49,7 @@ module RedisFailover
     # @param [String] node_manager the node manager id
     def viewable_by?(node_manager)
       node_manager_view = @state[node_manager]
-      node_manager_view && node_manager_view[:lag].to_i >= 0
+      node_manager_view && node_manager_view[:latency].to_i >= 0
     end
 
     # Determines if this node is electable by a node manager.
@@ -57,7 +57,7 @@ module RedisFailover
     # @param [String] node_manager the node manager id
     def electable_by?(node_manager)
       node_manager_view = @state[node_manager]
-      node_manager_view && node_manager_view[:ping].to_i >= 0
+      node_manager_view && node_manager_view[:lag].to_i >= 0
     end
 
     # @return [Integer] the number of node managers saying
@@ -69,13 +69,13 @@ module RedisFailover
     # @return [Integer] the number of node managers saying
     # this node is electable
     def electable_nodes
-      @state.map {|node_manager, report| node_manager if report[:ping].to_i >= 0}.compact
+      @state.map {|node_manager, report| node_manager if report[:latency].to_i >= 0}.compact
     end
 
     # @return [Integer] the number of node managers saying
     # this node is unavailable
     def unavailable_nodes
-      @state.map {|node_manager, report| node_manager if report[:lag].to_i < 0 && report[:ping] < 0}.compact
+      @state.map {|node_manager, report| node_manager if report[:lag].to_i < 0 && report[:latency] < 0}.compact
     end
 
     # @return [Integer] the number of node managers saying
@@ -105,7 +105,7 @@ module RedisFailover
     # @return [Integer] the average available latency
     def avg_latency
       return if @electable.empty?
-      @state.values.inject(0) { |sum, report| sum + report[:ping] } / @state.size
+      @state.values.inject(0) { |sum, report| sum + report[:latency] } / @state.size
     end
 
     # @return [Array<String>] all node managers involved in this snapshot

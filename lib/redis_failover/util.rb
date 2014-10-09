@@ -105,6 +105,14 @@ module RedisFailover
       Hash[hash.map { |k, v| [k.to_sym, v] }]
     end
 
+    # Symbolizes the keys of the specified hash.
+    #
+    # @param [Hash] hash a hash for which keys should be symbolized
+    # @return [Hash] a new hash with symbolized keys
+    def deep_symbolize_keys(hash)
+      Hash[hash.map { |k, v| [k, v.is_a?(::Hash) ? symbolize_keys(v) : v] }]
+    end
+
     # Determines if two arrays are different.
     #
     # @param [Array] ary_a the first array

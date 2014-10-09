@@ -135,9 +135,15 @@ module RedisFailover
     # @return [Integer] ranking of master-electability based on communication lag
     def electability
       info = fetch_info
-      lag = info[:master_link_down_since_seconds] || info[:master_last_io_seconds_ago]
-      lag = -1 if info[:master_sync_in_progress] == '1'   #protect from partial dataset when slave is mid-sync
-      lag.nil? ? -1 : lag.to_i
+      lag = if info[:master_sync_in_progress] == '1'   #protect from partial dataset when slave is mid-sync
+        -1
+      elsif info[:role] == "master"
+        0
+      else
+        info[:master_link_down_since_seconds] || info[:master_last_io_seconds_ago]
+      end
+
+      return lag.nil? ? -1 : lag.to_i
     end
 
 
