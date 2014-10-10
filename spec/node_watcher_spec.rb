@@ -23,7 +23,11 @@ module RedisFailover
 
   describe NodeWatcher do
     let(:node_manager) { LightNodeManager.new }
-    let(:node) { Node.new(:host => 'host', :port => 123).extend(RedisStubSupport) }
+    let(:node) do
+      node =  Node.new(:host => 'host', :port => 123).extend(RedisStubSupport)
+      node.redis.slaveof('a', 'master')
+      node
+    end
 
     describe '#watch' do
       context 'node is not syncing with master' do
