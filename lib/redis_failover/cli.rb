@@ -106,9 +106,14 @@ module RedisFailover
         end
       end
 
-      options[:nodes] = options[:nodes].join(',')
-      options[:zkservers] = options[:zkservers] && options[:zkservers].join(',')
-      options[:etcd_nodes] = options[:etcd_nodes] && options[:etcd_nodes].map{|n| Util.symbolize_keys(n)}
+      begin
+        options[:nodes] = options[:nodes].join(',')
+        options[:zkservers] = options[:zkservers] && options[:zkservers].join(',')
+        options[:etcd_nodes] = options[:etcd_nodes] && options[:etcd_nodes].map{|n| Util.symbolize_keys(n)}
+      rescue => e
+        puts "Invalid option: #{e.message}, options: #{options}"
+        raise
+      end
 
       options
     end
