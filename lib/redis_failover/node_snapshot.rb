@@ -35,7 +35,7 @@ module RedisFailover
     # @param [String] node_manager the node manager id
     # @param [Integer] latency the latency
     def state_from_report(node_manager_report)
-      if node_manager_report[:latency] >= 0
+      if node_manager_report[:latency] && node_manager_report[:latency] >= 0
         :available
       else
         :unavailable
