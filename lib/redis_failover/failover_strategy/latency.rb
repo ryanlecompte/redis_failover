@@ -7,11 +7,7 @@ module RedisFailover
       def find_candidate(snapshots)
         candidates = {}
         snapshots.each do |node, snapshot|
-          if snapshot.all_available?
-            candidates[node] = snapshot.avg_lag
-          elsif snapshot.all_electable?
-            candidates[node] = snapshot.avg_latency
-          end
+          candidates[node] = snapshot.avg_lag if snapshot.all_electable?
         end
 
         if candidate = candidates.min_by(&:last)

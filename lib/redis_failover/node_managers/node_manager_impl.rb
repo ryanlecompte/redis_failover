@@ -63,17 +63,16 @@ module RedisFailover
     # {RedisFailover::NodeWatcher} to inform the manager of watched node states.
     #
     # @param [Node] node the node
-    # @param [Symbol] state the state
     # @param [Integer] lag data sync  latency
-    # @param [Integer] ping network latency
-    def notify_state(node, state, lag, ping)
+    # @param [Integer] latency network latency
+    def notify_state(node, lag, latency)
       @lock.synchronize do
         if running?
-          update_current_state(node, state, lag, ping)
+          update_current_state(node, lag, latency)
         end
       end
     rescue => ex
-      logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
+      logger.error("Error handling state report #{[node, lag, latency].inspect}: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
     end
 
@@ -256,7 +255,7 @@ module RedisFailover
     # @param [Array<Node>] nodes the nodes to search
     # @return [Node] the found master node, nil if not found
     def guess_master(nodes)
-     master_nodes = nodes.select { |node| node.master?}
+      master_nodes = nodes.select { |node| node.master?}
       raise NoMasterError if master_nodes.empty?
       raise MultipleMastersError.new(master_nodes) if master_nodes.size > 1
       master_nodes.first
@@ -403,11 +402,10 @@ module RedisFailover
     # @param [Symbol] state the node state
     # @param [Integer] lag an optional lag
     # @param [Integer] latency an optional latency
-    def update_current_state(node, state, lag, latency)
-      raise InvalidNodeStateError.new(node, state) unless [:available, :electable, :unavailable].include?(state)
+    def update_current_state(node, lag, latency)
       begin
         old_state = Marshal.load(Marshal.dump(@monitored_state))
-        @monitored_state[node] = {state: state, lag: lag, latency: latency}
+        @monitored_state[node] = {lag: lag, latency: latency}
         write_current_monitored_state
       rescue => ex
         # if an error occurs, make sure that we rollback to the old state
@@ -425,7 +423,7 @@ module RedisFailover
       fetch_node_manager_states.each do |node_manager_id, snapshot|
         snapshot.each do |node_string, report|
           node = node_from(node_string)
-          snapshots[node].update_state_from_report(node_string, report)
+          snapshots[node].update_state_from_report(node_manager_id, report)
         end
       end
 
@@ -493,16 +491,11 @@ module RedisFailover
     # @return [Node] a failover candidate
     def failover_strategy_candidate(snapshots)
       # only include nodes that this master Node Manager can see
-      result = {available: [], electable: []}
-      snapshots.each do |snapshot|
-        result[:available] << snapshot if snapshot.viewable_by?(manager_id)
-        result[:electable] << snapshot if snapshot.electable?(manager_id)
+      filtered_snapshots = snapshots.select do |node, snapshot|
+        snapshot.viewable_by?(manager_id)
       end
 
-      filtered_snapshots = result[:available].empty? ? result[:electable] : result[:available]
-
       logger.info('Attempting to find candidate from snapshots:')
-      logger.info("\n found: #{result}. After filtering got:")
       logger.info("\n" + filtered_snapshots.values.join("\n"))
       @failover_strategy.find_candidate(filtered_snapshots)
     end

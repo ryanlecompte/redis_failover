@@ -21,7 +21,7 @@ module RedisFailover
           strategy = NodeStrategy.for(:consensus)
           snapshot.update_state('nm1', -1, -1)
           snapshot.update_state('nm2', -1, -1)
-          snapshot.update_state('nm3', 0, -1)
+          snapshot.update_state('nm3', 0, 0)
           strategy.determine_state(node, node => snapshot).should == :available
         end
       end
