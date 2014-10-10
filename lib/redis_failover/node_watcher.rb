@@ -56,7 +56,7 @@ module RedisFailover
           logger.warn("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
           if failures >= @max_failures
-            notify(latency || -1)
+            notify(-1)
             failures = 0
           end
         rescue Exception => ex

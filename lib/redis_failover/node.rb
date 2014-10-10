@@ -137,10 +137,17 @@ module RedisFailover
       info = fetch_info
       lag = if info[:master_sync_in_progress] == '1'   #protect from partial dataset when slave is mid-sync
         -1
-      elsif info[:role] == "master"
-        0
+      elsif info[:role] == "master"    # don't promote a node that already thinks its a (false) master
+        -1
       else
-        info[:master_link_down_since_seconds] || info[:master_last_io_seconds_ago]
+        lag_time  = info[:master_last_io_seconds_ago]
+        down_time = info[:master_link_down_since_seconds]
+
+        if down_time && ( lag_time.nil? || lag_time.to_i < down_time.to_i )
+          lag_time = down_time
+        end
+
+        lag_time
       end
 
       return lag.nil? ? -1 : lag.to_i
