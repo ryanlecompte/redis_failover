@@ -13,16 +13,16 @@ module RedisFailover
 
     describe '#viewable_by' do
       it 'updates the availability count' do
-        snapshot.viewable_by('nm1', 0)
-        snapshot.viewable_by('nm2', 0)
+        snapshot.update_state('nm1', 0, 0)
+        snapshot.update_state('nm2', 0, 0)
         snapshot.available_count.should == 2
       end
     end
 
     describe '#unviewable_by' do
       it 'updates the unavailability count' do
-        snapshot.unviewable_by('nm1')
-        snapshot.unviewable_by('nm2')
+        snapshot.update_state('nm1', -1, -1)
+        snapshot.update_state('nm2', -1, -1)
         snapshot.unavailable_count.should == 2
       end
     end

@@ -43,30 +43,6 @@ module RedisFailover
       end
     end
 
-    # Notifies the manager of a state change. Used primarily by
-    # {RedisFailover::NodeWatcher} to inform the manager of watched node states.
-    #
-    # @param [Node] node the node
-    # @param [Symbol] state the state
-    # @param [Integer] latency an optional latency
-    def notify_state(node, state, latency = nil)
-      @lock.synchronize do
-        if running?
-          begin
-            update_current_state(node, state, latency)
-          rescue NodeUnavailableError => ex
-             logger.warn("Failed to check whether the following node is available: #{node} => #{ex.inspect}")
-             old_state = state
-             state = :unavailable
-             retry if old_state != unavailable
-          rescue => ex
-            logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
-            logger.error(ex.backtrace.join("\n"))
-          end
-        end
-      end
-    end
-
     # Performs a reset of the manager.
     def reset
       @lock.synchronize { @shutdown = true}
@@ -147,7 +123,7 @@ module RedisFailover
     # Spawns the {RedisFailover::NodeWatcher} instances for each managed node.
     def spawn_watchers
       @etcd.delete(current_state_path) rescue nil # Best effort
-      @monitored_available, @monitored_unavailable = {}, []
+      @monitored_state = {}
 
       @watchers = @nodes.map {|node| NodeWatcher.new(self, node, @options.fetch(:max_failures, 3))}
       @watchers.each(&:watch)
@@ -235,9 +211,9 @@ module RedisFailover
       begin
         etcd_nodes = @etcd.get(current_state_root, recursive: true).children
         states = etcd_nodes.each_with_object({}) do |etcd_node, states|
-          child = etcd_node.key.gsub('current_state_root', '')
+          child = etcd_node.key.gsub(current_state_root, '')
 
-          states[child] = symbolize_keys(decode(etcd_node.value))
+          states[child] = deep_symbolize_keys(decode(etcd_node.value))
         end
       rescue => ex
         logger.error("Failed to fetch states for #{current_state_root}: #{ex.inspect}")

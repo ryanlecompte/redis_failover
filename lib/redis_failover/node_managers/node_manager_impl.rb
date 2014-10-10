@@ -63,16 +63,16 @@ module RedisFailover
     # {RedisFailover::NodeWatcher} to inform the manager of watched node states.
     #
     # @param [Node] node the node
-    # @param [Symbol] state the state
-    # @param [Integer] latency an optional latency
-    def notify_state(node, state, latency = nil)
+    # @param [Integer] lag data sync  latency
+    # @param [Integer] latency network latency
+    def notify_state(node, lag, latency)
       @lock.synchronize do
         if running?
-          update_current_state(node, state, latency)
+          update_current_state(node, lag, latency)
         end
       end
     rescue => ex
-      logger.error("Error handling state report #{[node, state].inspect}: #{ex.inspect}")
+      logger.error("Error handling state report #{[node, lag, latency].inspect}: #{ex.inspect}")
       logger.error(ex.backtrace.join("\n"))
     end
 
@@ -182,13 +182,6 @@ module RedisFailover
       candidate = node || failover_strategy_candidate(snapshots)
 
       if candidate.nil?
-        # During master failure, 'unavailable' (for reads) slave nodes can actually still be perfectly electable (i.e. when slave-serve-stale-data is disabled)
-        logger.info( "Unable to locate promotable slave from available snapshots: #{snapshots.inspect}" )
-        logger.info( "Attempting to locate healthy slave via fallback discovery ..." )
-        candidate = discover_electable_slave( @nodes )
-      end
-
-      if candidate.nil?
         logger.error('Failed to promote a new master, no candidate available.')
       else
         @slaves.delete(candidate)
@@ -199,21 +192,6 @@ module RedisFailover
         write_current_redis_nodes
         @master_promotion_attempts = 0
         logger.info("Successfully promoted #{candidate} to master.")
-      end
-    end
-
-
-    # Find the most master-electable (least-lagged) slave by querying all cluster nodes
-    def discover_electable_slave( nodes )
-      candidates = {}
-      nodes.each do |node|
-        score = node.electability rescue -1
-        candidates[node] = score if score >= 0
-      end
-      logger.info("  Discovered electable slaves: #{candidates.inspect}")
-
-      if candidate = candidates.min_by(&:last)
-        candidate.first
       end
     end
 
@@ -262,7 +240,7 @@ module RedisFailover
     # @param [Array<Node>] nodes the nodes to search
     # @return [Node] the found master node, nil if not found
     def guess_master(nodes)
-      master_nodes = nodes.select { |node| node.master? }
+      master_nodes = nodes.select { |node| node.master?}
       raise NoMasterError if master_nodes.empty?
       raise MultipleMastersError.new(master_nodes) if master_nodes.size > 1
       master_nodes.first
@@ -325,10 +303,7 @@ module RedisFailover
     # @return [Hash] the set of currently available/unavailable nodes as
     # seen by this node manager instance
     def node_availability_state
-      {
-        :available => Hash[@monitored_available.map { |k, v| [k.to_s, v] }],
-        :unavailable => @monitored_unavailable.map(&:to_s)
-      }
+      @monitored_state
     end
 
     # Produces a FQDN id for this Node Manager.
@@ -410,54 +385,34 @@ module RedisFailover
     #
     # @param [Node] node the node to handle
     # @param [Symbol] state the node state
+    # @param [Integer] lag an optional lag
     # @param [Integer] latency an optional latency
-    def update_current_state(node, state, latency = nil)
-      old_unavailable = @monitored_unavailable.dup
-      old_available = @monitored_available.dup
-
-      case state
-      when :unavailable
-        unless @monitored_unavailable.include?(node)
-          @monitored_unavailable << node
-          @monitored_available.delete(node)
-          write_current_monitored_state
-        end
-      when :available
-        last_latency = @monitored_available[node]
-        if last_latency.nil? || (latency - last_latency).abs > LATENCY_THRESHOLD
-          @monitored_available[node] = latency
-          @monitored_unavailable.delete(node)
-          write_current_monitored_state
-        end
-      else
-        raise InvalidNodeStateError.new(node, state)
+    def update_current_state(node, lag, latency)
+      begin
+        old_state = Marshal.load(Marshal.dump(@monitored_state))
+        @monitored_state[node] = {lag: lag, latency: latency}
+        write_current_monitored_state
+      rescue => ex
+        # if an error occurs, make sure that we rollback to the old state
+        @monitored_state = old_state
+        raise
       end
-    rescue => ex
-      # if an error occurs, make sure that we rollback to the old state
-      @monitored_unavailable = old_unavailable
-      @monitored_available = old_available
-      raise
     end
 
     # Builds current snapshots of nodes across all running node managers.
     #
     # @return [Hash<Node, NodeSnapshot>] the snapshots for all nodes
     def current_node_snapshots
-      nodes = {}
       snapshots = Hash.new { |h, k| h[k] = NodeSnapshot.new(k) }
-      fetch_node_manager_states.each do |node_manager, states|
-        available, unavailable = states.values_at(:available, :unavailable)
-        available.each do |node_string, latency|
-          node = nodes[node_string] ||= node_from(node_string)
-          snapshots[node].viewable_by(node_manager, latency)
-        end
-        unavailable.each do |node_string|
-          node = nodes[node_string] ||= node_from(node_string)
-          snapshots[node].unviewable_by(node_manager)
+
+      fetch_node_manager_states.each do |node_manager_id, snapshot|
+        snapshot.each do |node_string, report|
+          node = node_from(node_string)
+          snapshots[node].update_state_from_report(node_manager_id, report)
         end
       end
 
-      snapshots
+      return snapshots
     end
 
     # Waits until this node manager becomes the master.
@@ -472,16 +427,6 @@ module RedisFailover
         logger.info("Required Node Managers to make a decision: #{@required_node_managers}")
         manage_nodes
       end
-    end
-
-    # Creates a Node instance from a string.
-    #
-    # @param [String] node_string a string representation of a node (e.g., host:port)
-    # @return [Node] the Node representation
-    def node_from(node_string)
-      return if node_string.nil?
-      host, port = node_string.split(':', 2)
-      Node.new(:host => host, :port => port, :password => @options[:password])
     end
 
     # @return [Boolean] true if running, false otherwise
