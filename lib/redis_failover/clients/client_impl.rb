@@ -237,6 +237,7 @@ module RedisFailover
           new_slaves = new_clients_for(*nodes[:slaves])
           @master = new_master
           @slaves = new_slaves
+          logger.info("New configuration for [#{@trace_id}]: #{configuration_to_s}")
         rescue
           purge_clients
           raise
@@ -248,6 +249,10 @@ module RedisFailover
           end
         end
       end
+    end
+
+    def configuration_to_s
+      "master(#{master_name}), slaves(#{slave_names})"
     end
 
     # Returns the currently known master.
@@ -385,7 +390,7 @@ module RedisFailover
     # Disconnects current redis clients.
     def purge_clients
       @lock.synchronize do
-        logger.info("Purging current redis clients [#{@trace_id}]")
+        logger.info("Purging current redis clients [#{@trace_id}] for #{configuration_to_s}")
         disconnect(@master, *@slaves)
         @master = nil
         @slaves = []
