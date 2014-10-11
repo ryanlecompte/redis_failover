@@ -200,11 +200,12 @@ module RedisFailover
       verify_supported!(method)
       tries = 0
       begin
-        logger.info("#{method}: #{(Thread.current[@current_client_key] ||= []).map(&:object_id)}")
+        #logger.info("#{method}: #{(Thread.current[@current_client_key] ||= []).map(&:object_id)}")
         redis = client_for(method)
         redis.send(method, *args, &block)
       rescue ::Redis::InheritedError => ex
         logger.debug( "Caught #{ex.class} - reconnecting [#{@trace_id}] #{redis.inspect}" )
+        free_client
         redis.client.reconnect
         retry
       rescue *CONNECTIVITY_ERRORS => ex
