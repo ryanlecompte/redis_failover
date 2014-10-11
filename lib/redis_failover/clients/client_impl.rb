@@ -207,8 +207,7 @@ module RedisFailover
         redis.client.reconnect
         retry
       rescue *CONNECTIVITY_ERRORS => ex
-        logger.error("Error while handling `#{method}` - #{ex.inspect}")
-        logger.error(ex.backtrace.join("\n"))
+        logger.error("Error while handling `#{method}` - #{ex.inspect}: #{ex.backtrace.join("\n")}")
 
         if tries < @max_retries
           tries += 1
@@ -238,7 +237,8 @@ module RedisFailover
           @master = new_master
           @slaves = new_slaves
           logger.info("New configuration for [#{@trace_id}]: #{configuration_to_s}")
-        rescue
+        rescue => ex
+          logger.info("Error while builing clients: #{ex.message}, repurging...")
           purge_clients
           raise
         ensure
@@ -420,17 +420,6 @@ module RedisFailover
 
       stack << client
       client
-    end
-
-    # Determines if the currently known redis servers is different
-    # from the nodes returned by ZooKeeper or Etcd.
-    #
-    # @param [Array<String>] new_nodes the new redis nodes
-    # @return [Boolean] true if nodes are different, false otherwise
-    def nodes_changed?(new_nodes)
-      return true if address_for(@master) != new_nodes[:master]
-      return true if different?(addresses_for(@slaves), new_nodes[:slaves])
-      false
     end
 
     # @return [Boolean] indicates if we recently heard from the Node Manager
