@@ -53,10 +53,9 @@ module RedisFailover
           failures = 0
           notify(latency)
         rescue NodeUnavailableError => ex
-          logger.warn("Failed to communicate with node #{@node}: #{ex.inspect}")
           failures += 1
           if failures >= @max_failures
-            notify(-1)
+            notify(-1, ex)
             failures = 0
           end
         rescue Exception => ex
@@ -69,8 +68,9 @@ module RedisFailover
     # Notifies the manager of a node's state.
     #
     # @param [Integer] lag data sync latency
-    def notify(latency)
+    def notify(latency, ex = nil)
       lag = @node.electability rescue -1
+      logger.warn("Failed to communicate with node #{@node}: #{ex.inspect}") if lag == -1
       @manager.notify_state(@node, lag, latency)
     end
   end

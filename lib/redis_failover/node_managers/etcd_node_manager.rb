@@ -211,7 +211,7 @@ module RedisFailover
       begin
         etcd_nodes = @etcd.get(current_state_root, recursive: true).children
         states = etcd_nodes.each_with_object({}) do |etcd_node, states|
-          child = etcd_node.key.gsub(current_state_root, '')
+          child = etcd_node.key.gsub(current_state_root + '/', '')
 
           states[child] = deep_symbolize_keys(decode(etcd_node.value))
         end

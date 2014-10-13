@@ -475,6 +475,7 @@ module RedisFailover
     # @param [Hash<Node, NodeSnapshot>] snapshots the node snapshots
     # @return [Node] a failover candidate
     def failover_strategy_candidate(snapshots)
+      logger.info("Current state of the world from snapshots: #{snapshots.values.join("\n")}")
       # only include nodes that this master Node Manager can see
       filtered_snapshots = snapshots.select do |node, snapshot|
         snapshot.viewable_by?(manager_id)
