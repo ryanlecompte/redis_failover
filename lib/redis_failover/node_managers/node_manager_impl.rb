@@ -199,30 +199,38 @@ module RedisFailover
     # Discovers the current master and slave nodes.
     # @return [Boolean] true if nodes successfully discovered, false otherwise
     def discover_nodes
-      @lock.synchronize do
-        return unless running?
-        @slaves, @unavailable = [], []
-        if @master = find_existing_master
-          logger.info("Using master #{@master} from existing node config.")
-        elsif @master = guess_master(@nodes)
-          logger.info("Guessed master #{@master} from known redis nodes.")
+      begin
+        mode = nil
+        @lock.synchronize do
+          return unless running?
+
+          @slaves, @unavailable = [], []
+          if @master = find_existing_master
+            logger.info("Using master #{@master} from existing node config.")
+            :backend_discovery
+          elsif @master = guess_master(@nodes)
+            logger.info("Guessed master #{@master} from known redis nodes.")
+            :guessed
+          end
+
+          @slaves = @nodes - [@master]
+          logger.info("Managing master (#{@master}) and slaves #{stringify_nodes(@slaves)}")
         end
-        @slaves = @nodes - [@master]
-        logger.info("Managing master (#{@master}) and slaves #{stringify_nodes(@slaves)}")
+
+        return mode
+      rescue *NODE_DISCOVERY_ERRORS => ex
+        msg = <<-MSG.gsub(/\s+/, ' ')
+          Failed to discover master node: #{ex.inspect}
+          In order to ensure a safe startup, redis_failover requires that all redis
+          nodes be accessible, and only a single node indicating that it's the master.
+          In order to fix this, you can perform a manual failover via redis_failover,
+          or manually fix the individual redis servers. This discovery process will
+          retry in #{TIMEOUT}s.
+        MSG
+        logger.warn(msg)
+        sleep(TIMEOUT)
+        retry
       end
-    rescue *NODE_DISCOVERY_ERRORS => ex
-      msg = <<-MSG.gsub(/\s+/, ' ')
-        Failed to discover master node: #{ex.inspect}
-        In order to ensure a safe startup, redis_failover requires that all redis
-        nodes be accessible, and only a single node indicating that it's the master.
-        In order to fix this, you can perform a manual failover via redis_failover,
-        or manually fix the individual redis servers. This discovery process will
-        retry in #{TIMEOUT}s.
-      MSG
-      logger.warn(msg)
-      #logger.warn(ex.backtrace.join("\n"))
-      sleep(TIMEOUT)
-      retry
     end
 
     # Creates a Node instance from a string.

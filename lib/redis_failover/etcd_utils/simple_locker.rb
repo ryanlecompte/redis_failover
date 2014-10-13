@@ -128,7 +128,9 @@ module RedisFailover
         @mutex.synchronize do
           raise LockHoldError, "have not obtained the lock yet"            unless locked?
           raise LockHoldError, "lock_path was #{lock_path.inspect}"        unless lock_path
-          raise LockHoldError, "the lock path #{lock_path} did not exist!" unless etcd.exists?(lock_path)
+
+          path_exists =  etcd.exists?(lock_path) rescue false
+          raise LockHoldError, "the lock path #{lock_path} did not exist!" unless path_exists
           raise LockHoldError, "we do not actually hold the lock"          unless got_lock?
         end
       end

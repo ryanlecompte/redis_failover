@@ -225,10 +225,12 @@ module RedisFailover
     def manage_nodes
       # Re-discover nodes, since the state of the world may have been changed
       # by the time we've become the primary node manager.
-      discover_nodes
+      mode = discover_nodes
 
       # ensure that slaves are correctly pointing to this master
+      # then sleep if the master has been guessed(to avoid using not up to date snapshot)
       redirect_slaves_to(@master)
+      sleep(CHECK_INTERVAL) if mode == :guessed
 
       # Periodically update master config state.
       while running? && master_manager? && @etcd_lock
