@@ -2,8 +2,8 @@
 require File.expand_path('../lib/redis_failover/version', __FILE__)
 
 Gem::Specification.new do |gem|
-  gem.authors       = ["Ryan LeCompte", "Thomas Dmytryk", "Alon Rother"]
-  gem.email         = ["lecompte@gmail.com", "thomas@fan.tv", "arohter@fan.tv"]
+  gem.authors       = ["Ryan LeCompte", "Thomas Dmytryk", "Alon Rohter"]
+  gem.email         = ["lecompte@gmail.com", "thomas_at_fan.tv", "arohter_at_fan.tv"]
   gem.description   = %(redis_failover is a ZooKeeper or Etcd based automatic master/slave failover solution for Ruby)
   gem.summary       = %(redis_failover is a ZooKeeper or Etcd based automatic master/slave failover solution for Ruby)
   gem.homepage      = "http://github.com/fanhattan/redis_failover"
