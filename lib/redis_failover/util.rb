@@ -51,8 +51,8 @@ module RedisFailover
     # that abstracts the master/slave servers.
     UNSUPPORTED_OPS = Set[:select, :dbsize].freeze
 
-    # Default root node in ZK used for redis_failover.
-    DEFAULT_ROOT_ZNODE_PATH = '/redis_failover'.freeze
+    # Default root node in ZK/Etcd used for redis_failover.
+    DEFAULT_ROOT_NODE_PATH = '/redis_failover'.freeze
 
     # Connectivity errors that the redis (<3.x) client raises.
     REDIS_ERRORS = Errno.constants.map { |c| Errno.const_get(c) }
@@ -69,6 +69,27 @@ module RedisFailover
       Zookeeper::Exceptions::ContinuationTimeoutError
     ].freeze
 
+    ETCD_KEY_ERRORS = [
+      Etcd::KeyNotFound,
+      Etcd::TestFailed,
+      Etcd::NotFile,
+      Etcd::NoMorePeer,
+      Etcd::NotDir,
+      Etcd::NodeExist,
+      Etcd::KeyIsPreserved,
+      Etcd::DirNotEmpty
+    ].freeze
+
+    ETCD_ERRORS = [
+      Etcd::RaftInternal,
+      Etcd::LeaderElect,
+      Etcd::WatcherCleared,
+      Etcd::EventIndexCleared,
+      EtcdClientLock::LockHoldError,
+      EtcdNoMasterError,
+      Net::HTTPFatalError   # Etcd clients returns Net::HTTPFatalError 500 "Internal Server Error"  when Etcd is unhappy
+    ].freeze
+
     # Full set of errors related to connectivity.
     CONNECTIVITY_ERRORS = [
       RedisFailover::Error,
@@ -82,6 +103,14 @@ module RedisFailover
     # @return [Hash] a new hash with symbolized keys
     def symbolize_keys(hash)
       Hash[hash.map { |k, v| [k.to_sym, v] }]
+    end
+
+    # Symbolizes the keys of the specified hash.
+    #
+    # @param [Hash] hash a hash for which keys should be symbolized
+    # @return [Hash] a new hash with symbolized keys
+    def deep_symbolize_keys(hash)
+      Hash[hash.map { |k, v| [k, v.is_a?(::Hash) ? symbolize_keys(v) : v] }]
     end
 
     # Determines if two arrays are different.

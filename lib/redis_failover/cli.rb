@@ -85,7 +85,7 @@ module RedisFailover
     # @return [Boolean] true if required options missing, false otherwise
     def self.invalid_options?(options)
       return true if options.empty?
-      return true unless options.values_at(:nodes, :zkservers).all?
+      return true if options[:nodes].nil? || options.values_at(:etcd_nodes, :zkservers).all?(&:nil?)
       false
     end
 
@@ -106,8 +106,14 @@ module RedisFailover
         end
       end
 
-      options[:nodes] = options[:nodes].join(',')
-      options[:zkservers] = options[:zkservers].join(',')
+      begin
+        options[:nodes] = options[:nodes].join(',')
+        options[:zkservers] = options[:zkservers] && options[:zkservers].join(',')
+        options[:etcd_nodes] = options[:etcd_nodes] && options[:etcd_nodes].map{|n| Util.symbolize_keys(n)}
+      rescue => e
+        puts "Invalid option: #{e.message}, options: #{options}"
+        raise
+      end
 
       options
     end

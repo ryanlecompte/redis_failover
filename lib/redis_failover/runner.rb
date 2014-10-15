@@ -18,7 +18,7 @@ module RedisFailover
     def self.trap_signals(node_manager)
       [:INT, :TERM].each do |signal|
         trap(signal) do
-          node_manager.shutdown
+          node_manager.signals_handler.push(signal)
         end
       end
     end

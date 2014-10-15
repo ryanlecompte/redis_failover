@@ -30,5 +30,13 @@ module RedisFailover
     def log_unavailable(node, snapshot)
       logger.info("#{self.class} marking #{node} as unavailable. Snapshot: #{snapshot}")
     end
+
+    # Logs a node as being electable.
+    #
+    # @param [Node] node the node
+    # @param [NodeSnapshot] snapshot the node snapshot
+    def log_electable(node, snapshot)
+      logger.info("#{self.class} marking #{node} as electable. Snapshot: #{snapshot}")
+    end
   end
 end
