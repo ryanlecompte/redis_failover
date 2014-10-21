@@ -112,10 +112,6 @@ module RedisFailover
       dispatch(:client).location
     end
 
-    def process_forked?
-      @pid != Process.pid
-    end
-
     # Specifies a callback to invoke when the current redis node list changes.
     #
     # @param [Proc] a callback with current master and slaves as arguments
@@ -175,18 +171,9 @@ module RedisFailover
       raise StandardError, 'Error: `shutdown` needs to be implemented in child class.'
     end
 
-    def connect
-      @lock = Monitor.new
-      @pid = Process.pid
-    end
-
-    # Reconnect method needed for compatibility with 3rd party libs (i.e. Resque) that expect this for redis client objects.
-    # We auto-detect underlying zk & redis client Inherited Error's and reconnect automatically as needed.
-    # Still need to reinitialize @pid, mutexes and etcd connections
+     # Reconnect method needed for compatibility with 3rd party libs (i.e. Resque) that expect this for redis client objects.
     def reconnect
-      logger.info("Reconnect triggered. Reconnecting client in progress...")
-      disconnect(@master, *@slaves)
-      connect
+      # We auto-detect underlying zk & redis client Inherited Error's and reconnect automatically as needed.
     end
 
     # Disconnects one or more redis clients.
@@ -248,7 +235,6 @@ module RedisFailover
     # @param [Proc] block an optional block to pass to the method
     # @return [Object] the result of dispatching the command
     def dispatch(method, *args, &block)
-      reconnect if process_forked?
       build_clients if @safe_mode && !recently_heard_from_node_manager?
 
       verify_supported!(method)

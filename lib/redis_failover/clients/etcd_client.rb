@@ -33,9 +33,17 @@ module RedisFailover
     end
 
     def connect
-      super
+      @lock = Monitor.new
+      @pid = Process.pid
       @threads = []
       setup_etcd
+    end
+
+    # Still needs to reinitialize @pid, mutexes and etcd client
+    def internal_reconnect
+      logger.info("Reconnect triggered. Reconnecting client in progress...")
+      disconnect(@master, *@slaves)
+      connect
     end
 
     # Gracefully performs a shutdown of this client. This method is
@@ -70,6 +78,22 @@ module RedisFailover
     def setup_etcd
       configure_etcd
       watch_etcd_folder(redis_nodes_path) {|response| handle_etcd_event(response)}
+    end
+
+    # Dispatches a redis operation to a master or slave.
+    #
+    # @param [Symbol] method the method to dispatch
+    # @param [Array] args the arguments to pass to the method
+    # @param [Proc] block an optional block to pass to the method
+    # @return [Object] the result of dispatching the command
+    def dispatch(method, *args, &block)
+      if @pid.nil?
+        connect
+      elsif @pid != Process.pid
+        internal_reconnect
+      end
+
+      super
     end
 
     # Handles a Etcd event.
