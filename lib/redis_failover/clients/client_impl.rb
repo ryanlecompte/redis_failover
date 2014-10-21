@@ -73,6 +73,22 @@ module RedisFailover
       parse_options(options)
     end
 
+    # Parses redis options and sets some default values
+    def parse_redis_options(options)
+      @namespace = options[:namespace]
+      @password = options[:password]
+      @db = options[:db]
+      @retry = options.fetch(:retry_failure, true)
+      @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
+      @safe_mode = options.fetch(:safe_mode, true)
+      @master_only = options.fetch(:master_only, false)
+      @verify_role = options.fetch(:verify_role, true)
+
+      @redis_client_options = Redis::Client::DEFAULTS.keys.each_with_object({}) do |key, hash|
+        hash[key] = options[key]
+      end
+    end
+
     # Stubs this method to return this RedisFailover::Client object.
     #
     # Some libraries (Resque) assume they can access the `client` via this method,
@@ -94,6 +110,10 @@ module RedisFailover
     # @return [String] the redis location
     def location
       dispatch(:client).location
+    end
+
+    def process_forked?
+      @pid != Process.pid
     end
 
     # Specifies a callback to invoke when the current redis node list changes.
@@ -155,9 +175,44 @@ module RedisFailover
       raise StandardError, 'Error: `shutdown` needs to be implemented in child class.'
     end
 
+    def connect
+      @lock = Monitor.new
+      @pid = Process.pid
+    end
+
     # Reconnect method needed for compatibility with 3rd party libs (i.e. Resque) that expect this for redis client objects.
+    # We auto-detect underlying zk & redis client Inherited Error's and reconnect automatically as needed.
+    # Still need to reinitialize @pid, mutexes and etcd connections
     def reconnect
-      raise StandardError, 'Error: `reconnect` needs to be implemented in child class.'
+      logger.info("Reconnect triggered. Reconnecting client in progress...")
+      disconnect(@master, *@slaves)
+      connect
+    end
+
+    # Disconnects one or more redis clients.
+    #
+    # @param [Array<Redis>] redis_clients the redis clients
+    def disconnect(*redis_clients)
+      redis_clients.each do |conn|
+        if conn
+          begin
+            conn.client.disconnect
+          rescue
+            # best effort
+          end
+        end
+      end
+    end
+
+    # Disconnects current redis clients.
+    def purge_clients
+      @lock.synchronize do
+        logger.info("Purging current redis clients [#{@trace_id}] for #{configuration_to_s}")
+        disconnect(@master, *@slaves)
+        @master = nil
+        @slaves = []
+        @node_addresses = {}
+      end
     end
 
     # Retrieves the current redis master.
@@ -193,9 +248,8 @@ module RedisFailover
     # @param [Proc] block an optional block to pass to the method
     # @return [Object] the result of dispatching the command
     def dispatch(method, *args, &block)
-      if @safe_mode && !recently_heard_from_node_manager?
-        build_clients
-      end
+      reconnect if process_forked?
+      build_clients if @safe_mode && !recently_heard_from_node_manager?
 
       verify_supported!(method)
       tries = 0
@@ -221,6 +275,60 @@ module RedisFailover
       ensure
         free_client
       end
+    end
+
+    # Determines if the currently known redis servers is different
+    # from the nodes returned by ZooKeeper.
+    #
+    # @param [Array<String>] new_nodes the new redis nodes
+    # @return [Boolean] true if nodes are different, false otherwise
+    def nodes_changed?(new_nodes)
+      return true if address_for(@master) != new_nodes[:master]
+      return true if different?(addresses_for(@slaves), new_nodes[:slaves])
+      false
+    end
+
+    # @return [Boolean] indicates if we recently heard from the Node Manager
+    def recently_heard_from_node_manager?
+      return false unless @last_node_timestamp
+      Time.now - @last_node_timestamp <= NODE_UPDATE_TIMEOUT
+    end
+
+    # Updates timestamp when an event is received by the Node Manager.
+    def update_node_timestamp
+      @last_node_timestamp = Time.now
+    end
+
+    # Acquires a client to use for the specified operation.
+    #
+    # @param [Symbol] method the method for which to retrieve a client
+    # @return [Redis] a redis client to use
+    # @note
+    #   This method stores a stack of clients used to handle the case
+    #   where the same RedisFailover::Client instance is referenced by
+    #   nested blocks (e.g., block passed to multi).
+    def client_for(method)
+      stack = Thread.current[@current_client_key] ||= []
+      client = if stack.last
+        stack.last
+      elsif @master_only
+        master
+      elsif REDIS_READ_OPS.include?(method)
+        slave
+      else
+        master
+      end
+
+      stack << client
+      client
+    end
+
+    # Pops a client from the thread-local client stack.
+    def free_client
+      if stack = Thread.current[@current_client_key]
+        stack.pop
+      end
+      nil
     end
 
     # Builds the Redis clients for the currently known master/slaves.
@@ -252,6 +360,35 @@ module RedisFailover
       end
     end
 
+    # Builds new Redis clients for the specified nodes.
+    #
+    # @param [Array<String>] nodes the array of redis host:port pairs
+    # @return [Array<Redis>] the array of corresponding Redis clients
+    def new_clients_for(*nodes)
+      nodes.map do |node|
+        host, port = node.split(':')
+        opts = {:host => host, :port => port}
+        opts.update(:db => @db) if @db
+        opts.update(:password => @password) if @password
+        client = Redis.new(@redis_client_options.merge(opts))
+        if @namespace
+          client = Redis::Namespace.new(@namespace, :redis => client)
+        end
+        @node_addresses[client] = node
+        client
+      end
+    end
+
+    # Determines if the on_node_change callback should be invoked.
+    #
+    # @return [Boolean] true if callback should be invoked, false otherwise
+    def should_notify?
+      return false unless @on_node_change
+      return true if @last_notified_master != current_master
+      return true if different?(Array(@last_notified_slaves), current_slaves)
+      false
+    end
+
     def configuration_to_s
       "master(#{master_name}), slaves(#{slave_names})"
     end
@@ -280,35 +417,6 @@ module RedisFailover
         return slave
       end
       master
-    end
-
-    # Determines if the on_node_change callback should be invoked.
-    #
-    # @return [Boolean] true if callback should be invoked, false otherwise
-    def should_notify?
-      return false unless @on_node_change
-      return true if @last_notified_master != current_master
-      return true if different?(Array(@last_notified_slaves), current_slaves)
-      false
-    end
-
-    # Builds new Redis clients for the specified nodes.
-    #
-    # @param [Array<String>] nodes the array of redis host:port pairs
-    # @return [Array<Redis>] the array of corresponding Redis clients
-    def new_clients_for(*nodes)
-      nodes.map do |node|
-        host, port = node.split(':')
-        opts = {:host => host, :port => port}
-        opts.update(:db => @db) if @db
-        opts.update(:password => @password) if @password
-        client = Redis.new(@redis_client_options.merge(opts))
-        if @namespace
-          client = Redis::Namespace.new(@namespace, :redis => client)
-        end
-        @node_addresses[client] = node
-        client
-      end
     end
 
     # @return [String] a friendly name for current master
@@ -360,101 +468,6 @@ module RedisFailover
     def address_for(node)
       return unless node
       @node_addresses[node]
-    end
-
-    # Determines if the currently known redis servers is different
-    # from the nodes returned by ZooKeeper.
-    #
-    # @param [Array<String>] new_nodes the new redis nodes
-    # @return [Boolean] true if nodes are different, false otherwise
-    def nodes_changed?(new_nodes)
-      return true if address_for(@master) != new_nodes[:master]
-      return true if different?(addresses_for(@slaves), new_nodes[:slaves])
-      false
-    end
-
-    # Disconnects one or more redis clients.
-    #
-    # @param [Array<Redis>] redis_clients the redis clients
-    def disconnect(*redis_clients)
-      redis_clients.each do |conn|
-        if conn
-          begin
-            conn.client.disconnect
-          rescue
-            # best effort
-          end
-        end
-      end
-    end
-
-    # Disconnects current redis clients.
-    def purge_clients
-      @lock.synchronize do
-        logger.info("Purging current redis clients [#{@trace_id}] for #{configuration_to_s}")
-        disconnect(@master, *@slaves)
-        @master = nil
-        @slaves = []
-        @node_addresses = {}
-      end
-    end
-
-    # Acquires a client to use for the specified operation.
-    #
-    # @param [Symbol] method the method for which to retrieve a client
-    # @return [Redis] a redis client to use
-    # @note
-    #   This method stores a stack of clients used to handle the case
-    #   where the same RedisFailover::Client instance is referenced by
-    #   nested blocks (e.g., block passed to multi).
-    def client_for(method)
-      stack = Thread.current[@current_client_key] ||= []
-      client = if stack.last
-        stack.last
-      elsif @master_only
-        master
-      elsif REDIS_READ_OPS.include?(method)
-        slave
-      else
-        master
-      end
-
-      stack << client
-      client
-    end
-
-    # @return [Boolean] indicates if we recently heard from the Node Manager
-    def recently_heard_from_node_manager?
-      return false unless @last_node_timestamp
-      Time.now - @last_node_timestamp <= NODE_UPDATE_TIMEOUT
-    end
-
-    # Pops a client from the thread-local client stack.
-    def free_client
-      if stack = Thread.current[@current_client_key]
-        stack.pop
-      end
-      nil
-    end
-
-    # Updates timestamp when an event is received by the Node Manager.
-    def update_node_timestamp
-      @last_node_timestamp = Time.now
-    end
-
-    def parse_redis_options(options)
-      @namespace = options[:namespace]
-      @password = options[:password]
-      @db = options[:db]
-      @retry = options.fetch(:retry_failure, true)
-      @max_retries = @retry ? options.fetch(:max_retries, 3) : 0
-      @safe_mode = options.fetch(:safe_mode, true)
-      @master_only = options.fetch(:master_only, false)
-      @verify_role = options.fetch(:verify_role, true)
-
-      @redis_client_options = Redis::Client::DEFAULTS.keys.each_with_object({}) do |key, hash|
-        hash[key] = options[key]
-      end
     end
 
     # @return [String] the znode path for the master redis nodes config

@@ -46,7 +46,8 @@ module RedisFailover
       rescue Etcd::EventIndexCleared
         instance_variable_set("@index_#{name}", nil)
         retry
-      rescue
+      rescue => ex
+        logger.error("Error while trying to watch for changes at #{path}. Error #{ex.class} => #{ex.message}")
         sleep 1
         (tries += 1) <= 3 ? retry : raise
       end
