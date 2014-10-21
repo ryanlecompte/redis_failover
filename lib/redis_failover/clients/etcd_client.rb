@@ -29,21 +29,13 @@ module RedisFailover
     # @option options [String] :host the host of the failover candidate
     # @option options [String] :port the port of the failover candidate
     def manual_failover(options = {})
-      super(@etcd, @root_node, options)
+      super(etcd, @root_node, options)
     end
 
-    def connect
-      @lock = Monitor.new
-      @pid = Process.pid
-      @threads = []
+    def etcd_connect
+      super
       setup_etcd
-    end
-
-    # Still needs to reinitialize @pid, mutexes and etcd client
-    def internal_reconnect
-      logger.info("Reconnect triggered. Reconnecting client in progress...")
-      disconnect(@master, *@slaves)
-      connect
+      build_clients
     end
 
     # Gracefully performs a shutdown of this client. This method is
@@ -80,22 +72,6 @@ module RedisFailover
       watch_etcd_folder(redis_nodes_path) {|response| handle_etcd_event(response)}
     end
 
-    # Dispatches a redis operation to a master or slave.
-    #
-    # @param [Symbol] method the method to dispatch
-    # @param [Array] args the arguments to pass to the method
-    # @param [Proc] block an optional block to pass to the method
-    # @return [Object] the result of dispatching the command
-    def dispatch(method, *args, &block)
-      if @pid.nil?
-        connect
-      elsif @pid != Process.pid
-        internal_reconnect
-      end
-
-      super
-    end
-
     # Handles a Etcd event.
     #
     # @param [Etcd::Response] response the Etcd event to handle
@@ -128,7 +104,7 @@ module RedisFailover
     def fetch_nodes
       tries = 0
       begin
-        response = @etcd.get(redis_nodes_path)
+        response = etcd.get(redis_nodes_path)
         nodes = redis_nodes_from_response(response)
         logger.debug("Fetched nodes: #{nodes.inspect}")
         update_node_timestamp
