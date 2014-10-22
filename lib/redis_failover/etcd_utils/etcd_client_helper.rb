@@ -20,6 +20,29 @@ module RedisFailover
       end
     end
 
+    def etcd
+      if @pid.nil?
+        etcd_connect
+      elsif @pid != Process.pid
+        etcd_reconnect
+      end
+
+      return @etcd
+    end
+
+    def etcd_connect
+      @lock = Monitor.new
+      @pid = Process.pid
+      @threads = []
+    end
+
+    # Still needs to reinitialize @pid, mutexes and etcd client
+    def etcd_reconnect
+      logger.info("Reconnect triggered. Reconnecting client in progress...")
+      terminate_threads
+      etcd_connect
+    end
+
     def watch_etcd_folder(path, recursive = true, &block)
       @threads << Thread.new do
         loop do
@@ -46,7 +69,8 @@ module RedisFailover
       rescue Etcd::EventIndexCleared
         instance_variable_set("@index_#{name}", nil)
         retry
-      rescue
+      rescue => ex
+        logger.error("Error while trying to watch for changes at #{path}. Error #{ex.class} => #{ex.message}")
         sleep 1
         (tries += 1) <= 3 ? retry : raise
       end

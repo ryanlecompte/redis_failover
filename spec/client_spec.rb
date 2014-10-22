@@ -27,6 +27,11 @@ module RedisFailover
   end
 
   class EtcdClientStub < EtcdClient
+    def initialize(options = {})
+      super(options)
+      etcd
+    end
+
     def current_master
       @master
     end

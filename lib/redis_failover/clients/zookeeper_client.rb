@@ -48,11 +48,6 @@ module RedisFailover
       purge_clients
     end
 
-    # Reconnect method needed for compatibility with 3rd party libs (i.e. Resque) that expect this for redis client objects.
-    def reconnect
-      #We auto-detect underlying zk & redis client Inherited Error's and reconnect automatically as needed.
-    end
-
     private
 
     # Parses the configuration operations.

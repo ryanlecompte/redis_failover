@@ -20,13 +20,6 @@ module RedisFailover
   #
   class EtcdClient < ClientImpl
     include RedisFailover::EtcdClientHelper
-    # Creates a new failover redis client.
-    # @return [RedisFailover::Client]
-    def initialize(options = {})
-      super
-      setup_etcd
-      build_clients
-    end
 
     # Force a manual failover to a new server. A specific server can be specified
     # via options. If no options are passed, a random slave will be selected as
@@ -36,7 +29,13 @@ module RedisFailover
     # @option options [String] :host the host of the failover candidate
     # @option options [String] :port the port of the failover candidate
     def manual_failover(options = {})
-      super(@etcd, @root_node, options)
+      super(etcd, @root_node, options)
+    end
+
+    def etcd_connect
+      super
+      setup_etcd
+      build_clients
     end
 
     # Gracefully performs a shutdown of this client. This method is
@@ -48,11 +47,6 @@ module RedisFailover
       terminate_threads
       @etcd = nil
       purge_clients
-    end
-
-    # Reconnect method needed for compatibility with 3rd party libs (i.e. Resque) that expect this for redis client objects.
-    def reconnect
-      # No persistant connection with Etcd
     end
 
     private
@@ -110,7 +104,7 @@ module RedisFailover
     def fetch_nodes
       tries = 0
       begin
-        response = @etcd.get(redis_nodes_path)
+        response = etcd.get(redis_nodes_path)
         nodes = redis_nodes_from_response(response)
         logger.debug("Fetched nodes: #{nodes.inspect}")
         update_node_timestamp
