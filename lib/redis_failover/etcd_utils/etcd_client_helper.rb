@@ -4,27 +4,31 @@ module RedisFailover
   module EtcdClientHelper
     def self.included(base)
       base.class_exec do
-        @initialize_overide = true
+        @@initialize_overide = true
         def initialize_overide(*args)
           @threads = []
+          @etcd_connection_lock = Monitor.new
           initialize_old(*args)
         end
 
         def self.method_added(method_name)
-          if method_name == :initialize && @initialize_overide
-            @initialize_overide = false
+          if method_name == :initialize && @@initialize_overide
+            @@initialize_overide = false
             alias_method :initialize_old, :initialize
             alias_method :initialize, :initialize_overide
+            @@initialize_overide = true
           end
         end
       end
     end
 
     def etcd
-      if @pid.nil?
-        etcd_connect
-      elsif @pid != Process.pid
-        etcd_reconnect
+      @etcd_connection_lock.synchronize do
+        if @pid.nil?
+          etcd_connect
+        elsif @pid != Process.pid || @etcd.nil?
+          etcd_reconnect
+        end
       end
 
       return @etcd

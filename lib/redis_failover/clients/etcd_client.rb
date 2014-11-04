@@ -44,6 +44,7 @@ module RedisFailover
     # and then create a new instance of the client. The underlying
     # ZooKeeper client and redis clients will be closed.
     def shutdown
+      logger.info("Shutting Down failover Client...")
       terminate_threads
       @etcd = nil
       purge_clients
