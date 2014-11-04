@@ -26,7 +26,7 @@ module RedisFailover
     def etcd
       if @pid.nil? || @pid != Process.pid || @etcd.nil?
         reinit_locks
-        @pid.nil? ? etcd_connect : etcd_reconnect
+        @etcd.nil? ? etcd_connect : etcd_reconnect
       end
 
       return @etcd
