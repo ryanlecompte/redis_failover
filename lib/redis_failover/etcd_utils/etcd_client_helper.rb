@@ -7,6 +7,7 @@ module RedisFailover
         @@initialize_override = true
         def initialize_override(*args)
           @threads = []
+          @global_lock = Monitor.new
           @etcd_connection_lock = Monitor.new
           initialize_old(*args)
         end
@@ -23,20 +24,25 @@ module RedisFailover
     end
 
     def etcd
-      @etcd_connection_lock.synchronize do
-        if @pid.nil?
-          etcd_connect
-        elsif @pid != Process.pid || @etcd.nil?
-          etcd_reconnect
-        end
+      if @pid.nil? || @pid != Process.pid || @etcd.nil?
+        reinit_locks
+        @pid.nil? ? etcd_connect : etcd_reconnect
       end
 
       return @etcd
     end
 
+    def reinit_locks
+      @global_lock.synchronize do
+        if @pid.nil? || @pid != Process.pid
+          @pid = Process.pid
+          @etcd_connection_lock = Monitor.new
+          @lock = Monitor.new
+        end
+      end
+    end
+
     def etcd_connect
-      @lock = Monitor.new
-      @pid = Process.pid
       @threads = []
     end
 
@@ -82,20 +88,22 @@ module RedisFailover
 
     # Configures the Etcd client.
     def configure_etcd
-      retries = 0
+      @etcd_connection_lock.synchronize do
+        retries = 0
 
-      begin
-        @etcd_nodes_options.each do |etcd_options|
-          etcd_client = Etcd.client(etcd_options)
-          leader = etcd_client.machines.first["#{etcd_client.host}:#{etcd_client.port}"] rescue nil
-          break @etcd = etcd_client if leader
+        begin
+          @etcd_nodes_options.each do |etcd_options|
+            etcd_client = Etcd.client(etcd_options)
+            leader = etcd_client.machines.first["#{etcd_client.host}:#{etcd_client.port}"] rescue nil
+            break @etcd = etcd_client if leader
+          end
+
+          raise EtcdNoMasterError, "Can't detect master in #{@etcd_nodes_options}" unless @etcd
+        rescue
+          sleep 1
+          retry if (retries += 1) <= 3
+          raise
         end
-
-        raise EtcdNoMasterError, "Can't detect master in #{@etcd_nodes_options}" unless @etcd
-      rescue
-        sleep 1
-        retry if (retries += 1) <= 3
-        raise
       end
     end
 
