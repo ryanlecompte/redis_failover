@@ -4,39 +4,42 @@ module RedisFailover
   module EtcdClientHelper
     def self.included(base)
       base.class_exec do
-        @initialize_overide = true
-        def initialize_overide(*args)
+        @@initialize_override = true
+
+        def etcd_init
           @threads = []
-          initialize_old(*args)
+          @etcd_connection_lock = Monitor.new
         end
 
-        def self.method_added(method_name)
-          if method_name == :initialize && @initialize_overide
-            @initialize_overide = false
-            alias_method :initialize_old, :initialize
-            alias_method :initialize, :initialize_overide
-          end
+        orig = instance_method(:initialize)
+        define_method(:initialize) do |*args|
+          etcd_init
+          orig.bind(self).(*args)
         end
       end
     end
 
     def etcd
-      if @pid.nil?
-        etcd_connect
-      elsif @pid != Process.pid
-        etcd_reconnect
+      if @pid.nil? || @pid != Process.pid || @etcd.nil?
+        @etcd_connection_lock.synchronize do
+          reinit_locks
+          @etcd.nil? ? etcd_connect : etcd_reconnect
+        end
       end
 
       return @etcd
     end
 
-    def etcd_connect
-      @lock = Monitor.new
+    # Needs to reinitialize @pid, mutex in case of a new forking process
+    def reinit_locks
       @pid = Process.pid
+      @lock = Monitor.new
+    end
+
+    def etcd_connect
       @threads = []
     end
 
-    # Still needs to reinitialize @pid, mutexes and etcd client
     def etcd_reconnect
       logger.info("Reconnect triggered. Reconnecting client in progress...")
       terminate_threads
