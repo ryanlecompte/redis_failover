@@ -1,3 +1,4 @@
+require 'socket'
 require_relative 'node_manager_impl'
 Dir["#{File.dirname(__FILE__)}/../etcd_utils/*.rb"].each {|file| require file }
 module RedisFailover
@@ -12,6 +13,7 @@ module RedisFailover
     include RedisFailover::EtcdClientHelper
 
     def initialize(options)
+      etcd_init
       @lock_key_timeout = options[:lock_key_timeout] || 10
       @lock_key_heartbeat = options[:lock_key_heartbeat] || 3
       @nb_retries = options[:retries] || 3
@@ -28,7 +30,7 @@ module RedisFailover
         setup_etcd
         spawn_watchers
         wait_until_master
-      rescue *ETCD_ERRORS => ex
+      rescue *ETCD_ERRORS, SocketError => ex
         manage_start_error("ETCD error while attempting to manage nodes: #{ex.inspect}")
         retry
       rescue NoMasterError
