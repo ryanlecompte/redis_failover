@@ -11,17 +11,17 @@ module RedisFailover
       describe '#determine_state' do
         it 'returns the unavailable state if unavailable by all node managers' do
           strategy = NodeStrategy.for(:consensus)
-          snapshot.unviewable_by('nm1')
-          snapshot.unviewable_by('nm2')
-          snapshot.unviewable_by('nm3')
+          snapshot.update_state('nm1', -1, -1)
+          snapshot.update_state('nm2', -1, -1)
+          snapshot.update_state('nm3', -1, -1)
           strategy.determine_state(node, node => snapshot).should == :unavailable
         end
 
         it 'returns the available state if unavailable by some node managers' do
           strategy = NodeStrategy.for(:consensus)
-          snapshot.unviewable_by('nm1')
-          snapshot.unviewable_by('nm2')
-          snapshot.viewable_by('nm3', 0)
+          snapshot.update_state('nm1', -1, -1)
+          snapshot.update_state('nm2', -1, -1)
+          snapshot.update_state('nm3', 0, 0)
           strategy.determine_state(node, node => snapshot).should == :available
         end
       end

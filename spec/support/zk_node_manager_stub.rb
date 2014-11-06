@@ -1,5 +1,5 @@
 module RedisFailover
-  class NodeManagerStub < NodeManager
+  class ZkNodeManagerStub < ZookeeperNodeManager
     attr_accessor :master
     # HACK - this will go away once we refactor the tests to use a real ZK/Redis server.
     public :current_nodes, :guess_master

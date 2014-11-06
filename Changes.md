@@ -1,3 +1,7 @@
+1.1.0
+-----------
+- Added Etcd as a possible node manager storage
+
 1.0.2
 -----------
 - Reopen client if an ZK::Exceptions::InterruptedSession occurs (#50, mauricio)
@@ -75,7 +79,7 @@ a single strategy is provided that takes into account the average latency of the
 
 0.8.9
 -----------
-- Handle errors raised by redis 3.x client (tsilen) 
+- Handle errors raised by redis 3.x client (tsilen)
 
 0.8.8
 -----------

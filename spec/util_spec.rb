@@ -10,11 +10,11 @@ module RedisFailover
 
     describe '.different?' do
       it 'handles different arrays' do
-        Util.different?([1,2,3], [1,5,3]).should be_true
+        Util.different?([1,2,3], [1,5,3]).should == true
       end
 
       it 'handles non-different arrays' do
-        Util.different?([1,2,3], [3,2,1]).should be_false
+        Util.different?([1,2,3], [3,2,1]).should == false
       end
     end
   end
