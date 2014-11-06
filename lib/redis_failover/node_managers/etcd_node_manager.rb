@@ -72,7 +72,7 @@ module RedisFailover
     # Configures the Etcd client.
     def setup_etcd
       unless @etcd
-        configure_etcd
+        safe_init_etcd
         etcd_listen_manual_failover
       end
 

@@ -69,7 +69,7 @@ module RedisFailover
 
     # Configures the Etcd clients.
     def setup_etcd
-      configure_etcd
+      safe_init_etcd
       watch_etcd_folder(redis_nodes_path) {|response| handle_etcd_event(response)}
     end
 

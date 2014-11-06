@@ -21,10 +21,7 @@ module RedisFailover
 
     def etcd
       if @pid.nil? || @pid != Process.pid || @etcd.nil?
-        @etcd_connection_lock.synchronize do
-          reinit_locks
-          @etcd.nil? ? etcd_connect : etcd_reconnect
-        end
+        @etcd.nil? ? etcd_connect : etcd_reconnect
       end
 
       return @etcd
@@ -32,8 +29,10 @@ module RedisFailover
 
     # Needs to reinitialize @pid, mutex in case of a new forking process
     def reinit_locks
-      @pid = Process.pid
-      @lock = Monitor.new
+      if @pid.nil? || @pid != Process.pid
+        @pid = Process.pid
+        @lock = Monitor.new
+      end
     end
 
     def etcd_connect
@@ -44,6 +43,40 @@ module RedisFailover
       logger.info("Reconnect triggered. Reconnecting client in progress...")
       terminate_threads
       etcd_connect
+    end
+
+    def safe_init_etcd
+      @etcd_connection_lock.synchronize do
+        reinit_locks
+        configure_etcd
+      end
+    end
+
+    # Configures the Etcd client.
+    def configure_etcd
+      retries = 0
+
+      begin
+        @etcd_nodes_options.each do |etcd_options|
+          etcd_client = Etcd.client(etcd_options)
+          leader = etcd_client.machines.first["#{etcd_client.host}:#{etcd_client.port}"] rescue nil
+          break @etcd = etcd_client if leader
+        end
+
+        raise EtcdNoMasterError, "Can't detect master in #{@etcd_nodes_options}" unless @etcd
+      rescue
+        sleep 1
+        retry if (retries += 1) <= 3
+        raise
+      end
+    end
+
+    def wait_threads_completion
+      @threads.each(&:join)
+    end
+
+    def terminate_threads
+      @threads.each(&:terminate)
     end
 
     def watch_etcd_folder(path, recursive = true, &block)
@@ -77,33 +110,6 @@ module RedisFailover
         sleep 1
         (tries += 1) <= 3 ? retry : raise
       end
-    end
-
-    # Configures the Etcd client.
-    def configure_etcd
-      retries = 0
-
-      begin
-        @etcd_nodes_options.each do |etcd_options|
-          etcd_client = Etcd.client(etcd_options)
-          leader = etcd_client.machines.first["#{etcd_client.host}:#{etcd_client.port}"] rescue nil
-          break @etcd = etcd_client if leader
-        end
-
-        raise EtcdNoMasterError, "Can't detect master in #{@etcd_nodes_options}" unless @etcd
-      rescue
-        sleep 1
-        retry if (retries += 1) <= 3
-        raise
-      end
-    end
-
-    def wait_threads_completion
-      @threads.each(&:join)
-    end
-
-    def terminate_threads
-      @threads.each(&:terminate)
     end
   end
 end
