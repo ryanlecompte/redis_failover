@@ -389,7 +389,8 @@ module RedisFailover
       unless @zk.exists?(path)
         @zk.create(path,
           options[:initial_value],
-          :ephemeral => options.fetch(:ephemeral, false))
+          :ephemeral => options.fetch(:ephemeral, false),
+          :or => :set)
         logger.info("Created ZK node #{path}")
       end
     rescue ZK::Exceptions::NodeExists
