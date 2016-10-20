@@ -21,6 +21,6 @@ Gem::Specification.new do |gem|
   gem.add_dependency('zk', ['>= 1.7.4', '< 1.8'])
 
   gem.add_development_dependency('rake')
-  gem.add_development_dependency('rspec')
+  gem.add_development_dependency('rspec', '~> 3')
   gem.add_development_dependency('yard')
 end
