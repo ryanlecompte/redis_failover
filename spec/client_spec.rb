@@ -52,7 +52,7 @@ module RedisFailover
           called = true
         end
         client.del('foo')
-        called.should be_true
+        called.should be_truthy
       end
 
     describe '#inspect' do
@@ -82,7 +82,7 @@ module RedisFailover
             called = true
           end
           client.get('foo')
-          called.should be_true
+          called.should be_truthy
         end
       end
 
@@ -94,7 +94,7 @@ module RedisFailover
             called = true
           end
           client.get('foo')
-          called.should be_true
+          called.should be_truthy
         end
       end
 
@@ -118,7 +118,7 @@ module RedisFailover
 
         client.current_master.make_unavailable!
         client.del('foo')
-        client.reconnected.should be_true
+        client.reconnected.should be_truthy
       end
 
       context 'with :verify_role true' do
