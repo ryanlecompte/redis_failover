@@ -55,22 +55,10 @@ module RedisFailover
       Node.new(:host => info[:master_host], :port => info[:master_port].to_i)
     end
 
-    # Waits until something interesting happens. If the connection
-    # with this node dies, the blpop call will raise an error. If
-    # the blpop call returns without error, then this will be due to
-    # a graceful shutdown signaled by #wakeup or a timeout.
-    def wait
+    # Uses ECHO command since it properly fails when slave-serve-stale-data is disabled and slave is out of sync
+    def healthcheck
       perform_operation do |redis|
-        redis.blpop(wait_key, MAX_OP_WAIT_TIME - 3)
-        redis.del(wait_key)
-      end
-    end
-
-    # Wakes up this node by pushing a value to its internal
-    # queue used by #wait.
-    def wakeup
-      perform_operation do |redis|
-        redis.lpush(wait_key, '1')
+        redis.echo(check_key)
       end
     end
 
@@ -82,7 +70,6 @@ module RedisFailover
         unless slave_of?(node)
           redis.slaveof(node.host, node.port)
           logger.info("#{self} is now a slave of #{node}")
-          wakeup
         end
       end
     end
@@ -93,7 +80,6 @@ module RedisFailover
         unless master?
           redis.slaveof('no', 'one')
           logger.info("#{self} is now master")
-          wakeup
         end
       end
     end
@@ -155,9 +141,9 @@ module RedisFailover
       fetch_info[:role]
     end
 
-    # @return [String] the name of the wait queue for this node
-    def wait_key
-      @wait_key ||= "_redis_failover_#{SecureRandom.hex(32)}"
+    # @return [String] the name of the healthcheck key for this node
+    def check_key
+      @check_key ||= "_redis_failover_#{SecureRandom.hex(32)}"
     end
 
     # @return [Redis] a new redis client instance for this node
